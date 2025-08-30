@@ -77,26 +77,21 @@ class AuthMiddleware {
     }
 
     public static function requireRole($requiredRoles) {
-        if (!self::authenticate()) {
-            return false;
-        }
+        // NOTE: role-based authorization has been moved to Router::callHandler().
+        // This method is deprecated for controller usage. Use Router route metadata
+        // or call AuthMiddleware::getCurrentUser() from controllers for resource checks.
+        return false;
+    }
 
-        $user = $GLOBALS['current_user'];
-        
-        if (is_string($requiredRoles)) {
-            $requiredRoles = [$requiredRoles];
-        }
-
-        if (!in_array($user['role'], $requiredRoles)) {
-            http_response_code(403);
-            echo json_encode([
-                'success' => false,
-                'message' => 'Insufficient permissions'
-            ]);
-            return false;
-        }
-
-        return true;
+    /**
+     * Middleware-compatible entry point.
+     * Allows using [AuthMiddleware::class, 'handle'] in route middleware slots.
+     * Returns true when authentication succeeds, or false after sending a 401 response.
+     *
+     * Kept intentionally simple to match the Router's middleware calling style.
+     */
+    public static function handle() {
+        return self::authenticate();
     }
 
     public static function getCurrentUser() {

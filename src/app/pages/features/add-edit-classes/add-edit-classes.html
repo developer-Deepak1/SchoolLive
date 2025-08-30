@@ -4,7 +4,7 @@
     [rows]="10"
     [columns]="cols"
     [paginator]="true"
-    [globalFilterFields]="['className', 'classCode', 'academicYear', 'stream']"
+    [globalFilterFields]="['ClassName', 'ClassCode', 'academicYear', 'Stream']"
     [tableStyle]="{ 'min-width': '75rem' }"
     [(selection)]="selectedClasses"
     [rowHover]="true"
@@ -14,20 +14,9 @@
     [rowsPerPageOptions]="[10, 20, 30]"
 >
     <ng-template pTemplate="caption">
-    <p-toolbar styleClass="mb-6">
-        <ng-template pTemplate="left">
-            <p-button label="New" icon="pi pi-plus" severity="secondary" class="mr-2" (onClick)="openNew()" />
-            <p-button severity="secondary" label="Delete" icon="pi pi-trash" outlined 
-                (onClick)="deleteSelectedClasses()" 
-                [disabled]="!selectedClasses || !selectedClasses.length" />
-        </ng-template>
-
-        <!-- <ng-template pTemplate="right">
-            <p-button label="Export" icon="pi pi-upload" severity="secondary" (onClick)="exportCSV()" />
-        </ng-template> -->
-    </p-toolbar>
+        <h5 class="m-0">Manage Classes</h5>
         <div class="flex items-center justify-between">
-            <h5 class="m-0">Manage Classes</h5>
+             <p-button label="New" icon="pi pi-plus" severity="secondary" class="mr-2" (onClick)="openNew()" />
             <p-iconfield>
                 <p-inputicon styleClass="pi pi-search" />
                 <input pInputText type="text" (input)="onGlobalFilter(dt, $event)" placeholder="Search..." />
@@ -36,33 +25,37 @@
     </ng-template>
     <ng-template pTemplate="header">
         <tr>
-            <th style="width: 3rem">
+            <!-- <th style="width: 3rem">
                 <p-tableHeaderCheckbox />
+            </th> -->
+            <th style="width: 1rem"></th>
+            <th pSortableColumn="ClassName" class="pl-4">
+                Class Name <p-sortIcon field="ClassName" />
             </th>
-            <th pSortableColumn="className">
-                Class Name <p-sortIcon field="className" />
+            <th pSortableColumn="ClassCode">
+                Class Code <p-sortIcon field="ClassCode" />
             </th>
-            <th pSortableColumn="classCode">
-                Class Code <p-sortIcon field="classCode" />
+            <th pSortableColumn="Stream">
+                Stream <p-sortIcon field="Stream" />
             </th>
-            <th pSortableColumn="stream">
-                Stream <p-sortIcon field="stream" />
+            <th pSortableColumn="MaxStrength">
+                Max Strength <p-sortIcon field="MaxStrength" />
             </th>
-            <th pSortableColumn="maxStrength">
-                Max Strength <p-sortIcon field="maxStrength" />
+            <th pSortableColumn="Actions">
+                Actions
             </th>
-            <th></th>
         </tr>
     </ng-template>
     <ng-template pTemplate="body" let-class>
         <tr>
-            <td>
+            <!-- <td>
                 <p-tableCheckbox [value]="class" />
-            </td>
-            <td>{{class.className}}</td>
-            <td>{{class.classCode}}</td>
-            <td>{{class.stream}}</td>
-            <td>{{class.maxStrength}}</td>
+            </td> -->
+            <td></td>
+            <td class="pl-4">{{class.ClassName}}</td>
+            <td>{{class.ClassCode}}</td>
+            <td>{{class.Stream}}</td>
+            <td>{{class.MaxStrength}}</td>
             <td>
                 <p-button icon="pi pi-pencil" class="mr-2" [rounded]="true" [outlined]="true" 
                     (onClick)="editClass(class)" />
@@ -76,46 +69,46 @@
 <p-dialog [(visible)]="classDialog" [style]="{ width: '450px' }" header="Class Details" [modal]="true">
     <form [formGroup]="classForm" class="flex flex-col gap-6" [draggable]="true">
         <div>
-            <label for="className" class="block font-bold mb-3">Class Name *</label>
-            <input type="text" pInputText id="className" formControlName="className" autofocus 
+            <label for="ClassName" class="block font-bold mb-3">Class Name *</label>
+            <input type="text" pInputText id="ClassName" formControlName="ClassName" autofocus 
                 [style]="{'width':'100%'}" />
-            <small class="text-red-500" *ngIf="isFieldInvalid('className')">
+            <small class="text-red-500" *ngIf="isFieldInvalid('ClassName')">
                 Class Name is required.
             </small>
         </div>
 
         <div>
-            <label for="classCode" class="block font-bold mb-3">Class Code *</label>
-            <input type="text" pInputText id="classCode" formControlName="classCode" 
+            <label for="ClassCode" class="block font-bold mb-3">Class Code *</label>
+            <input type="text" pInputText id="ClassCode" formControlName="ClassCode" 
                 [style]="{'width':'100%'}" />
-            <small class="text-red-500" *ngIf="isFieldInvalid('classCode')">
+            <small class="text-red-500" *ngIf="isFieldInvalid('ClassCode')">
                 Class Code is required.
             </small>
         </div>
 
         <div>
-            <label for="stream" class="block font-bold mb-3">Stream *</label>
-            <p-select id="stream" 
-                formControlName="stream" 
+            <label for="Stream" class="block font-bold mb-3">Stream *</label>
+            <p-select id="Stream" 
+                formControlName="Stream" 
                 [options]="streamOptions"
                 placeholder="Select Stream" 
                 [style]="{'width':'100%'}"
                 appendTo="body">
-                <ng-template let-stream pTemplate="item">
-                    <div>{{stream.label}}</div>
+                <ng-template let-Stream pTemplate="item">
+                    <div>{{Stream.label}}</div>
                 </ng-template>
             </p-select>
-            <small class="text-red-500" *ngIf="isFieldInvalid('stream')">
+            <small class="text-red-500" *ngIf="isFieldInvalid('Stream')">
                 Stream is required.
             </small>
         </div>
 
         <div>
-            <label for="maxStrength" class="block font-bold mb-3">Maximum Strength *</label>
-            <p-inputNumber id="maxStrength" 
-                formControlName="maxStrength" 
+            <label for="MaxStrength" class="block font-bold mb-3">Maximum Strength *</label>
+            <p-inputNumber id="MaxStrength" 
+                formControlName="MaxStrength" 
                 [style]="{'width':'100%'}" />
-            <small class="text-red-500" *ngIf="isFieldInvalid('maxStrength')">
+            <small class="text-red-500" *ngIf="isFieldInvalid('MaxStrength')">
                 Maximum Strength is required and must be greater than 0.
             </small>
         </div>

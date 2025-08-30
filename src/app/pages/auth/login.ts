@@ -14,9 +14,10 @@ import { Router } from '@angular/router';
 @Component({
     selector: 'app-login',
     standalone: true,
-    imports: [CommonModule, ButtonModule, CheckboxModule, InputTextModule, PasswordModule, FormsModule, RouterModule, RippleModule, AppFloatingConfigurator],
+    imports: [CommonModule, ButtonModule, CheckboxModule, InputTextModule, PasswordModule, FormsModule, RouterModule, RippleModule],
     templateUrl: './login.html'
 })
+//AppFloatingConfigurator
 export class Login {
     username: string = '';
 

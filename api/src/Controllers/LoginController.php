@@ -3,6 +3,7 @@ namespace SchoolLive\Controllers;
 
 use SchoolLive\Models\UserModel;
 use SchoolLive\Middleware\AuthMiddleware;
+use SchoolLive\Models\AcademicModel;
 
 class LoginController {
     private $userModel;
@@ -62,6 +63,11 @@ class LoginController {
             'last_name' => $user['LastName'],
             'is_first_login' => $user['IsFirstLogin']
         ];
+
+    // Attach current academic year id to user data if available
+    $academicModel = new AcademicModel();
+    $currentAcademic = $academicModel->getCurrentAcademicYear($user['SchoolID']);
+    $userData['AcademicYearID'] = ($currentAcademic && isset($currentAcademic['AcademicYearID'])) ? $currentAcademic['AcademicYearID'] : null;
 
         $accessToken = AuthMiddleware::generateToken($userData);
         $refreshToken = AuthMiddleware::generateRefreshToken($userData);
@@ -181,9 +187,14 @@ class LoginController {
             return;
         }
 
-        // Generate new tokens
-        $newAccessToken = AuthMiddleware::generateToken($userData);
-        $newRefreshToken = AuthMiddleware::generateRefreshToken($userData);
+    // Ensure current academic id is present and up-to-date in the token payload
+    $academicModel = new AcademicModel();
+    $currentAcademic = $academicModel->getCurrentAcademicYear($user['SchoolID']);
+    $userData['AcademicYearID'] = ($currentAcademic && isset($currentAcademic['AcademicYearID'])) ? $currentAcademic['AcademicYearID'] : null;
+
+    // Generate new tokens
+    $newAccessToken = AuthMiddleware::generateToken($userData);
+    $newRefreshToken = AuthMiddleware::generateRefreshToken($userData);
 
         echo json_encode([
             'success' => true,

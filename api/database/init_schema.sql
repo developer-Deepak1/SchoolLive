@@ -45,6 +45,7 @@ CREATE TABLE Tm_AcademicYears (
     StartDate DATE NOT NULL,
     EndDate DATE NOT NULL,
     SchoolID INT NOT NULL,
+    IsCurrent BOOLEAN DEFAULT FALSE,
     Status VARCHAR(20) DEFAULT 'Active',
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CreatedBy VARCHAR(100),
@@ -116,7 +117,9 @@ CREATE TABLE Tx_Users (
 CREATE TABLE Tx_Classes (
     ClassID BIGINT AUTO_INCREMENT PRIMARY KEY,
     ClassName VARCHAR(50) NOT NULL,
-    ClassDisplayName VARCHAR(100) NOT NULL,
+    ClassCode VARCHAR(20) NULL,
+    Stream VARCHAR(50) NULL,
+    MaxStrength INT DEFAULT NULL,
     SchoolID INT NOT NULL,
     AcademicYearID INT NOT NULL,
     Status VARCHAR(20) DEFAULT 'Active',
@@ -311,10 +314,10 @@ INSERT INTO Tx_Users (Username, PasswordHash, FirstName, MiddleName, LastName, C
 ('superSA002', '$2y$12$U3X7satfZs7fDwHMV3ShHenIhduvqBWBR01XdrQf89OWPkBUm8.DG', 'Super', '', 'Admin', '123456790', 'admin@schoollive.com', 1, NULL, 1, 1, 'System');
 
 -- Create sample classes
-INSERT INTO Tx_Classes (ClassName, ClassDisplayName, SchoolID, AcademicYearID, CreatedBy) VALUES 
-('1st', 'First Grade', 1000, 1, 'Super Admin'),
-('2nd', 'Second Grade', 1000, 1, 'Super Admin'),
-('3rd', 'Third Grade', 1000, 1, 'Super Admin');
+INSERT INTO Tx_Classes (ClassName, ClassCode, Stream, MaxStrength, SchoolID, AcademicYearID, CreatedBy) VALUES 
+('1st', 'C1', 'General', 40, 1000, 1, 'Super Admin'),
+('2nd', 'C2', 'General', 40, 1000, 1, 'Super Admin'),
+('3rd', 'C3', 'General', 40, 1000, 1, 'Super Admin');
 
 -- Create sample sections
 -- Create sample sections (explicit SectionID to keep referential consistency)

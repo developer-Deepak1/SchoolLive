@@ -9,44 +9,28 @@ class Router {
     }
 
     private function initializeRoutes() {
-        // Authentication routes
-        $this->routes['POST']['/api/auth/login'] = ['SchoolLive\Controllers\LoginController', 'login'];
-        $this->routes['POST']['/api/auth/register'] = ['SchoolLive\Controllers\LoginController', 'register'];
-        $this->routes['POST']['/api/auth/refresh'] = ['SchoolLive\Controllers\LoginController', 'refresh'];
-        
-        // User routes
-        $this->routes['GET']['/api/users'] = ['SchoolLive\Controllers\UserController', 'getUsers'];
-        $this->routes['GET']['/api/users/{id}'] = ['SchoolLive\Controllers\UserController', 'getUser'];
-        $this->routes['POST']['/api/users'] = ['SchoolLive\Controllers\UserController', 'createUser'];
-        $this->routes['PUT']['/api/users/{id}'] = ['SchoolLive\Controllers\UserController', 'updateUser'];
-        $this->routes['DELETE']['/api/users/{id}'] = ['SchoolLive\Controllers\UserController', 'deleteUser'];
-        
-        // Student routes
-        $this->routes['GET']['/api/students'] = ['SchoolLive\Controllers\StudentsController', 'getStudents'];
-        $this->routes['GET']['/api/students/{id}'] = ['SchoolLive\Controllers\StudentsController', 'getStudent'];
-        $this->routes['POST']['/api/students'] = ['SchoolLive\Controllers\StudentsController', 'createStudent'];
-        $this->routes['PUT']['/api/students/{id}'] = ['SchoolLive\Controllers\StudentsController', 'updateStudent'];
-        $this->routes['DELETE']['/api/students/{id}'] = ['SchoolLive\Controllers\StudentsController', 'deleteStudent'];
-        
-        // Academic routes
-        $this->routes['GET']['/api/academic/years'] = ['SchoolLive\Controllers\AcademicController', 'getAcademicYears'];
-        $this->routes['POST']['/api/academic/years'] = ['SchoolLive\Controllers\AcademicController', 'createAcademicYear'];
-        $this->routes['GET']['/api/academic/classes'] = ['SchoolLive\Controllers\AcademicController', 'getClasses'];
-        $this->routes['POST']['/api/academic/classes'] = ['SchoolLive\Controllers\AcademicController', 'createClass'];
-        $this->routes['PUT']['/api/academic/classes/{id}'] = ['SchoolLive\Controllers\AcademicController', 'updateClass'];
-        $this->routes['DELETE']['/api/academic/classes/{id}'] = ['SchoolLive\Controllers\AcademicController', 'deleteClass'];
-        
-        // Attendance routes
-        $this->routes['GET']['/api/attendance'] = ['SchoolLive\Controllers\AttendanceController', 'getAttendance'];
-        $this->routes['POST']['/api/attendance'] = ['SchoolLive\Controllers\AttendanceController', 'markAttendance'];
-        $this->routes['PUT']['/api/attendance/{id}'] = ['SchoolLive\Controllers\AttendanceController', 'updateAttendance'];
-        $this->routes['DELETE']['/api/attendance/{id}'] = ['SchoolLive\Controllers\AttendanceController', 'deleteAttendance'];
-        
-        // Profile route
-        $this->routes['GET']['/api/profile'] = ['SchoolLive\Controllers\UserController', 'getProfile'];
-        
-        // API Info route
-        $this->routes['GET']['/api'] = [$this, 'apiInfo'];
+    // Role definitions are loaded lazily when needed. Do not require the file here
+    // to avoid startup failures when it's absent during lightweight runs.
+
+    // Authentication routes (public)
+    $this->routes['POST']['/api/auth/login'] = ['handler' => ['SchoolLive\Controllers\LoginController', 'login'], 'roles' => null];
+    $this->routes['POST']['/api/auth/refresh'] = ['handler' => ['SchoolLive\Controllers\LoginController', 'refresh'], 'roles' => null];
+
+    $this->routes['GET']['/api/academic/years'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getAcademicYears'], 'roles' => true];
+    $this->routes['POST']['/api/academic/years'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createAcademicYear'], 'roles' => true];
+ 
+    $this->routes['GET']['/api/academic/getClasses'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getClasses'], 'roles' => true];
+    $this->routes['POST']['/api/academic/CreateClasses'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createClass'], 'roles' => true];
+    $this->routes['GET']['/api/academic/classes/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getClass'], 'roles' => null];
+    $this->routes['PUT']['/api/academic/classes/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'updateClass'], 'roles' => true];
+    $this->routes['DELETE']['/api/academic/classes/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'deleteClass'], 'roles' => true];
+
+    // Sections routes
+    $this->routes['GET']['/api/academic/sections'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getSections'], 'roles' => null];
+    $this->routes['POST']['/api/academic/sections'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createSection'], 'roles' => true];
+    $this->routes['GET']['/api/academic/sections/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getSection'], 'roles' => null];
+    $this->routes['PUT']['/api/academic/sections/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'updateSection'], 'roles' => true];
+    $this->routes['DELETE']['/api/academic/sections/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'deleteSection'], 'roles' => true];
     }
 
     public function dispatch() {
@@ -61,17 +45,23 @@ class Router {
 
         // Try exact match first
         if (isset($this->routes[$httpMethod][$uri])) {
-            $handler = $this->routes[$httpMethod][$uri];
-            $this->callHandler($handler, []);
+            $route = $this->routes[$httpMethod][$uri];
+            $this->callHandler($route['handler'], [], $route['roles']);
             return;
         }
 
-        // Try pattern matching for routes with parameters
-        foreach ($this->routes[$httpMethod] ?? [] as $pattern => $handler) {
+    // Try pattern matching for routes with parameters
+    $routesForMethod = isset($this->routes[$httpMethod]) ? $this->routes[$httpMethod] : [];
+    foreach ($routesForMethod as $pattern => $handler) {
             if (strpos($pattern, '{') !== false) {
                 $params = $this->matchRoute($pattern, $uri);
                 if ($params !== false) {
-                    $this->callHandler($handler, $params);
+                    // handler here may be stored directly or nested under 'handler'
+                    if (is_array($handler) && isset($handler['handler'])) {
+                        $this->callHandler($handler['handler'], $params, $handler['roles'] ?? null);
+                    } else {
+                        $this->callHandler($handler, $params, null);
+                    }
                     return;
                 }
             }
@@ -80,6 +70,22 @@ class Router {
         // Route not found
         http_response_code(404);
         echo json_encode(['success' => false, 'message' => 'Endpoint not found']);
+    }
+
+    /**
+     * Register a route programmatically.
+     *
+     * @param string $method HTTP method (GET, POST, etc.)
+     * @param string $path Route path (e.g. '/api/foo' or '/api/items/{id}')
+     * @param callable|array $handler Controller handler or callable
+     * @param null|callable|array $middleware Optional middleware or roles marker. If callable, it will be invoked before the handler. If non-null and not callable it simply signals authentication is required.
+     */
+    public function addRoute(string $method, string $path, $handler, $middleware = null) {
+        $method = strtoupper($method);
+        if (!isset($this->routes[$method])) {
+            $this->routes[$method] = [];
+        }
+        $this->routes[$method][rtrim($path, '/')] = ['handler' => $handler, 'roles' => $middleware];
     }
 
     private function matchRoute($pattern, $uri) {
@@ -104,7 +110,32 @@ class Router {
         return false;
     }
 
-    private function callHandler($handler, $params = []) {
+    private function callHandler($handler, $params = [], $roles = null) {
+        // Enforce authentication centrally when a route indicates auth is required.
+        // Note: the router no longer enforces role membership; controllers or
+        // other middleware should handle any finer-grained authorization.
+        if ($roles !== null) {
+            // If a boolean true is used, treat it as "require login" and call the AuthMiddleware handle()
+            if ($roles === true) {
+                if (!\SchoolLive\Middleware\AuthMiddleware::handle()) {
+                    return;
+                }
+            // If a callable is provided in the 'roles' slot, treat it as a middleware check.
+            } elseif (is_callable($roles)) {
+                $result = call_user_func($roles);
+                if ($result === false) {
+                    return;
+                }
+            } else {
+                // Non-callable, non-boolean 'roles' value signals authentication is required via authenticate().
+                $authAuthenticate = [\SchoolLive\Middleware\AuthMiddleware::class, 'authenticate'];
+                if (!call_user_func($authAuthenticate)) {
+                    return;
+                }
+                // Intentionally do not check user role membership here.
+            }
+        }
+
         if (is_array($handler)) {
             $controller = new $handler[0]();
             $method = $handler[1];

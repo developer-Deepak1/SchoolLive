@@ -15,20 +15,25 @@
                             <!-- error message -->
                             <div *ngIf="error" class="mb-4 text-sm text-red-600">{{ error }}</div>
 
-                    <label for="username1" class="block text-surface-900 dark:text-surface-0 text-xl font-medium mb-2">Username / Email</label>
-                    <input pInputText id="username1" type="text" placeholder="Username or email" class="w-full md:w-120 mb-8" [(ngModel)]="username" />
+                    <form #loginForm="ngForm" (ngSubmit)="signIn()">
+                        <label for="username1" class="block text-surface-900 dark:text-surface-0 text-xl font-medium mb-2">Username / Email</label>
+                        <input pInputText id="username1" name="username" type="text" placeholder="Username or email" class="w-full md:w-120 mb-2" [(ngModel)]="username" required #usernameModel="ngModel" />
+                        <div *ngIf="usernameModel.invalid && (usernameModel.touched || loginForm.submitted)" class="mb-4 text-sm text-red-600">Username or email is required.</div>
 
-                    <label for="password1" class="block text-surface-900 dark:text-surface-0 font-medium text-xl mb-2">Password</label>
-                    <p-password id="password1" [(ngModel)]="password" placeholder="Password" [toggleMask]="true" styleClass="mb-4" [fluid]="true" [feedback]="false"></p-password>
+                        <label for="password1" class="block text-surface-900 dark:text-surface-0 font-medium text-xl mb-2">Password</label>
+                        <p-password id="password1" name="password" [(ngModel)]="password" placeholder="Password" [toggleMask]="true" styleClass="mb-2" [fluid]="true" [feedback]="false" required #passwordModel="ngModel"></p-password>
+                        <div *ngIf="passwordModel.invalid && (passwordModel.touched || loginForm.submitted)" class="mb-4 text-sm text-red-600">Password is required.</div>
 
-                    <div class="flex items-center justify-between mt-2 mb-8 gap-8">
-                        <div class="flex items-center">
-                            <p-checkbox [(ngModel)]="checked" id="rememberme1" binary class="mr-2"></p-checkbox>
-                            <label for="rememberme1">Remember me</label>
+                        <div class="flex items-center justify-between mt-2 mb-8 gap-8">
+                            <div class="flex items-center">
+                                <p-checkbox name="rememberme" [(ngModel)]="checked" id="rememberme1" binary class="mr-2"></p-checkbox>
+                                <label for="rememberme1">Remember me</label>
+                            </div>
+                            <!-- <span class="font-medium no-underline ml-2 text-right cursor-pointer text-primary">Forgot password?</span> -->
                         </div>
-                        <!-- <span class="font-medium no-underline ml-2 text-right cursor-pointer text-primary">Forgot password?</span> -->
-                    </div>
-                    <p-button label="Sign In" styleClass="w-full" (onClick)="signIn()"></p-button>
+
+                        <p-button type="submit" label="Sign In" styleClass="w-full" [disabled]="loginForm.invalid"></p-button>
+                    </form>
                 </div>
             </div>
         </div>

@@ -66,10 +66,10 @@ export class AddEditClasses implements OnInit {
     @ViewChild('dt') dt!: Table;
 
     cols: Column[] = [
-        { field: 'className', header: 'Class Name' },
-        { field: 'classCode', header: 'Class Code' },
-        { field: 'stream', header: 'Stream' },
-        { field: 'maxStrength', header: 'Max Strength' }
+        { field: 'ClassName', header: 'Class Name' },
+        { field: 'ClassCode', header: 'Class Code' },
+        { field: 'Stream', header: 'Stream' },
+        { field: 'MaxStrength', header: 'Max Strength' }
     ];
 
     streamOptions = [
@@ -90,13 +90,11 @@ export class AddEditClasses implements OnInit {
 
     private initForm() {
         this.classForm = this.fb.group({
-            classId: [null],
-            className: ['', [Validators.required]],
-            classCode: ['', [Validators.required]],
-            stream: [StreamType.NONE, [Validators.required]],
-            maxStrength: [null, [Validators.required, Validators.min(1)]],
-            classTeacherId: [null],
-            sections: [[]]
+            ClassID: [null],
+            ClassName: ['', [Validators.required]],
+            ClassCode: ['', [Validators.required]],
+            Stream: [StreamType.NONE, [Validators.required]],
+            MaxStrength: [null, [Validators.required, Validators.min(1)]]
         });
     }
 
@@ -105,8 +103,10 @@ export class AddEditClasses implements OnInit {
     }
 
     loadClasses() {
-        this.classesService.getClasses().then((data) => {
-            this.classes.set(data);
+        this.classesService.getClasses().subscribe({
+            next: (data) => this.classes.set(data),
+            error: (err) => this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load classes', life: 3000 }),
+            complete: () => {}
         });
     }
 
@@ -123,16 +123,21 @@ export class AddEditClasses implements OnInit {
 
     deleteClass(class_: Classes) {
         this.confirmationService.confirm({
-            message: `Are you sure you want to delete ${class_.className}?`,
+            message: `Are you sure you want to delete ${class_.ClassName}?`,
             header: 'Confirm',
             icon: 'pi pi-exclamation-triangle',
             accept: () => {
-                this.classes.set(this.classes().filter(val => val.classId !== class_.classId));
-                this.messageService.add({
-                    severity: 'success',
-                    summary: 'Successful',
-                    detail: 'Class Deleted',
-                    life: 3000
+                this.classesService.deleteClass(class_.ClassID).subscribe({
+                    next: (success) => {
+                        if (success) {
+                            this.messageService.add({ severity: 'success', summary: 'Successful', detail: 'Class Deleted', life: 3000 });
+                            this.loadClasses();
+                        } else {
+                            this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete class', life: 3000 });
+                        }
+                    },
+                    error: () => this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete class', life: 3000 }),
+                    complete: () => {}
                 });
             }
         });
@@ -171,36 +176,37 @@ export class AddEditClasses implements OnInit {
 
         if (this.classForm.valid) {
             const formValue = this.classForm.value;
-            let _classes = this.classes();
-
-            if (formValue.classId) {
-                // Update existing class
-                const index = _classes.findIndex(c => c.classId === formValue.classId);
-                if (index !== -1) {
-                    _classes[index] = { ..._classes[index], ...formValue };
-                    this.messageService.add({
-                        severity: 'success',
-                        summary: 'Successful',
-                        detail: 'Class Updated',
-                        life: 3000
-                    });
-                }
+            if (formValue.ClassID) {
+                // Update existing class (API)
+                this.classesService.updateClass(formValue).subscribe({
+                    next: (updated) => {
+                        if (updated) {
+                            this.messageService.add({ severity: 'success', summary: 'Successful', detail: 'Class Updated', life: 3000 });
+                            this.loadClasses();
+                        } else {
+                            this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to update class', life: 3000 });
+                        }
+                    },
+                    error: () => this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to update class', life: 3000 }),
+                    complete: () => {}
+                });
             } else {
-                // Create new class
-                const newClass = {
-                    ...formValue,
-                    classId: this.generateClassId()
-                };
-                _classes.push(newClass);
-                this.messageService.add({
-                    severity: 'success',
-                    summary: 'Successful',
-                    detail: 'Class Created',
-                    life: 3000
+                // Create new class (API)
+                this.classesService.createClass(formValue).subscribe({
+                    next: (created) => {
+                        if (created) {
+                            this.messageService.add({ severity: 'success', summary: 'Successful', detail: 'Class Created', life: 3000 });
+                            this.loadClasses();
+                        } else {
+                            this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to create class', life: 3000 });
+                        }
+                    },
+                    error: () => this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to create class', life: 3000 }),
+                    complete: () => {}
                 });
             }
 
-            this.classes.set([..._classes]);
+            // close dialog; list will refresh from API callbacks
             this.classDialog = false;
             this.classForm.reset();
         }
@@ -218,12 +224,7 @@ export class AddEditClasses implements OnInit {
     exportCSV() {
         this.dt.exportCSV();
     }
-
-    private generateClassId(): number {
-        // Simple ID generation - in real app, this should come from backend
-        return Math.floor(Math.random() * 1000) + 1;
-    }
-
+    
     // Helper method to check form control validity
     isFieldInvalid(fieldName: string): boolean {
         const field = this.classForm.get(fieldName);

@@ -14,10 +14,6 @@ class AcademicController {
 
     // Academic Years Methods
     public function getAcademicYears($params = []) {
-        if (!AuthMiddleware::requireRole(['admin', 'teacher'])) {
-            return;
-        }
-
         $academicYears = $this->academicModel->findAll();
 
         echo json_encode([
@@ -28,15 +24,13 @@ class AcademicController {
     }
 
     public function createAcademicYear($params = []) {
-        if (!AuthMiddleware::requireRole(['admin'])) {
-            return;
-        }
-
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             http_response_code(405);
             echo json_encode(['success' => false, 'message' => 'Method not allowed']);
             return;
         }
+
+    
 
         $input = json_decode(file_get_contents('php://input'), true);
 
@@ -86,19 +80,8 @@ class AcademicController {
 
     // Classes Methods
     public function getClasses($params = []) {
-        if (!AuthMiddleware::requireRole(['admin', 'teacher'])) {
-            return;
-        }
-
-        $academic_year_id = $_GET['academic_year_id'] ?? null;
-        $currentUser = AuthMiddleware::getCurrentUser();
-
-        if ($currentUser['role'] === 'teacher') {
-            // Teachers can only see their assigned classes
-            $classes = $this->academicModel->getClassesByTeacher($currentUser['id']);
-        } else {
-            $classes = $this->academicModel->getAllClasses($academic_year_id);
-        }
+    $currentUser = AuthMiddleware::getCurrentUser();
+    $classes = $this->academicModel->getAllClasses($currentUser['AcademicYearID'], $currentUser['school_id']);
 
         echo json_encode([
             'success' => true,
@@ -107,11 +90,149 @@ class AcademicController {
         ]);
     }
 
-    public function getClass($params = []) {
-        if (!AuthMiddleware::requireRole(['admin', 'teacher'])) {
+    // Sections Methods
+    public function getSections($params = []) {
+        $academic_year_id = $_GET['academic_year_id'] ?? null;
+        $class_id = $_GET['class_id'] ?? null;
+
+        $sections = $this->academicModel->getAllSections($academic_year_id, $class_id);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Sections retrieved successfully',
+            'data' => $sections
+        ]);
+    }
+
+    public function getSection($params = []) {
+        if (!isset($params['id'])) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Section ID is required']);
             return;
         }
 
+        $section = $this->academicModel->getSectionById($params['id']);
+
+        if (!$section) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Section not found']);
+            return;
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Section retrieved successfully',
+            'data' => $section
+        ]);
+    }
+
+    public function createSection($params = []) {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+            return;
+        }
+
+    
+
+        $input = json_decode(file_get_contents('php://input'), true);
+
+        $requiredFields = ['section_name', 'section_display_name', 'school_id', 'academic_year_id', 'class_id'];
+        foreach ($requiredFields as $field) {
+            if (!isset($input[$field]) || $input[$field] === '') {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => ucfirst(str_replace('_', ' ', $field)) . ' is required']);
+                return;
+            }
+        }
+
+        $sectionId = $this->academicModel->createSection($input);
+
+        if ($sectionId) {
+            $section = $this->academicModel->getSectionById($sectionId);
+            echo json_encode([
+                'success' => true,
+                'message' => 'Section created successfully',
+                'data' => ['section' => $section]
+            ]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Failed to create section']);
+        }
+    }
+
+    public function updateSection($params = []) {
+        if ($_SERVER['REQUEST_METHOD'] !== 'PUT') {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+            return;
+        }
+
+    
+
+        if (!isset($params['id'])) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Section ID is required']);
+            return;
+        }
+
+        $input = json_decode(file_get_contents('php://input'), true);
+
+        $existing = $this->academicModel->getSectionById($params['id']);
+        if (!$existing) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Section not found']);
+            return;
+        }
+
+        $result = $this->academicModel->updateSection($params['id'], $input);
+
+        if ($result) {
+            $section = $this->academicModel->getSectionById($params['id']);
+            echo json_encode([
+                'success' => true,
+                'message' => 'Section updated successfully',
+                'data' => ['section' => $section]
+            ]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Failed to update section']);
+        }
+    }
+
+    public function deleteSection($params = []) {
+        if ($_SERVER['REQUEST_METHOD'] !== 'DELETE') {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+            return;
+        }
+
+    
+
+        if (!isset($params['id'])) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Section ID is required']);
+            return;
+        }
+
+        $existing = $this->academicModel->getSectionById($params['id']);
+        if (!$existing) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Section not found']);
+            return;
+        }
+
+        $result = $this->academicModel->deleteSection($params['id']);
+
+        if ($result) {
+            echo json_encode(['success' => true, 'message' => 'Section deleted successfully']);
+        } else {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Failed to delete section']);
+        }
+    }
+
+    public function getClass($params = []) {
         if (!isset($params['id'])) {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'Class ID is required']);
@@ -127,12 +248,15 @@ class AcademicController {
         }
 
         $currentUser = AuthMiddleware::getCurrentUser();
-        
-        // Check if teacher can access this class
-        if ($currentUser['role'] === 'teacher' && $class['teacher_id'] != $currentUser['id']) {
-            http_response_code(403);
-            echo json_encode(['success' => false, 'message' => 'Access denied to this class']);
-            return;
+
+        // If authenticated and a teacher, ensure they are assigned to this class via class_teachers mapping
+        if ($currentUser && isset($currentUser['role']) && $currentUser['role'] === 'teacher') {
+            $isAssigned = $this->academicModel->isTeacherAssigned($params['id'], $currentUser['id']);
+            if (!$isAssigned) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'Access denied to this class']);
+                return;
+            }
         }
 
         echo json_encode([
@@ -143,10 +267,6 @@ class AcademicController {
     }
 
     public function createClass($params = []) {
-        if (!AuthMiddleware::requireRole(['admin'])) {
-            return;
-        }
-
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             http_response_code(405);
             echo json_encode(['success' => false, 'message' => 'Method not allowed']);
@@ -155,20 +275,26 @@ class AcademicController {
 
         $input = json_decode(file_get_contents('php://input'), true);
 
-        // Validate required fields
-        $requiredFields = ['class_name', 'section', 'academic_year_id'];
-        foreach ($requiredFields as $field) {
-            if (!isset($input[$field]) || empty($input[$field])) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'message' => ucfirst(str_replace('_', ' ', $field)) . ' is required']);
-                return;
+    // Validate required fields - adapted to new class schema
+    $requiredFields = ['ClassName', 'Stream', 'ClassCode'];
+    foreach ($requiredFields as $field) {
+        if (!isset($input[$field]) || empty($input[$field])) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => ucfirst(str_replace('_', ' ', $field)) . ' is required']);
+            return;
             }
         }
-
-        // Set default values
-        if (!isset($input['max_students'])) {
-            $input['max_students'] = 50;
-        }
+    $currentUser = AuthMiddleware::getCurrentUser();
+    // Set default values
+    if (!isset($input['AcademicYearID'])) {
+        $input['AcademicYearID'] = $currentUser['AcademicYearID'];
+    }
+    if (!isset($input['SchoolID'])) {
+        $input['SchoolID'] = $currentUser['school_id'];
+    }
+    if (!isset($input['Username'])) {
+        $input['Username'] = $currentUser['username'];
+    }
 
         $classId = $this->academicModel->createClass($input);
 
@@ -178,9 +304,7 @@ class AcademicController {
             echo json_encode([
                 'success' => true,
                 'message' => 'Class created successfully',
-                'data' => [
-                    'class' => $class
-                ]
+                'data' => $class
             ]);
         } else {
             http_response_code(500);
@@ -189,10 +313,6 @@ class AcademicController {
     }
 
     public function updateClass($params = []) {
-        if (!AuthMiddleware::requireRole(['admin'])) {
-            return;
-        }
-
         if ($_SERVER['REQUEST_METHOD'] !== 'PUT') {
             http_response_code(405);
             echo json_encode(['success' => false, 'message' => 'Method not allowed']);
@@ -214,6 +334,10 @@ class AcademicController {
             echo json_encode(['success' => false, 'message' => 'Class not found']);
             return;
         }
+        $currentUser = AuthMiddleware::getCurrentUser();
+        if (!isset($input['UpdatedBy'])) {
+            $input['UpdatedBy'] = $currentUser['username'];
+        }
 
         $result = $this->academicModel->updateClass($params['id'], $input);
 
@@ -222,9 +346,7 @@ class AcademicController {
             echo json_encode([
                 'success' => true,
                 'message' => 'Class updated successfully',
-                'data' => [
-                    'class' => $class
-                ]
+                'data' => $class
             ]);
         } else {
             http_response_code(500);
@@ -233,15 +355,13 @@ class AcademicController {
     }
 
     public function deleteClass($params = []) {
-        if (!AuthMiddleware::requireRole(['admin'])) {
-            return;
-        }
-
         if ($_SERVER['REQUEST_METHOD'] !== 'DELETE') {
             http_response_code(405);
             echo json_encode(['success' => false, 'message' => 'Method not allowed']);
             return;
         }
+
+    
 
         if (!isset($params['id'])) {
             http_response_code(400);
@@ -271,15 +391,13 @@ class AcademicController {
     }
 
     public function setCurrentAcademicYear($params = []) {
-        if (!AuthMiddleware::requireRole(['admin'])) {
-            return;
-        }
-
         if ($_SERVER['REQUEST_METHOD'] !== 'PUT') {
             http_response_code(405);
             echo json_encode(['success' => false, 'message' => 'Method not allowed']);
             return;
         }
+
+    
 
         if (!isset($params['id'])) {
             http_response_code(400);
@@ -309,10 +427,6 @@ class AcademicController {
     }
 
     public function getCurrentAcademicYear($params = []) {
-        if (!AuthMiddleware::requireRole(['admin', 'teacher'])) {
-            return;
-        }
-
         $currentYear = $this->academicModel->getCurrentAcademicYear();
 
         if (!$currentYear) {

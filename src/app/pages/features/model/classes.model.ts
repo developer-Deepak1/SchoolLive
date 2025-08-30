@@ -1,8 +1,8 @@
 export enum StreamType {
-    SCIENCE = 'Science',
-    COMMERCE = 'Commerce',
-    ARTS = 'Arts',
-    NONE = 'None'
+    SCIENCE = 'SCIENCE',
+    COMMERCE = 'COMMERCE',
+    ARTS = 'ARTS',
+    NONE = 'NONE'
 }
 
 export interface Section {
@@ -16,12 +16,10 @@ export interface Section {
 }
 
 export interface Classes {
-    classId: number;          // Unique ID
-    className: string;        // e.g., "10th Standard"
-    classCode?: string;       // e.g., "C10"
-    academicYear?: string;    // e.g., "2025-26"
-    classTeacherId?: number;  // Teacher assigned
-    stream?: StreamType;      // Science / Commerce / Arts
-    maxStrength?: number;     // Maximum students
-    sections?: Section[];     // List of sections
+    ClassID: number;          // Unique ID
+    ClassName: string;        // e.g., "10th Standard"
+    ClassCode?: string;       // e.g., "C10"
+    ClassTeacherID?: number;  // Teacher assigned
+    Stream?: StreamType;      // Science / Commerce / Arts
+    MaxStrength?: number;     // Maximum students
 }
