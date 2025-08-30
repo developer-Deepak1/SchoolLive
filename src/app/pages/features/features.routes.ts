@@ -11,19 +11,20 @@ import { ClasswiseAttandance } from './reports/classwise-attandance/classwise-at
 import { StudentAttandanceReports } from './reports/student-attandance-reports/student-attandance-reports';
 import { EmployeeAttandanceReports } from './reports/employee-attandance-reports/employee-attandance-reports';
 import { AcademicYears } from './academic-years/academic-years';
+import { AuthGuard } from '@/guards/auth.guard';
 
 export default [
-    { path: 'profile-setting', component: ProfileSetting },
-    { path: 'academic-years', component: AcademicYears },
-    { path: 'add-edit-classes', component: AddEditClasses },
-    { path: 'all-employees', component: AllEmployees },
-    { path: 'add-employees', component: AddEmployees },
-    { path: 'employee-attendance', component: EmployeeAttandance },
-    { path: 'all-students', component: AllStudents },
-    { path: 'student-admission', component: StudentAdmission },
-    { path: 'student-attendance', component: StudentAttandance },
-    { path: 'classwise-attendance', component: ClasswiseAttandance },
-    { path: 'employee-attendance-reports', component: EmployeeAttandanceReports },
-    { path: 'student-attendance-reports', component: StudentAttandanceReports },
+    { path: 'profile-setting', component: ProfileSetting, canActivate: [AuthGuard] },
+    { path: 'academic-years', component: AcademicYears, canActivate: [AuthGuard] },
+    { path: 'add-edit-classes', component: AddEditClasses, canActivate: [AuthGuard] },
+    { path: 'all-employees', component: AllEmployees, canActivate: [AuthGuard] },
+    { path: 'add-employees', component: AddEmployees, canActivate: [AuthGuard] },
+    { path: 'employee-attendance', component: EmployeeAttandance, canActivate: [AuthGuard] },
+    { path: 'all-students', component: AllStudents, canActivate: [AuthGuard] },
+    { path: 'student-admission', component: StudentAdmission, canActivate: [AuthGuard] },
+    { path: 'student-attendance', component: StudentAttandance, canActivate: [AuthGuard] },
+    { path: 'classwise-attendance', component: ClasswiseAttandance, canActivate: [AuthGuard] },
+    { path: 'employee-attendance-reports', component: EmployeeAttandanceReports, canActivate: [AuthGuard] },
+    { path: 'student-attendance-reports', component: StudentAttandanceReports, canActivate: [AuthGuard] },
     { path: '**', redirectTo: '/notfound' }
 ] as Routes;
