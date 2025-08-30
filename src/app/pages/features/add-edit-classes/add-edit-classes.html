@@ -1,0 +1,131 @@
+<p-table
+    #dt
+    [value]="classes()"
+    [rows]="10"
+    [columns]="cols"
+    [paginator]="true"
+    [globalFilterFields]="['className', 'classCode', 'academicYear', 'stream']"
+    [tableStyle]="{ 'min-width': '75rem' }"
+    [(selection)]="selectedClasses"
+    [rowHover]="true"
+    dataKey="classId"
+    currentPageReportTemplate="Showing {first} to {last} of {totalRecords} classes"
+    [showCurrentPageReport]="true"
+    [rowsPerPageOptions]="[10, 20, 30]"
+>
+    <ng-template pTemplate="caption">
+    <p-toolbar styleClass="mb-6">
+        <ng-template pTemplate="left">
+            <p-button label="New" icon="pi pi-plus" severity="secondary" class="mr-2" (onClick)="openNew()" />
+            <p-button severity="secondary" label="Delete" icon="pi pi-trash" outlined 
+                (onClick)="deleteSelectedClasses()" 
+                [disabled]="!selectedClasses || !selectedClasses.length" />
+        </ng-template>
+
+        <!-- <ng-template pTemplate="right">
+            <p-button label="Export" icon="pi pi-upload" severity="secondary" (onClick)="exportCSV()" />
+        </ng-template> -->
+    </p-toolbar>
+        <div class="flex items-center justify-between">
+            <h5 class="m-0">Manage Classes</h5>
+            <p-iconfield>
+                <p-inputicon styleClass="pi pi-search" />
+                <input pInputText type="text" (input)="onGlobalFilter(dt, $event)" placeholder="Search..." />
+            </p-iconfield>
+        </div>
+    </ng-template>
+    <ng-template pTemplate="header">
+        <tr>
+            <th style="width: 3rem">
+                <p-tableHeaderCheckbox />
+            </th>
+            <th pSortableColumn="className">
+                Class Name <p-sortIcon field="className" />
+            </th>
+            <th pSortableColumn="classCode">
+                Class Code <p-sortIcon field="classCode" />
+            </th>
+            <th pSortableColumn="stream">
+                Stream <p-sortIcon field="stream" />
+            </th>
+            <th pSortableColumn="maxStrength">
+                Max Strength <p-sortIcon field="maxStrength" />
+            </th>
+            <th></th>
+        </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-class>
+        <tr>
+            <td>
+                <p-tableCheckbox [value]="class" />
+            </td>
+            <td>{{class.className}}</td>
+            <td>{{class.classCode}}</td>
+            <td>{{class.stream}}</td>
+            <td>{{class.maxStrength}}</td>
+            <td>
+                <p-button icon="pi pi-pencil" class="mr-2" [rounded]="true" [outlined]="true" 
+                    (onClick)="editClass(class)" />
+                <p-button icon="pi pi-trash" severity="danger" [rounded]="true" [outlined]="true" 
+                    (onClick)="deleteClass(class)" />
+            </td>
+        </tr>
+    </ng-template>
+</p-table>
+
+<p-dialog [(visible)]="classDialog" [style]="{ width: '450px' }" header="Class Details" [modal]="true">
+    <form [formGroup]="classForm" class="flex flex-col gap-6" [draggable]="true">
+        <div>
+            <label for="className" class="block font-bold mb-3">Class Name *</label>
+            <input type="text" pInputText id="className" formControlName="className" autofocus 
+                [style]="{'width':'100%'}" />
+            <small class="text-red-500" *ngIf="isFieldInvalid('className')">
+                Class Name is required.
+            </small>
+        </div>
+
+        <div>
+            <label for="classCode" class="block font-bold mb-3">Class Code *</label>
+            <input type="text" pInputText id="classCode" formControlName="classCode" 
+                [style]="{'width':'100%'}" />
+            <small class="text-red-500" *ngIf="isFieldInvalid('classCode')">
+                Class Code is required.
+            </small>
+        </div>
+
+        <div>
+            <label for="stream" class="block font-bold mb-3">Stream *</label>
+            <p-select id="stream" 
+                formControlName="stream" 
+                [options]="streamOptions"
+                placeholder="Select Stream" 
+                [style]="{'width':'100%'}"
+                appendTo="body">
+                <ng-template let-stream pTemplate="item">
+                    <div>{{stream.label}}</div>
+                </ng-template>
+            </p-select>
+            <small class="text-red-500" *ngIf="isFieldInvalid('stream')">
+                Stream is required.
+            </small>
+        </div>
+
+        <div>
+            <label for="maxStrength" class="block font-bold mb-3">Maximum Strength *</label>
+            <p-inputNumber id="maxStrength" 
+                formControlName="maxStrength" 
+                [style]="{'width':'100%'}" />
+            <small class="text-red-500" *ngIf="isFieldInvalid('maxStrength')">
+                Maximum Strength is required and must be greater than 0.
+            </small>
+        </div>
+    </form>
+
+    <ng-template pTemplate="footer">
+        <p-button label="Cancel" icon="pi pi-times" (onClick)="hideDialog()" styleClass="p-button-text" />
+        <p-button label="Save" icon="pi pi-check" (onClick)="saveClass()" />
+    </ng-template>
+</p-dialog>
+
+<p-confirmDialog [style]="{ width: '450px' }" />
+<p-toast />

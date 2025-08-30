@@ -4,22 +4,28 @@ import { StatsWidget } from './components/statswidget';
 import { RecentSalesWidget } from './components/recentsaleswidget';
 import { BestSellingWidget } from './components/bestsellingwidget';
 import { RevenueStreamWidget } from './components/revenuestreamwidget';
-
+import { USER_ROLES } from '@/pages/common/constant';
+import { SchoolAdminDashboard } from "../features/dashboard/school-admin-dashboard/school-admin-dashboard";
+import { TeacherDashboard } from "../features/dashboard/teacher-dashboard/teacher-dashboard";
+import { StudentDashboard } from "../features/dashboard/student-dashboard/student-dashboard";
+import { CommonModule } from '@angular/common';
 @Component({
     selector: 'app-dashboard',
-    imports: [StatsWidget, RecentSalesWidget, BestSellingWidget, RevenueStreamWidget, NotificationsWidget],
+    imports: [CommonModule,SchoolAdminDashboard, TeacherDashboard, StudentDashboard],
     template: `
-        <div class="grid grid-cols-12 gap-8">
-            <app-stats-widget class="contents" />
-            <div class="col-span-12 xl:col-span-6">
-                <app-recent-sales-widget />
-                <app-best-selling-widget />
-            </div>
-            <div class="col-span-12 xl:col-span-6">
-                <app-revenue-stream-widget />
-                <app-notifications-widget />
-            </div>
-        </div>
+        @if (userRoles === USER_ROLES.ROLE_SCHOOLADMIN){
+        <app-school-admin-dashboard/>
+        }
+        @if (userRoles === USER_ROLES.ROLE_TEACHER){
+        <app-teacher-dashboard/>
+        }
+        @if (userRoles === USER_ROLES.ROLE_STUDENT){
+        <app-student-dashboard/>
+        }
     `
 })
-export class Dashboard {}
+export class Dashboard {
+    userRoles: number = 2;
+    // ✅ expose constant so template can access it
+    USER_ROLES = USER_ROLES;
+}
