@@ -1,0 +1,17 @@
+RewriteEngine On
+
+# Redirect everything to the public directory
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ public/index.php [QSA,L]
+
+# CORS headers
+<IfModule mod_headers.c>
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET,POST,PUT,DELETE,OPTIONS"
+    Header always set Access-Control-Allow-Headers "Content-Type,Authorization,X-Requested-With"
+</IfModule>
+
+# Handle preflight requests
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule ^(.*)$ public/index.php [R=200,L]
