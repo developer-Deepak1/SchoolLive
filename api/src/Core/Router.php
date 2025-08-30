@@ -16,9 +16,10 @@ class Router {
     $this->routes['POST']['/api/auth/login'] = ['handler' => ['SchoolLive\Controllers\LoginController', 'login'], 'roles' => null];
     $this->routes['POST']['/api/auth/refresh'] = ['handler' => ['SchoolLive\Controllers\LoginController', 'refresh'], 'roles' => null];
 
-    $this->routes['GET']['/api/academic/years'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getAcademicYears'], 'roles' => true];
-    $this->routes['POST']['/api/academic/years'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createAcademicYear'], 'roles' => true];
- 
+    $this->routes['GET']['/api/academic/getAcademicYears'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getAcademicYears'], 'roles' => true];
+    $this->routes['POST']['/api/academic/CreateAcademicYears'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createAcademicYear'], 'roles' => true];
+    $this->routes['DELETE']['/api/academic/DeleteAcademicYears/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'deleteAcademicYear'], 'roles' => true];
+
     $this->routes['GET']['/api/academic/getClasses'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getClasses'], 'roles' => true];
     $this->routes['POST']['/api/academic/CreateClasses'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createClass'], 'roles' => true];
     $this->routes['GET']['/api/academic/classes/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getClass'], 'roles' => null];

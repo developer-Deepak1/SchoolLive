@@ -14,7 +14,8 @@ class AcademicController {
 
     // Academic Years Methods
     public function getAcademicYears($params = []) {
-        $academicYears = $this->academicModel->findAll();
+        $currentUser = AuthMiddleware::getCurrentUser();
+        $academicYears = $this->academicModel->getAcademicYearsBySchoolId($currentUser['school_id']);
 
         echo json_encode([
             'success' => true,
@@ -30,12 +31,10 @@ class AcademicController {
             return;
         }
 
-    
-
         $input = json_decode(file_get_contents('php://input'), true);
 
         // Validate required fields
-        $requiredFields = ['year_name', 'start_date', 'end_date'];
+        $requiredFields = ['AcademicYearName', 'StartDate', 'EndDate'];
         foreach ($requiredFields as $field) {
             if (!isset($input[$field]) || empty($input[$field])) {
                 http_response_code(400);
@@ -45,36 +44,83 @@ class AcademicController {
         }
 
         // Validate dates
-        if (strtotime($input['start_date']) >= strtotime($input['end_date'])) {
+        if (strtotime($input['StartDate']) >= strtotime($input['EndDate'])) {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'End date must be after start date']);
             return;
         }
 
-        // Set default values
-        if (!isset($input['is_current'])) {
-            $input['is_current'] = 0;
+        $currentUser = AuthMiddleware::getCurrentUser();
+
+        $currentyear = $this->academicModel->getCurrentAcademicYear($currentUser['school_id']);
+
+        if (!isset($input['CreatedBy'])) {
+            $input['CreatedBy'] = $currentUser['username'];
+        }
+        if (!isset($input['SchoolID'])) {
+            $input['SchoolID'] = $currentUser['school_id'];
         }
 
-        if (!isset($input['status'])) {
-            $input['status'] = 'active';
+        if (!isset($input['Status'])) {
+            $input['Status'] = 'active';
+        }
+
+        if (strtotime($input['StartDate']) >= strtotime($currentyear['EndDate'])) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'End date must be after start date']);
+            return;
         }
 
         $academicYearId = $this->academicModel->createAcademicYear($input);
 
         if ($academicYearId) {
-            $academicYear = $this->academicModel->findById($academicYearId);
+            $academicYear = $this->academicModel->getAcademicYearById($academicYearId);
             
             echo json_encode([
                 'success' => true,
                 'message' => 'Academic year created successfully',
                 'data' => [
-                    'academic_year' => $academicYear
+                    $academicYear
                 ]
             ]);
         } else {
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => 'Failed to create academic year']);
+        }
+    }
+
+    public function deleteAcademicYear($params = []) {
+        if ($_SERVER['REQUEST_METHOD'] !== 'DELETE') {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+            return;
+        }
+
+        if (!isset($params['id'])) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Academic Year ID is required']);
+            return;
+        }
+
+        $result = $this->academicModel->deleteAcademicYear($params['id']);
+
+        if ($result['success']) {
+            echo json_encode([
+                'success' => true,
+                'message' => $result['message']
+            ]);
+        } else {
+            if (strpos($result['message'], 'not found') !== false) {
+                http_response_code(404);
+            } elseif (strpos($result['message'], 'Cannot delete active') !== false) {
+                http_response_code(400);
+            } else {
+                http_response_code(500);
+            }
+            echo json_encode([
+                'success' => false,
+                'message' => $result['message']
+            ]);
         }
     }
 
@@ -390,44 +436,9 @@ class AcademicController {
         }
     }
 
-    public function setCurrentAcademicYear($params = []) {
-        if ($_SERVER['REQUEST_METHOD'] !== 'PUT') {
-            http_response_code(405);
-            echo json_encode(['success' => false, 'message' => 'Method not allowed']);
-            return;
-        }
-
-    
-
-        if (!isset($params['id'])) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Academic Year ID is required']);
-            return;
-        }
-
-        // Check if academic year exists
-        $academicYear = $this->academicModel->findById($params['id']);
-        if (!$academicYear) {
-            http_response_code(404);
-            echo json_encode(['success' => false, 'message' => 'Academic year not found']);
-            return;
-        }
-
-        $result = $this->academicModel->setCurrentAcademicYear($params['id']);
-
-        if ($result) {
-            echo json_encode([
-                'success' => true,
-                'message' => 'Current academic year set successfully'
-            ]);
-        } else {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'message' => 'Failed to set current academic year']);
-        }
-    }
-
     public function getCurrentAcademicYear($params = []) {
-        $currentYear = $this->academicModel->getCurrentAcademicYear();
+        $currentUser = AuthMiddleware::getCurrentUser();
+        $currentYear = $this->academicModel->getCurrentAcademicYear($currentUser['school_id']);
 
         if (!$currentYear) {
             http_response_code(404);

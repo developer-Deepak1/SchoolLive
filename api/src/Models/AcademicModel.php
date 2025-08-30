@@ -8,22 +8,66 @@ class AcademicModel extends Model {
 
     // Academic Years Methods
     public function createAcademicYear($data) {
-        $data['created_at'] = date('Y-m-d H:i:s');
-        $data['updated_at'] = date('Y-m-d H:i:s');
+        $data['CreatedAt'] = date('Y-m-d H:i:s');
         
-        return $this->create($data);
+        // Extract fields supporting both PascalCase and snake_case
+        $academicYearName = $data['AcademicYearName'];
+        $startDate = $data['StartDate'] ;
+        $endDate = $data['EndDate'];
+        $schoolId = $data['SchoolID'] ;
+        $status = $data['Status'];
+        $createdBy = $data['CreatedBy'];
+
+        $query = "INSERT INTO Tm_AcademicYears (AcademicYearName, StartDate, EndDate, SchoolID, Status, CreatedAt, CreatedBy)
+                  VALUES (:academic_year_name, :start_date, :end_date, :school_id, :status, :created_at, :created_by)";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':academic_year_name', $academicYearName);
+        $stmt->bindParam(':start_date', $startDate);
+        $stmt->bindParam(':end_date', $endDate);
+        $stmt->bindParam(':school_id', $schoolId);
+        $stmt->bindParam(':status', $status);
+        $stmt->bindParam(':created_at', $data['CreatedAt']);
+        $stmt->bindParam(':created_by', $createdBy);
+        
+        if ($stmt->execute()) {
+            return $this->conn->lastInsertId();
+        }
+        return false;
     }
 
     public function updateAcademicYear($id, $data) {
-        $data['updated_at'] = date('Y-m-d H:i:s');
+        $data['UpdatedAt'] = date('Y-m-d H:i:s');
         return $this->update($id, $data);
+    }
+
+    public function getAcademicYearById($id) {
+        $query = "SELECT AcademicYearID, AcademicYearName, StartDate, EndDate
+                  FROM " . $this->table . " 
+                  WHERE AcademicYearID = :id LIMIT 1";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+        return $stmt->fetch();
+    }
+
+    public function getAcademicYearsBySchoolId($schoolId) {
+        $query = "SELECT AcademicYearID, AcademicYearName, StartDate, EndDate,Status FROM " . $this->table . " 
+                  WHERE SchoolID = :school_id
+                  ORDER BY StartDate";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':school_id', $schoolId);
+        $stmt->execute();
+        return $stmt->fetchAll();
     }
 
     public function getCurrentAcademicYear($schoolId) {
         // Prefer explicitly marked current academic year if present
-        $row = false;
+        $row = [];
         try {
-            $query = "SELECT * FROM " . $this->table . " WHERE SchoolID = :schoolId LIMIT 1";
+            $query = "SELECT AcademicYearID,AcademicYearName,StartDate,EndDate,Status FROM " . $this->table . " WHERE SchoolID = :schoolId and Status = 'active'";
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(':schoolId', $schoolId);   
             $stmt->execute();
@@ -39,7 +83,7 @@ class AcademicModel extends Model {
                 throw $e;
             }
         }
-
+        
         // Fallback: find academic year covering today's date
         $query2 = "SELECT * FROM " . $this->table . " WHERE StartDate <= CURDATE() AND EndDate >= CURDATE() LIMIT 1";
         $stmt2 = $this->conn->prepare($query2);
@@ -56,36 +100,32 @@ class AcademicModel extends Model {
         return $stmt3->fetch();
     }
 
-    public function setCurrentAcademicYear($id) {
-        // Mark the given academic year as current using the IsCurrent flag.
-        // First unset any existing flag (if column exists)
-        $unsetOk = true;
-        try {
-            $query1 = "UPDATE " . $this->table . " SET IsCurrent = 0";
-            $stmt1 = $this->conn->prepare($query1);
-            $stmt1->execute();
-        } catch (\PDOException $e) {
-            // Missing column -> treat as non-fatal and continue
-            if ($e->getCode() === '42S22') {
-                $unsetOk = false;
-            } else {
-                return false;
-            }
+    public function deleteAcademicYear($id) {
+        // First check if the academic year exists and get its status
+        $query = "SELECT AcademicYearID, Status FROM " . $this->table . " WHERE AcademicYearID = :id LIMIT 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+        $academicYear = $stmt->fetch();
+
+        if (!$academicYear) {
+            return ['success' => false, 'message' => 'Academic year not found'];
         }
 
-        // Then set the specified year as current
-        try {
-            $query2 = "UPDATE " . $this->table . " SET IsCurrent = 1, UpdatedAt = NOW() WHERE AcademicYearID = :id";
-            $stmt2 = $this->conn->prepare($query2);
-            $stmt2->bindParam(':id', $id);
-            return $stmt2->execute();
-        } catch (\PDOException $e) {
-            // If the column is missing, treat as success (no-op) because the
-            // application can still use date-based fallback logic elsewhere.
-            if ($e->getCode() === '42S22') {
-                return true;
-            }
-            return false;
+        // Check if the academic year is active - prevent deletion
+        if (strtolower($academicYear['Status']) === 'active') {
+            return ['success' => false, 'message' => 'Cannot delete active academic year. Please change status first.'];
+        }
+
+        // Proceed with deletion if not active
+        $deleteQuery = "DELETE FROM " . $this->table . " WHERE AcademicYearID = :id";
+        $deleteStmt = $this->conn->prepare($deleteQuery);
+        $deleteStmt->bindParam(':id', $id);
+        
+        if ($deleteStmt->execute()) {
+            return ['success' => true, 'message' => 'Academic year deleted successfully'];
+        } else {
+            return ['success' => false, 'message' => 'Failed to delete academic year'];
         }
     }
 
