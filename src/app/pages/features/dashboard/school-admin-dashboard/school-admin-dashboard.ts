@@ -77,18 +77,8 @@ export class SchoolAdminDashboard implements OnInit {
     }
   };
 
-  // Attendance Chart
-  attendanceChartData: ChartConfiguration<'doughnut'>['data'] = {
-    labels: ['Present', 'Absent', 'Late'],
-    datasets: [
-      {
-        data: [94.5, 4.2, 1.3],
-        backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
-        borderWidth: 2,
-        borderColor: '#ffffff'
-      }
-    ]
-  };
+  // Attendance Chart (start empty; populated from API)
+  attendanceChartData: ChartConfiguration<'doughnut'>['data'] = { labels: [], datasets: [] };
 
   attendanceChartOptions: ChartOptions<'doughnut'> = {
     responsive: true,
@@ -153,36 +143,8 @@ export class SchoolAdminDashboard implements OnInit {
   };
 
   // Today's Present Students Class-wise (Horizontal Bar)
-  classAttendanceChartData: ChartConfiguration<'bar'>['data'] = {
-    labels: [
-      'Grade 12-A',
-      'Grade 12-B',
-      'Grade 11-A',
-      'Grade 11-B',
-      'Grade 10-A',
-      'Grade 10-B',
-      'Grade 9-A',
-      'Grade 9-B'
-    ],
-    datasets: [
-      {
-        label: 'Present',
-        data: [31, 30, 29, 28, 27, 26, 28, 27], // dummy present counts
-        backgroundColor: '#3b82f6',
-        borderRadius: 6,
-        maxBarThickness: 26,
-        stack: 'attendance'
-      },
-      {
-        label: 'Absent',
-        data: [1, 2, 3, 4, 5, 6, 2, 3], // dummy absent counts
-        backgroundColor: '#ef4444',
-        borderRadius: 6,
-        maxBarThickness: 26,
-        stack: 'attendance'
-      }
-    ]
-  };
+  // Class attendance data starts empty and is populated by API
+  classAttendanceChartData: ChartConfiguration<'bar'>['data'] = { labels: [], datasets: [] };
 
   classAttendanceChartOptions: ChartOptions<'bar'> = {
     indexAxis: 'y',
@@ -233,92 +195,14 @@ export class SchoolAdminDashboard implements OnInit {
     }
   };
 
-  // Recent Activities
-  recentActivities = [
-    {
-      id: 1,
-      type: 'enrollment',
-      message: 'New student John Doe enrolled in Grade 10-A',
-      timestamp: '2 hours ago',
-      icon: 'pi pi-user-plus',
-      severity: 'success'
-    },
-    {
-      id: 2,
-      type: 'fee',
-      message: 'Fee payment received from Sarah Johnson - $2,500',
-      timestamp: '4 hours ago',
-      icon: 'pi pi-credit-card',
-      severity: 'info'
-    },
-    {
-      id: 3,
-      type: 'attendance',
-      message: 'Low attendance alert for Grade 8-B (78%)',
-      timestamp: '6 hours ago',
-      icon: 'pi pi-exclamation-triangle',
-      severity: 'warning'
-    },
-    {
-      id: 4,
-      type: 'exam',
-      message: 'Mid-term exam results published for Grade 12',
-      timestamp: '8 hours ago',
-      icon: 'pi pi-file-edit',
-      severity: 'success'
-    },
-    {
-      id: 5,
-      type: 'event',
-      message: 'Annual Sports Day scheduled for next Friday',
-      timestamp: '1 day ago',
-      icon: 'pi pi-calendar',
-      severity: 'info'
-    }
-  ];
+  // Recent Activities (empty until API populates)
+  recentActivities: Array<any> = [];
 
   // Top Performing Classes
   topClasses: Array<any> = [];
 
-  // Upcoming Events
-  upcomingEvents = [
-    {
-      id: 1,
-      title: 'Parent-Teacher Conference',
-      date: 'September 5, 2025',
-      time: '9:00 AM - 5:00 PM',
-      location: 'Main Auditorium',
-      type: 'Academic',
-      priority: 'high'
-    },
-    {
-      id: 2,
-      title: 'Annual Sports Day',
-      date: 'September 8, 2025',
-      time: '8:00 AM - 4:00 PM',
-      location: 'School Grounds',
-      type: 'Sports',
-      priority: 'medium'
-    },
-    {
-      id: 3,
-      title: 'Science Fair',
-      date: 'September 12, 2025',
-      time: '10:00 AM - 3:00 PM',
-      location: 'Science Block',
-      type: 'Academic',
-      priority: 'medium'
-    },
-    {
-      id: 4,
-      title: 'Mid-term Examinations Begin',
-      date: 'September 15, 2025',
-      time: 'All Day',
-      location: 'Examination Halls',
-      type: 'Examination',
-      priority: 'high'
-    }
-  ];
+  // Upcoming Events (empty until API populates)
+  upcomingEvents: Array<any> = [];
 
   // Teacher Performance
   teacherPerformance = [
@@ -412,10 +296,16 @@ export class SchoolAdminDashboard implements OnInit {
         } else {
           this.loadError = res.message || 'Unknown error';
         }
-        this.loading = false;
+    this.loading = false;
       },
   error: (err: any) => {
         this.loadError = err?.message || 'Failed to load dashboard';
+        // Clear chart and list data so no stale / dummy data is shown
+        this.attendanceChartData = { labels: [], datasets: [] } as any;
+        this.classAttendanceChartData = { labels: [], datasets: [] } as any;
+        this.classGenderChartData = { labels: [], datasets: [] } as any;
+        this.recentActivities = [];
+        this.upcomingEvents = [];
         this.loading = false;
       }
     });

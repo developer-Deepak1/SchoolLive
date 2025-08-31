@@ -118,12 +118,20 @@
     <div class="lg:col-span-2">
       <p-card header="Students by Class & Gender">
         <div class="h-[320px] relative">
-          <canvas
-            baseChart
-            [data]="classGenderChartData"
-            [options]="classGenderChartOptions"
-            type="bar">
-          </canvas>
+          <ng-container *ngIf="(classGenderChartData?.labels?.length || 0) > 0; else noClassGender">
+            <canvas
+              baseChart
+              [data]="classGenderChartData"
+              [options]="classGenderChartOptions"
+              type="bar">
+            </canvas>
+          </ng-container>
+          <ng-template #noClassGender>
+            <div class="h-full flex flex-col items-center justify-center text-gray-500">
+              <p class="mb-2">No class & gender data available.</p>
+              <button pButton label="Refresh" size="small" (click)="dashboardApi.refreshNow(); loadFromApi()"></button>
+            </div>
+          </ng-template>
         </div>
       </p-card>
     </div>
@@ -131,6 +139,13 @@
     <div>
       <p-card header="Student Enrollment Trend">
         <div class="h-[300px] relative">
+          <div *ngIf="loading" class="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
+            <span class="text-sm text-gray-600">Loading...</span>
+          </div>
+          <div *ngIf="loadError && !loading" class="absolute inset-0 flex flex-col items-center justify-center bg-red-50 text-red-600 z-10">
+            <p class="m-0 text-sm font-medium">{{loadError}}</p>
+            <button pButton label="Retry" size="small" class="mt-2" (click)="loadFromApi()"></button>
+          </div>
           <canvas 
             baseChart
             [data]="enrollmentChartData"
@@ -144,6 +159,13 @@
     <div>
       <p-card header="Today's Attendance Overview">
         <div class="h-[300px] relative">
+          <div *ngIf="loading" class="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
+            <span class="text-sm text-gray-600">Loading...</span>
+          </div>
+          <div *ngIf="loadError && !loading" class="absolute inset-0 flex flex-col items-center justify-center bg-red-50 text-red-600 z-10">
+            <p class="m-0 text-sm font-medium">{{loadError}}</p>
+            <button pButton label="Retry" size="small" class="mt-2" (click)="loadFromApi()"></button>
+          </div>
           <canvas 
             baseChart
             [data]="attendanceChartData"
@@ -157,6 +179,13 @@
     <div>
       <p-card header="Grade Distribution">
         <div class="h-[300px] relative">
+          <div *ngIf="loading" class="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
+            <span class="text-sm text-gray-600">Loading...</span>
+          </div>
+          <div *ngIf="loadError && !loading" class="absolute inset-0 flex flex-col items-center justify-center bg-red-50 text-red-600 z-10">
+            <p class="m-0 text-sm font-medium">{{loadError}}</p>
+            <button pButton label="Retry" size="small" class="mt-2" (click)="loadFromApi()"></button>
+          </div>
           <ng-container *ngIf="(gradeChartData?.labels?.length || 0) > 0; else noGradeData">
             <canvas 
               baseChart
@@ -178,6 +207,13 @@
     <div>
       <p-card header="Monthly Revenue Breakdown">
         <div class="h-[300px] relative">
+          <div *ngIf="loading" class="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
+            <span class="text-sm text-gray-600">Loading...</span>
+          </div>
+          <div *ngIf="loadError && !loading" class="absolute inset-0 flex flex-col items-center justify-center bg-red-50 text-red-600 z-10">
+            <p class="m-0 text-sm font-medium">{{loadError}}</p>
+            <button pButton label="Retry" size="small" class="mt-2" (click)="loadFromApi()"></button>
+          </div>
           <canvas 
             baseChart
             [data]="revenueChartData"
@@ -194,59 +230,91 @@
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2">
       <p-card header="Recent Activities">
-        <div class="flex flex-col gap-3">
-          <div 
-            *ngFor="let activity of recentActivities" 
-            class="flex items-center p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors">
-            <div class="mr-3 shrink-0">
-              <i [class]="activity.icon + ' text-xl'" [ngClass]="{
-                'text-green-500': activity.severity === 'success',
-                'text-blue-500': activity.severity === 'info',
-                'text-yellow-500': activity.severity === 'warning',
-                'text-red-500': activity.severity === 'danger'
-              }"></i>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="m-0 font-medium text-gray-800 truncate">{{activity.message}}</p>
-              <p class="m-0 text-xs text-gray-500 mt-1">{{activity.timestamp}}</p>
-            </div>
-            <p-tag 
-              [value]="activity.type" 
-              [severity]="getSeverity(activity.type)">
-            </p-tag>
+        <div class="flex flex-col gap-3 relative">
+          <div *ngIf="loading" class="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
+            <span class="text-sm text-gray-600">Loading...</span>
           </div>
+          <div *ngIf="loadError && !loading" class="absolute inset-0 flex flex-col items-center justify-center bg-red-50 text-red-600 z-10">
+            <p class="m-0 text-sm font-medium">{{loadError}}</p>
+            <button pButton label="Retry" size="small" class="mt-2" (click)="loadFromApi()"></button>
+          </div>
+        
+          <div class="flex flex-col gap-3">
+          <ng-container *ngIf="(recentActivities?.length || 0) > 0; else noRecent">
+            <div 
+              *ngFor="let activity of recentActivities" 
+              class="flex items-center p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors">
+              <div class="mr-3 shrink-0">
+                <i [class]="activity.icon + ' text-xl'" [ngClass]="{
+                  'text-green-500': activity.severity === 'success',
+                  'text-blue-500': activity.severity === 'info',
+                  'text-yellow-500': activity.severity === 'warning',
+                  'text-red-500': activity.severity === 'danger'
+                }"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="m-0 font-medium text-gray-800 truncate">{{activity.message}}</p>
+                <p class="m-0 text-xs text-gray-500 mt-1">{{activity.timestamp}}</p>
+              </div>
+              <p-tag 
+                [value]="activity.type" 
+                [severity]="getSeverity(activity.type)">
+              </p-tag>
+            </div>
+          </ng-container>
+          <ng-template #noRecent>
+            <div class="p-6 text-center text-gray-500">
+              No recent activities available.
+            </div>
+          </ng-template>
+        </div>
         </div>
       </p-card>
     </div>
 
     <div>
       <p-card header="Upcoming Events">
-        <div class="flex flex-col gap-3">
-          <div 
-            *ngFor="let event of upcomingEvents.slice(0, 4)" 
-            class="p-4 rounded-md border border-gray-200 bg-white shadow-sm hover:shadow transition-shadow">
-            <div class="flex justify-between items-start mb-3 gap-3">
-              <h4 class="m-0 font-semibold text-gray-800 text-sm leading-snug">{{event.title}}</h4>
-              <p-badge 
-                [value]="event.priority" 
-                [severity]="event.priority === 'high' ? 'danger' : event.priority === 'medium' ? 'warn' : 'success'">
-              </p-badge>
-            </div>
-            <div class="flex flex-col gap-1 text-xs text-gray-500">
-              <div class="flex items-center">
-                <i class="pi pi-calendar mr-2 text-gray-400"></i>
-                <span>{{event.date}}</span>
-              </div>
-              <div class="flex items-center">
-                <i class="pi pi-clock mr-2 text-gray-400"></i>
-                <span>{{event.time}}</span>
-              </div>
-              <div class="flex items-center">
-                <i class="pi pi-map-marker mr-2 text-gray-400"></i>
-                <span>{{event.location}}</span>
-              </div>
-            </div>
+        <div class="flex flex-col gap-3 relative">
+          <div *ngIf="loading" class="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
+            <span class="text-sm text-gray-600">Loading...</span>
           </div>
+          <div *ngIf="loadError && !loading" class="absolute inset-0 flex flex-col items-center justify-center bg-red-50 text-red-600 z-10">
+            <p class="m-0 text-sm font-medium">{{loadError}}</p>
+            <button pButton label="Retry" size="small" class="mt-2" (click)="loadFromApi()"></button>
+          </div>
+
+          <div class="flex flex-col gap-3">
+          <ng-container *ngIf="(upcomingEvents?.length || 0) > 0; else noUpcoming">
+            <div 
+              *ngFor="let event of upcomingEvents.slice(0, 4)" 
+              class="p-4 rounded-md border border-gray-200 bg-white shadow-sm hover:shadow transition-shadow">
+              <div class="flex justify-between items-start mb-3 gap-3">
+                <h4 class="m-0 font-semibold text-gray-800 text-sm leading-snug">{{event.title}}</h4>
+                <p-badge 
+                  [value]="event.priority" 
+                  [severity]="event.priority === 'high' ? 'danger' : event.priority === 'medium' ? 'warn' : 'success'">
+                </p-badge>
+              </div>
+              <div class="flex flex-col gap-1 text-xs text-gray-500">
+                <div class="flex items-center">
+                  <i class="pi pi-calendar mr-2 text-gray-400"></i>
+                  <span>{{event.date}}</span>
+                </div>
+                <div class="flex items-center">
+                  <i class="pi pi-clock mr-2 text-gray-400"></i>
+                  <span>{{event.time}}</span>
+                </div>
+                <div class="flex items-center">
+                  <i class="pi pi-map-marker mr-2 text-gray-400"></i>
+                  <span>{{event.location}}</span>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+          <ng-template #noUpcoming>
+            <div class="p-6 text-center text-gray-500">No upcoming events.</div>
+          </ng-template>
+        </div>
         </div>
       </p-card>
     </div>
