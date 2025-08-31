@@ -4,8 +4,6 @@ namespace SchoolLive\Controllers;
 use SchoolLive\Models\AcademicModel;
 use SchoolLive\Middleware\AuthMiddleware;
 use SchoolLive\Core\BaseController;
-use SchoolLive\Core\Request;
-use SchoolLive\Core\Response;
 
 class AcademicController extends BaseController {
     private $academicModel;
@@ -17,7 +15,7 @@ class AcademicController extends BaseController {
 
     // Academic Years Methods
     public function getAcademicYears($params = []) {
-    $currentUser = AuthMiddleware::getCurrentUser();
+    $currentUser = $this->currentUser(); if(!$currentUser) return;
     $academicYears = $this->academicModel->getAcademicYearsBySchoolId($currentUser['school_id']);
     $this->ok('Academic years retrieved successfully', $academicYears);
     }
@@ -28,7 +26,7 @@ class AcademicController extends BaseController {
     if (!$this->ensure($input, ['AcademicYearName','StartDate','EndDate'])) return;
     if (strtotime($input['StartDate']) >= strtotime($input['EndDate'])) { $this->fail('End date must be after start date',400); return; }
 
-        $currentUser = AuthMiddleware::getCurrentUser();
+    $currentUser = $this->currentUser(); if(!$currentUser) return;
 
         $currentyear = $this->academicModel->getCurrentAcademicYear($currentUser['school_id']);
 
@@ -56,7 +54,7 @@ class AcademicController extends BaseController {
     public function deleteAcademicYear($params = []) {
     if (!$this->requireMethod('DELETE')) return;
     if (!isset($params['id'])) { $this->fail('Academic Year ID is required',400); return; }
-        $currentUser = AuthMiddleware::getCurrentUser();
+    $currentUser = $this->currentUser(); if(!$currentUser) return;
 
         $result = $this->academicModel->deleteAcademicYear($params['id'],$currentUser['school_id']);
 
@@ -70,11 +68,11 @@ class AcademicController extends BaseController {
 
     public function updateAcademicYear($params = []) {
     if (!$this->requireMethod('PUT')) return;
-    if (!isset($params['id'])) { $this->fail('Academic Year ID is required',400); return; }
+    $id = $this->requireKey($params,'id','Academic Year ID'); if($id===null) return;
     $input = $this->input();
 
         // Check if academic year exists
-        $existingYear = $this->academicModel->getAcademicYearById($params['id']);
+        $existingYear = $this->academicModel->getAcademicYearById($id);
     if (!$existingYear) { $this->fail('Academic year not found',404); return; }
 
         // Validate dates if provided
@@ -82,23 +80,23 @@ class AcademicController extends BaseController {
             if (strtotime($input['StartDate']) >= strtotime($input['EndDate'])) { $this->fail('End date must be after start date',400); return; }
         }
 
-        $currentUser = AuthMiddleware::getCurrentUser();
+    $currentUser = $this->currentUser(); if(!$currentUser) return;
         
         // Set UpdatedBy to current user
         $input['UpdatedBy'] = $currentUser['username'];
 
         $currentacademicYear = $this->academicModel->getCurrentAcademicYear($currentUser['school_id']);
-    if ($currentacademicYear && isset($input['StartDate']) && $params['id'] != $currentacademicYear['AcademicYearID'] && strtotime($input['StartDate']) > strtotime($currentacademicYear['EndDate'])) { $this->fail('Start date must be before end date of current academic year',400); return; }
+    if ($currentacademicYear && isset($input['StartDate']) && $id != $currentacademicYear['AcademicYearID'] && strtotime($input['StartDate']) > strtotime($currentacademicYear['EndDate'])) { $this->fail('Start date must be before end date of current academic year',400); return; }
 
-        $result = $this->academicModel->updateAcademicYear($params['id'], $input);
+    $result = $this->academicModel->updateAcademicYear($id, $input);
 
-    if ($result) { $updatedYear = $this->academicModel->getAcademicYearById($params['id']); $this->ok('Academic year updated successfully',$updatedYear); }
+    if ($result) { $updatedYear = $this->academicModel->getAcademicYearById($id); $this->ok('Academic year updated successfully',$updatedYear); }
     else { $this->fail('Failed to update academic year',500); }
     }
 
     // Classes Methods
     public function getClasses($params = []) {
-    $currentUser = AuthMiddleware::getCurrentUser();
+    $currentUser = $this->currentUser(); if(!$currentUser) return;
     $classes = $this->academicModel->getAllClasses($currentUser['AcademicYearID'], $currentUser['school_id']);
     $this->ok('Classes retrieved successfully', $classes);
     }
@@ -113,9 +111,9 @@ class AcademicController extends BaseController {
     }
 
     public function getSection($params = []) {
-    if (!isset($params['id'])) { $this->fail('Section ID is required',400); return; }
+    $id = $this->requireKey($params,'id','Section ID'); if($id===null) return;
 
-        $section = $this->academicModel->getSectionById($params['id']);
+    $section = $this->academicModel->getSectionById($id);
 
     if (!$section) { $this->fail('Section not found',404); return; }
     $this->ok('Section retrieved successfully', $section);
@@ -134,35 +132,35 @@ class AcademicController extends BaseController {
 
     public function updateSection($params = []) {
     if (!$this->requireMethod('PUT')) return;
-    if (!isset($params['id'])) { $this->fail('Section ID is required',400); return; }
+    $id = $this->requireKey($params,'id','Section ID'); if($id===null) return;
     $input = $this->input();
 
-        $existing = $this->academicModel->getSectionById($params['id']);
+        $existing = $this->academicModel->getSectionById($id);
     if (!$existing) { $this->fail('Section not found',404); return; }
 
-        $result = $this->academicModel->updateSection($params['id'], $input);
+    $result = $this->academicModel->updateSection($id, $input);
 
-    if ($result) { $section = $this->academicModel->getSectionById($params['id']); $this->ok('Section updated successfully',['section'=>$section]); }
+    if ($result) { $section = $this->academicModel->getSectionById($id); $this->ok('Section updated successfully',['section'=>$section]); }
     else { $this->fail('Failed to update section',500); }
     }
 
     public function deleteSection($params = []) {
     if (!$this->requireMethod('DELETE')) return;
-    if (!isset($params['id'])) { $this->fail('Section ID is required',400); return; }
+    $id = $this->requireKey($params,'id','Section ID'); if($id===null) return;
 
-        $existing = $this->academicModel->getSectionById($params['id']);
+        $existing = $this->academicModel->getSectionById($id);
     if (!$existing) { $this->fail('Section not found',404); return; }
 
-        $result = $this->academicModel->deleteSection($params['id']);
+    $result = $this->academicModel->deleteSection($id);
 
     if ($result) { $this->ok('Section deleted successfully'); }
     else { $this->fail('Failed to delete section',500); }
     }
 
     public function getClass($params = []) {
-    if (!isset($params['id'])) { $this->fail('Class ID is required',400); return; }
+    $id = $this->requireKey($params,'id','Class ID'); if($id===null) return;
 
-        $class = $this->academicModel->getClassById($params['id']);
+    $class = $this->academicModel->getClassById($id);
 
     if (!$class) { $this->fail('Class not found',404); return; }
 
@@ -170,7 +168,7 @@ class AcademicController extends BaseController {
 
         // If authenticated and a teacher, ensure they are assigned to this class via class_teachers mapping
         if ($currentUser && isset($currentUser['role']) && $currentUser['role'] === 'teacher') {
-                $isAssigned = $this->academicModel->isTeacherAssigned($params['id'], $currentUser['id']);
+                $isAssigned = $this->academicModel->isTeacherAssigned($id, $currentUser['id']);
                 if (!$isAssigned) {
         $this->fail('Access denied to this class',403); return;
             }
@@ -205,39 +203,39 @@ class AcademicController extends BaseController {
 
     public function updateClass($params = []) {
     if (!$this->requireMethod('PUT')) return;
-    if (!isset($params['id'])) { $this->fail('Class ID is required',400); return; }
+    $id = $this->requireKey($params,'id','Class ID'); if($id===null) return;
     $input = $this->input();
 
         // Check if class exists
-        $existingClass = $this->academicModel->getClassById($params['id']);
+        $existingClass = $this->academicModel->getClassById($id);
     if (!$existingClass) { $this->fail('Class not found',404); return; }
         $currentUser = AuthMiddleware::getCurrentUser();
         if (!isset($input['UpdatedBy'])) {
             $input['UpdatedBy'] = $currentUser['username'];
         }
 
-        $result = $this->academicModel->updateClass($params['id'], $input);
+    $result = $this->academicModel->updateClass($id, $input);
 
-    if ($result) { $class = $this->academicModel->getClassById($params['id']); $this->ok('Class updated successfully',$class); }
+    if ($result) { $class = $this->academicModel->getClassById($id); $this->ok('Class updated successfully',$class); }
     else { $this->fail('Failed to update class',500); }
     }
 
     public function deleteClass($params = []) {
     if (!$this->requireMethod('DELETE')) return;
-    if (!isset($params['id'])) { $this->fail('Class ID is required',400); return; }
+    $id = $this->requireKey($params,'id','Class ID'); if($id===null) return;
 
         // Check if class exists
-        $class = $this->academicModel->getClassById($params['id']);
+        $class = $this->academicModel->getClassById($id);
     if (!$class) { $this->fail('Class not found',404); return; }
 
-        $result = $this->academicModel->deleteClass($params['id']);
+    $result = $this->academicModel->deleteClass($id);
 
     if ($result) { $this->ok('Class deleted successfully'); }
     else { $this->fail('Failed to delete class',500); }
     }
 
     public function getCurrentAcademicYear($params = []) {
-        $currentUser = AuthMiddleware::getCurrentUser();
+    $currentUser = $this->currentUser(); if(!$currentUser) return;
         $currentYear = $this->academicModel->getCurrentAcademicYear($currentUser['school_id']);
 
     if (!$currentYear) { $this->fail('No current academic year set',404); return; }

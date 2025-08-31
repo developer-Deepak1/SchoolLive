@@ -10,6 +10,23 @@ use SchoolLive\Core\BaseController;
 class StudentController extends BaseController {
     private StudentModel $students;
     private UserModel $users;
+    
+    /**
+     * Build a normalized user creation payload from mixed input plus overrides.
+     * Accepts either camel/pascal case (FirstName) or snake case (first_name) for name parts.
+     */
+    private function buildUserPayload(array $input, array $overrides = []): array {
+        $first = $input['FirstName'] ?? $input['first_name'] ?? null;
+        $middle = $input['MiddleName'] ?? $input['middle_name'] ?? null;
+        $last = $input['LastName'] ?? $input['last_name'] ?? null;
+        $base = array_filter([
+            'first_name' => $first,
+            'middle_name' => $middle,
+            'last_name' => $last,
+        ], function($v){ return $v !== null && $v !== ''; });
+        // Merge overrides (overrides take precedence)
+        return array_merge($base, $overrides);
+    }
 
     public function __construct() {
     parent::__construct();
@@ -18,8 +35,7 @@ class StudentController extends BaseController {
     }
 
     public function list($params = []) {
-        $current = AuthMiddleware::getCurrentUser();
-    if (!$current) { $this->fail('Unauthorized',401); return; }
+    $current = $this->currentUser(); if(!$current) return;
         $filters = [
             'class_id' => $_GET['class_id'] ?? null,
             'section_id' => $_GET['section_id'] ?? null,
@@ -32,16 +48,16 @@ class StudentController extends BaseController {
     }
 
     public function get($params = []) {
-    if (!isset($params['id'])) { $this->fail('Student ID required',400); return; }
-        $current = AuthMiddleware::getCurrentUser();
-        $stu = $this->students->getStudent($params['id'], $current['school_id']);
+    $id = $this->requireKey($params,'id','Student ID'); if($id===null) return;
+        $current = $this->currentUser(); if(!$current) return;
+        $stu = $this->students->getStudent($id, $current['school_id']);
     if (!$stu) { $this->fail('Student not found',404); return; }
     $this->ok('Student retrieved', $stu);
     }
 
     public function create($params = []) {
     if (!$this->requireMethod('POST')) return;
-        $current = AuthMiddleware::getCurrentUser();
+    $current = $this->currentUser(); if(!$current) return;
     $input = $this->input();
         $required = ['StudentName','Gender','DOB','SectionID'];
         foreach ($required as $f) {
@@ -64,14 +80,14 @@ class StudentController extends BaseController {
 
     public function update($params = []) {
         if (!$this->requireMethod('PUT')) return;
-        if (!isset($params['id'])) { $this->fail('Student ID required',400); return; }
-        $current = AuthMiddleware::getCurrentUser();
+        $id = $this->requireKey($params,'id','Student ID'); if($id===null) return;
+        $current = $this->currentUser(); if(!$current) return;
         $input = $this->input();
         $input['UpdatedBy'] = $current['username'] ?? 'System';
-        $exists = $this->students->getStudent($params['id'], $current['school_id']);
+        $exists = $this->students->getStudent($id, $current['school_id']);
         if (!$exists) { $this->fail('Student not found',404); return; }
-        if ($this->students->updateStudent($params['id'], $current['school_id'], $input)) {
-            $stu = $this->students->getStudent($params['id'], $current['school_id']);
+        if ($this->students->updateStudent($id, $current['school_id'], $input)) {
+            $stu = $this->students->getStudent($id, $current['school_id']);
             $this->ok('Student updated', $stu);
         } else {
             $this->fail('Failed to update student',500);
@@ -80,13 +96,13 @@ class StudentController extends BaseController {
 
     public function delete($params = []) {
         if (!$this->requireMethod('DELETE')) return;
-        if (!isset($params['id'])) { $this->fail('Student ID required',400); return; }
-        $current = AuthMiddleware::getCurrentUser();
-        $exists = $this->students->getStudent($params['id'], $current['school_id']);
+        $id = $this->requireKey($params,'id','Student ID'); if($id===null) return;
+        $current = $this->currentUser(); if(!$current) return;
+        $exists = $this->students->getStudent($id, $current['school_id']);
         if (!$exists) { $this->fail('Student not found',404); return; }
-        if ($this->students->deleteStudent($params['id'], $current['school_id'])) {
+        if ($this->students->deleteStudent($id, $current['school_id'])) {
             $this->ok('Student deleted');
-        } else { $this->fail('Failed to delete student',500); }
+    } else { $this->fail('Failed to delete student',500); }
     }
 
     /**
@@ -99,8 +115,7 @@ class StudentController extends BaseController {
     public function admission($params = []) {
     if (!$this->requireMethod('POST')) return;
 
-        $current = AuthMiddleware::getCurrentUser();
-    if (!$current) { $this->fail('Unauthorized',401); return; }
+    $current = $this->currentUser(); if(!$current) return;
     $input = $this->input();
         $required = ['FirstName', 'Gender', 'DOB', 'SectionID'];
         foreach ($required as $f) {
@@ -112,7 +127,7 @@ class StudentController extends BaseController {
         foreach (['FirstName', 'MiddleName', 'LastName'] as $p) {
             if (!empty($input[$p])) { $nameParts[] = trim($input[$p]); }
         }
-        $studentName = trim(implode(' ', $nameParts));
+    $studentName = trim(implode(' ', $nameParts));
     if ($studentName === '') { $this->fail('Valid name required',400); return; }
 
         $pdo = $this->students->getPdo();
@@ -134,16 +149,13 @@ class StudentController extends BaseController {
             $provisionalUsername = uniqid('stu_');
             $provisionalPassword = bin2hex(random_bytes(4)); // short random temp password
 
-            $userData = [
-                'first_name' => $input['FirstName'],
-                'middle_name' => $input['MiddleName'] ?? null,
-                'last_name' => $input['LastName'] ?? null,
+            $userData = $this->buildUserPayload($input, [
                 'username' => $provisionalUsername,
                 'password' => $provisionalPassword,
                 'role_id' => $studentRoleId,
                 'school_id' => $schoolId,
                 'created_by' => $current['username'] ?? 'System'
-            ];
+            ]);
 
             $userId = $this->users->createUser($userData);
             if (!$userId) { throw new \Exception('Failed to create user'); }

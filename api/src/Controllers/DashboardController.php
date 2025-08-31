@@ -18,8 +18,7 @@ class DashboardController extends BaseController {
      * Returns aggregated stats & minimal chart datasets for the dashboard.
      */
     public function summary($params = []) {
-    $user = AuthMiddleware::getCurrentUser();
-    if (!$user) { $this->fail('Unauthorized',401); return; }
+    $user = $this->currentUser(); if(!$user) return;
 
         $schoolId = $user['school_id'];
         $academicYearId = $user['AcademicYearID'] ?? null; // may be null first login
@@ -29,7 +28,7 @@ class DashboardController extends BaseController {
             static $cache = [];
             $cacheKey = $schoolId . ':' . ($academicYearId ?? 'na');
             $now = time();
-            if (isset($cache[$cacheKey]) && $cache[$cacheKey]['expires'] > $now) { echo json_encode($cache[$cacheKey]['payload']); return; }
+            if (isset($cache[$cacheKey]) && $cache[$cacheKey]['expires'] > $now) { $this->ok('Dashboard summary fetched (cached)', $cache[$cacheKey]['payload']['data']); return; }
 
             $stats = $this->model->getStats($schoolId, $academicYearId);
             $attendanceOverview = $this->model->getAttendanceOverviewToday($schoolId, $academicYearId);
@@ -42,10 +41,7 @@ class DashboardController extends BaseController {
             $classGender = $this->model->getClassGenderCounts($schoolId, $academicYearId);
             $topClasses = $this->model->getTopClasses($schoolId, $academicYearId, 5);
 
-            $response = [
-                'success' => true,
-                'message' => 'Dashboard summary fetched',
-                'data' => [
+            $payload = [
                     'stats' => $stats,
                     'charts' => [
                         'attendanceOverview' => $attendanceOverview,
@@ -60,10 +56,9 @@ class DashboardController extends BaseController {
                     'topClasses' => $topClasses,
                     'upcomingEvents' => $upcomingEvents,
                     'teacherPerformance' => []
-                ]
             ];
-            $cache[$cacheKey] = [ 'expires' => $now + 60, 'payload' => $response ];
-            echo json_encode($response);
+            $cache[$cacheKey] = [ 'expires' => $now + 60, 'payload' => ['data'=>$payload] ];
+            $this->ok('Dashboard summary fetched', $payload);
         } catch (\Throwable $e) {
             $this->fail('Failed to load dashboard: ' . $e->getMessage(),500);
         }
