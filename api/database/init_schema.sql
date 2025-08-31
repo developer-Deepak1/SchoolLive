@@ -379,3 +379,143 @@ INSERT INTO Tx_Students_Attendance (StudentAttendanceID, Date, Status, StudentID
 (1, '2025-08-30', 'Present', 1, 1, 1000, 1, 'Present in class', 'System'),
 (2, '2025-08-30', 'Present', 2, 3, 1000, 1, 'Present in class', 'System'),
 (3, '2025-08-30', 'Absent', 3, 5, 1000, 1, 'Sick', 'System');
+
+-- ================= Additional Tables for Dashboard Enhancements =================
+-- Events table
+CREATE TABLE IF NOT EXISTS Tx_Events (
+    EventID BIGINT AUTO_INCREMENT PRIMARY KEY,
+    SchoolID INT NOT NULL,
+    AcademicYearID INT NULL,
+    Title VARCHAR(200) NOT NULL,
+    EventDate DATE NOT NULL,
+    StartTime TIME NULL,
+    EndTime TIME NULL,
+    Location VARCHAR(150) NULL,
+    Type VARCHAR(50) NULL,
+    Priority VARCHAR(10) DEFAULT 'medium',
+    Status VARCHAR(20) DEFAULT 'Active',
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CreatedBy VARCHAR(100),
+    FOREIGN KEY (SchoolID) REFERENCES Tm_Schools(SchoolID) ON DELETE CASCADE,
+    FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID) ON DELETE SET NULL,
+    INDEX idx_event_school_date (SchoolID, EventDate)
+);
+
+-- Activity Log table
+CREATE TABLE IF NOT EXISTS Tx_ActivityLog (
+    ActivityID BIGINT AUTO_INCREMENT PRIMARY KEY,
+    SchoolID INT NOT NULL,
+    AcademicYearID INT NULL,
+    ActivityType VARCHAR(50) NOT NULL,
+    Message VARCHAR(400) NOT NULL,
+    Severity VARCHAR(20) DEFAULT 'info',
+    Icon VARCHAR(50) DEFAULT 'pi pi-info-circle',
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CreatedBy VARCHAR(100),
+    FOREIGN KEY (SchoolID) REFERENCES Tm_Schools(SchoolID) ON DELETE CASCADE,
+    FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID) ON DELETE SET NULL,
+    INDEX idx_activity_school_created (SchoolID, CreatedAt)
+);
+
+-- Student Grades table
+CREATE TABLE IF NOT EXISTS Tx_StudentGrades (
+    GradeID BIGINT AUTO_INCREMENT PRIMARY KEY,
+    StudentID BIGINT NOT NULL,
+    AcademicYearID INT NOT NULL,
+    Subject VARCHAR(100) NOT NULL,
+    GradeLetter VARCHAR(3) NOT NULL,
+    Marks DECIMAL(5,2) NULL,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CreatedBy VARCHAR(100),
+    FOREIGN KEY (StudentID) REFERENCES Tx_Students(StudentID) ON DELETE CASCADE,
+    FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID) ON DELETE CASCADE,
+    INDEX idx_grade_student (StudentID),
+    INDEX idx_grade_ac_year (AcademicYearID)
+);
+
+-- Fees (payments) table
+CREATE TABLE IF NOT EXISTS Tx_Fees (
+    FeeID BIGINT AUTO_INCREMENT PRIMARY KEY,
+    SchoolID INT NOT NULL,
+    AcademicYearID INT NOT NULL,
+    Category VARCHAR(50) NOT NULL, -- Tuition, Extra, Transport
+    Amount DECIMAL(12,2) NOT NULL,
+    PaymentDate DATE NOT NULL,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CreatedBy VARCHAR(100),
+    FOREIGN KEY (SchoolID) REFERENCES Tm_Schools(SchoolID) ON DELETE CASCADE,
+    FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID) ON DELETE CASCADE,
+    INDEX idx_fees_school_date (SchoolID, PaymentDate)
+);
+
+-- Fee Invoices for pending fee calculation
+CREATE TABLE IF NOT EXISTS Tx_FeeInvoices (
+    InvoiceID BIGINT AUTO_INCREMENT PRIMARY KEY,
+    SchoolID INT NOT NULL,
+    AcademicYearID INT NOT NULL,
+    StudentID BIGINT NULL,
+    AmountDue DECIMAL(12,2) NOT NULL,
+    AmountPaid DECIMAL(12,2) NOT NULL DEFAULT 0,
+    Status VARCHAR(20) NOT NULL DEFAULT 'Pending', -- Pending, Partial, Paid
+    DueDate DATE NULL,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CreatedBy VARCHAR(100),
+    FOREIGN KEY (SchoolID) REFERENCES Tm_Schools(SchoolID) ON DELETE CASCADE,
+    FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID) ON DELETE CASCADE,
+    FOREIGN KEY (StudentID) REFERENCES Tx_Students(StudentID) ON DELETE SET NULL,
+    INDEX idx_invoice_school_status (SchoolID, Status)
+);
+
+-- Dummy Events (future dates)
+INSERT INTO Tx_Events (SchoolID, AcademicYearID, Title, EventDate, StartTime, EndTime, Location, Type, Priority, CreatedBy) VALUES
+(1000, 1, 'Parent-Teacher Conference', '2025-09-05', '09:00:00', '17:00:00', 'Main Auditorium', 'Academic', 'high', 'System'),
+(1000, 1, 'Annual Sports Day', '2025-09-08', '08:00:00', '16:00:00', 'School Grounds', 'Sports', 'medium', 'System'),
+(1000, 1, 'Science Fair', '2025-09-12', '10:00:00', '15:00:00', 'Science Block', 'Academic', 'medium', 'System'),
+(1000, 1, 'Mid-term Examinations Begin', '2025-09-15', NULL, NULL, 'Examination Halls', 'Examination', 'high', 'System');
+
+-- Dummy Activity Log
+INSERT INTO Tx_ActivityLog (SchoolID, AcademicYearID, ActivityType, Message, Severity, Icon, CreatedBy) VALUES
+(1000, 1, 'enrollment', 'New student John Doe enrolled in Grade 10-A', 'success', 'pi pi-user-plus', 'System'),
+(1000, 1, 'fee', 'Fee payment received from Sarah Johnson - $2,500', 'info', 'pi pi-credit-card', 'System'),
+(1000, 1, 'attendance', 'Low attendance alert for Grade 8-B (78%)', 'warning', 'pi pi-exclamation-triangle', 'System'),
+(1000, 1, 'exam', 'Mid-term exam results published for Grade 12', 'success', 'pi pi-file-edit', 'System'),
+(1000, 1, 'event', 'Annual Sports Day scheduled for next Friday', 'info', 'pi pi-calendar', 'System');
+
+-- Dummy Student Grades (grades distribution)
+INSERT INTO Tx_StudentGrades (StudentID, AcademicYearID, Subject, GradeLetter, Marks, CreatedBy) VALUES
+(1,1,'Mathematics','A+',95,'System'),
+(1,1,'Science','A',90,'System'),
+(2,1,'Mathematics','B+',82,'System'),
+(2,1,'Science','B',78,'System'),
+(3,1,'Mathematics','A',91,'System'),
+(3,1,'Science','C+',68,'System'),
+(1,1,'English','A+',96,'System'),
+(2,1,'English','B',75,'System'),
+(3,1,'English','C',62,'System');
+
+-- Dummy Fees (last 6 months)
+INSERT INTO Tx_Fees (SchoolID, AcademicYearID, Category, Amount, PaymentDate, CreatedBy) VALUES
+(1000,1,'Tuition',450000,'2025-03-15','System'),
+(1000,1,'Extra',45000,'2025-03-20','System'),
+(1000,1,'Transport',35000,'2025-03-25','System'),
+(1000,1,'Tuition',465000,'2025-04-15','System'),
+(1000,1,'Extra',48000,'2025-04-20','System'),
+(1000,1,'Transport',36000,'2025-04-25','System'),
+(1000,1,'Tuition',470000,'2025-05-15','System'),
+(1000,1,'Extra',52000,'2025-05-20','System'),
+(1000,1,'Transport',37000,'2025-05-25','System'),
+(1000,1,'Tuition',480000,'2025-06-15','System'),
+(1000,1,'Extra',55000,'2025-06-20','System'),
+(1000,1,'Transport',38000,'2025-06-25','System'),
+(1000,1,'Tuition',485000,'2025-07-15','System'),
+(1000,1,'Extra',58000,'2025-07-20','System'),
+(1000,1,'Transport',39000,'2025-07-25','System'),
+(1000,1,'Tuition',490000,'2025-08-15','System'),
+(1000,1,'Extra',60000,'2025-08-20','System'),
+(1000,1,'Transport',40000,'2025-08-25','System');
+
+-- Dummy Fee Invoices (some pending/partial)
+INSERT INTO Tx_FeeInvoices (SchoolID, AcademicYearID, StudentID, AmountDue, AmountPaid, Status, DueDate, CreatedBy) VALUES
+(1000,1,1,2500,2500,'Paid','2025-04-10','System'),
+(1000,1,2,2500,1500,'Partial','2025-04-10','System'),
+(1000,1,3,2500,0,'Pending','2025-04-10','System');

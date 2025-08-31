@@ -14,6 +14,8 @@ import { AvatarModule } from 'primeng/avatar';
 import { BadgeModule } from 'primeng/badge';
 import { ToastModule } from 'primeng/toast';
 import { RippleModule } from 'primeng/ripple';
+import { DashboardService } from '../../../../services/dashboard.service';
+import { HttpClientModule } from '@angular/common/http';
 
 @Component({
   selector: 'app-school-admin-dashboard',
@@ -30,47 +32,30 @@ import { RippleModule } from 'primeng/ripple';
     AvatarModule,
     BadgeModule,
     ToastModule,
-    RippleModule
+  RippleModule,
+  HttpClientModule
   ],
   templateUrl: './school-admin-dashboard.html',
   styleUrl: './school-admin-dashboard.scss'
 })
 export class SchoolAdminDashboard implements OnInit {
+  loading = false;
+  loadError: string | null = null;
 
   // Dashboard Statistics
-  dashboardStats = {
-    totalStudents: 1247,
-    totalTeachers: 85,
-    totalStaff: 32,
-    totalClasses: 42,
-    averageAttendance: 94.5,
-    pendingFees: 125000,
-    upcomingEvents: 8,
-    totalRevenue: 2850000
+  dashboardStats: any = {
+    totalStudents: 0,
+    totalTeachers: 0,
+    totalStaff: 0,
+    totalClasses: 0,
+    averageAttendance: 0,
+    pendingFees: 0,
+    upcomingEvents: 0,
+    totalRevenue: 0
   };
 
   // Student Enrollment Chart
-  enrollmentChartData: ChartConfiguration<'line'>['data'] = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-    datasets: [
-      {
-        label: '2024',
-        data: [1050, 1080, 1120, 1150, 1180, 1200, 1220, 1247, 1245, 1250, 1260, 1270],
-        borderColor: '#3b82f6',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        tension: 0.4,
-        fill: true
-      },
-      {
-        label: '2023',
-        data: [980, 1010, 1040, 1070, 1100, 1130, 1160, 1190, 1210, 1230, 1240, 1250],
-        borderColor: '#10b981',
-        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-        tension: 0.4,
-        fill: true
-      }
-    ]
-  };
+  enrollmentChartData: ChartConfiguration<'line'>['data'] = { labels: [], datasets: [] };
 
   enrollmentChartOptions: ChartOptions<'line'> = {
     responsive: true,
@@ -121,26 +106,7 @@ export class SchoolAdminDashboard implements OnInit {
   };
 
   // Grade Distribution Chart
-  gradeChartData: ChartConfiguration<'bar'>['data'] = {
-    labels: ['A+', 'A', 'B+', 'B', 'C+', 'C', 'D', 'F'],
-    datasets: [
-      {
-        label: 'Students',
-        data: [145, 234, 189, 156, 123, 98, 45, 23],
-        backgroundColor: [
-          '#10b981',
-          '#34d399',
-          '#60a5fa',
-          '#3b82f6',
-          '#a78bfa',
-          '#8b5cf6',
-          '#f59e0b',
-          '#ef4444'
-        ],
-        borderRadius: 4
-      }
-    ]
-  };
+  gradeChartData: ChartConfiguration<'bar'>['data'] = { labels: [], datasets: [] };
 
   gradeChartOptions: ChartOptions<'bar'> = {
     responsive: true,
@@ -162,26 +128,7 @@ export class SchoolAdminDashboard implements OnInit {
   };
 
   // Revenue Chart
-  revenueChartData: ChartConfiguration<'bar'>['data'] = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      {
-        label: 'Tuition Fees',
-        data: [450000, 465000, 470000, 480000, 485000, 490000],
-        backgroundColor: '#3b82f6'
-      },
-      {
-        label: 'Extra Activities',
-        data: [45000, 48000, 52000, 55000, 58000, 60000],
-        backgroundColor: '#10b981'
-      },
-      {
-        label: 'Transportation',
-        data: [35000, 36000, 37000, 38000, 39000, 40000],
-        backgroundColor: '#f59e0b'
-      }
-    ]
-  };
+  revenueChartData: ChartConfiguration<'bar'>['data'] = { labels: [], datasets: [] };
 
   revenueChartOptions: ChartOptions<'bar'> = {
     responsive: true,
@@ -315,48 +262,7 @@ export class SchoolAdminDashboard implements OnInit {
   ];
 
   // Top Performing Classes
-  topClasses = [
-    {
-      className: 'Grade 12-A',
-      teacher: 'Dr. Smith Johnson',
-      students: 32,
-      averageGrade: 92.5,
-      attendance: 97.8,
-      rank: 1
-    },
-    {
-      className: 'Grade 11-B',
-      teacher: 'Prof. Emily Davis',
-      students: 30,
-      averageGrade: 89.3,
-      attendance: 95.2,
-      rank: 2
-    },
-    {
-      className: 'Grade 10-A',
-      teacher: 'Mr. Michael Brown',
-      students: 28,
-      averageGrade: 87.8,
-      attendance: 94.5,
-      rank: 3
-    },
-    {
-      className: 'Grade 12-B',
-      teacher: 'Ms. Sarah Wilson',
-      students: 31,
-      averageGrade: 86.2,
-      attendance: 93.7,
-      rank: 4
-    },
-    {
-      className: 'Grade 9-A',
-      teacher: 'Dr. Robert Lee',
-      students: 29,
-      averageGrade: 85.1,
-      attendance: 92.8,
-      rank: 5
-    }
-  ];
+  topClasses: Array<any> = [];
 
   // Upcoming Events
   upcomingEvents = [
@@ -438,9 +344,60 @@ export class SchoolAdminDashboard implements OnInit {
     }
   ];
 
+  constructor(public dashboardApi: DashboardService) {}
+
   ngOnInit() {
-    // Initialize any additional data or API calls here
-    console.log('School Admin Dashboard initialized with dummy data');
+    this.loadFromApi();
+  }
+
+  loadFromApi() {
+    this.loading = true;
+    this.loadError = null;
+    this.dashboardApi.getSummary().subscribe({
+      next: (res: any) => {
+        if (res.success && res.data) {
+          this.dashboardStats = { ...this.dashboardStats, ...res.data.stats };
+
+            // Attendance doughnut
+            if (res.data.charts?.attendanceOverview) {
+              this.attendanceChartData = res.data.charts.attendanceOverview as any;
+            }
+
+            // Class attendance (horizontal stacked)
+            if (res.data.charts?.classAttendance) {
+              const ca = res.data.charts.classAttendance;
+              this.classAttendanceChartData = { labels: ca.labels, datasets: ca.datasets } as any;
+            }
+
+            // Enrollment trend
+            if (res.data.charts?.enrollmentTrend) {
+              this.enrollmentChartData = res.data.charts.enrollmentTrend as any;
+            }
+
+            if (res.data.charts?.gradeDistribution) {
+              this.gradeChartData = res.data.charts.gradeDistribution as any;
+            }
+            if (res.data.charts?.revenue) {
+              this.revenueChartData = res.data.charts.revenue as any;
+            }
+            // recent activities and top classes
+            if (res.data.recentActivities) {
+              this.recentActivities = res.data.recentActivities;
+            }
+            if (res.data.topClasses) {
+              // attach rank
+              this.topClasses = (res.data.topClasses as any[]).map((c, idx) => ({ ...c, rank: idx + 1 }));
+            }
+        } else {
+          this.loadError = res.message || 'Unknown error';
+        }
+        this.loading = false;
+      },
+  error: (err: any) => {
+        this.loadError = err?.message || 'Failed to load dashboard';
+        this.loading = false;
+      }
+    });
   }
 
   getInitials(name: string): string {

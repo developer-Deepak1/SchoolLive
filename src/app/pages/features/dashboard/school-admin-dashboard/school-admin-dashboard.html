@@ -18,6 +18,13 @@
           icon="pi pi-download" 
           size="small">
         </p-button>
+        <p-button
+          label="Refresh"
+          icon="pi pi-refresh"
+          (click)="dashboardApi.refreshNow(); loadFromApi()"
+          size="small"
+          severity="info">
+        </p-button>
       </div>
     </div>
   </div>
@@ -56,14 +63,14 @@
 
     <div>
       <p-card styleClass="h-full">
-        <div class="flex justify-between items-center">
+    <div class="flex justify-between items-center">
           <div>
-            <div class="text-2xl font-bold text-purple-500 mb-2">{{dashboardStats.averageAttendance}}%</div>
+      <div class="text-2xl font-bold text-purple-500 mb-2">{{dashboardStats?.averageAttendance || 0 | number:'1.0-2'}}%</div>
             <div class="text-gray-500 mb-1">Avg Attendance</div>
             <div class="text-xs font-medium text-green-600">+0.8% this week</div>
           </div>
           <div class="bg-purple-100 rounded-full p-3">
-            <i class="pi pi-calendar-check text-purple-500 text-xl"></i>
+            <i class="pi pi-calendar text-purple-500 text-xl"></i>
           </div>
         </div>
       </p-card>
@@ -87,6 +94,27 @@
 
   <!-- Charts Section -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Class-wise Present Students Today -->
+    <div class="lg:col-span-2">
+      <p-card header="Today's Present Students (Class-wise)">
+        <div class="h-[380px] relative">
+          <div *ngIf="loading" class="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
+            <span class="text-sm text-gray-600">Loading...</span>
+          </div>
+          <div *ngIf="loadError && !loading" class="absolute inset-0 flex flex-col items-center justify-center bg-red-50 text-red-600 z-10">
+            <p class="m-0 text-sm font-medium">{{loadError}}</p>
+            <button pButton label="Retry" size="small" class="mt-2" (click)="loadFromApi()"></button>
+          </div>
+          <canvas
+            baseChart
+            [data]="classAttendanceChartData"
+            [options]="classAttendanceChartOptions"
+            type="bar">
+          </canvas>
+        </div>
+      </p-card>
+    </div>
+
     <div>
       <p-card header="Student Enrollment Trend">
         <div class="h-[300px] relative">
@@ -139,19 +167,6 @@
       </p-card>
     </div>
 
-    <!-- Class-wise Present Students Today -->
-    <div class="lg:col-span-2">
-      <p-card header="Today's Present Students (Class-wise)">
-        <div class="h-[380px] relative">
-          <canvas
-            baseChart
-            [data]="classAttendanceChartData"
-            [options]="classAttendanceChartOptions"
-            type="bar">
-          </canvas>
-        </div>
-      </p-card>
-    </div>
   </div>
 
   <!-- Recent Activities & Events -->
