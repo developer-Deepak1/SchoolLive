@@ -1,1 +1,71 @@
-<p>student-admission works!</p>
+<p-toast />
+<div class="grid gap-4 md:grid-cols-2">
+	<p-card header="Student Admission" class="col-span-2">
+		<form [formGroup]="form" class="grid gap-4 md:grid-cols-3" (ngSubmit)="submit()">
+			<div class="field">
+				<label class="block mb-2 font-medium">First Name *</label>
+				<input pInputText formControlName="FirstName" placeholder="First name" />
+				<small class="text-red-500" *ngIf="fieldInvalid('FirstName')">Required (min 2 chars)</small>
+			</div>
+			<div class="field">
+				<label class="block mb-2 font-medium">Middle Name</label>
+				<input pInputText formControlName="MiddleName" placeholder="Middle name" />
+			</div>
+			<div class="field">
+				<label class="block mb-2 font-medium">Last Name</label>
+				<input pInputText formControlName="LastName" placeholder="Last name" />
+			</div>
+			<div class="field">
+				<label class="block mb-2 font-medium">Gender *</label>
+				<p-select formControlName="Gender" [options]="genders" optionLabel="label" optionValue="value" appendTo="body" />
+			</div>
+					<div class="field">
+						<label class="block mb-2 font-medium">Date of Birth *</label>
+						<p-datepicker formControlName="DOB" dateFormat="yy-mm-dd" [showIcon]="true" class="w-full"></p-datepicker>
+						<small class="text-red-500" *ngIf="fieldInvalid('DOB')">Required</small>
+					</div>
+					<div class="field">
+						<label class="block mb-2 font-medium">Class *</label>
+						<p-select formControlName="ClassID" [options]="classOptions" optionLabel="label" optionValue="value" appendTo="body" (onChange)="onClassChange($event.value)" placeholder="Select Class" />
+						<small class="text-red-500" *ngIf="fieldInvalid('ClassID')">Required</small>
+					</div>
+					<div class="field">
+						<label class="block mb-2 font-medium">Section *</label>
+						<p-select formControlName="SectionID" [options]="sectionOptions" optionLabel="label" optionValue="value" appendTo="body" placeholder="Select Section" />
+						<small class="text-red-500" *ngIf="fieldInvalid('SectionID')">Required</small>
+					</div>
+					<div class="field">
+						<label class="block mb-2 font-medium">Admission Date</label>
+						<p-datepicker formControlName="AdmissionDate" dateFormat="yy-mm-dd" [showIcon]="true" class="w-full"></p-datepicker>
+					</div>
+			<div class="field">
+				<label class="block mb-2 font-medium">Father Name</label>
+				<input pInputText formControlName="FatherName" />
+			</div>
+			<div class="field">
+				<label class="block mb-2 font-medium">Father Contact</label>
+				<input pInputText formControlName="FatherContactNumber" />
+			</div>
+			<div class="field">
+				<label class="block mb-2 font-medium">Mother Name</label>
+				<input pInputText formControlName="MotherName" />
+			</div>
+			<div class="field">
+				<label class="block mb-2 font-medium">Mother Contact</label>
+				<input pInputText formControlName="MotherContactNumber" />
+			</div>
+			<div class="col-span-3 flex gap-3 pt-2">
+				<p-button label="Submit" icon="pi pi-check" [loading]="loading" type="submit" />
+				<p-button label="Reset" icon="pi pi-refresh" severity="secondary" type="button" (onClick)="resetForm()" />
+			</div>
+		</form>
+	</p-card>
+
+		<p-card header="Issued Credentials" *ngIf="issuedCredentials as creds">
+			<div class="space-y-2">
+				<p><strong>Username:</strong> {{creds.username}}</p>
+				<p><strong>Password:</strong> {{creds.password}}</p>
+				<p class="text-xs text-gray-500">Provide these to the student. They should change password at first login.</p>
+			</div>
+		</p-card>
+</div>

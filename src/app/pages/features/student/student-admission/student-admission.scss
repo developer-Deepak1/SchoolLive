@@ -1,0 +1,7 @@
+form .field input, form .field p-select, form .field p-calendar {
+	width: 100%;
+}
+
+@media (max-width: 640px) {
+	.grid { display: flex; flex-direction: column; }
+}

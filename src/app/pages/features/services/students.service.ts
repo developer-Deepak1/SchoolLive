@@ -10,6 +10,7 @@ export class StudentsService {
   private http = inject(HttpClient);
   private userService = inject(UserService);
   private baseUrl = `${environment.baseURL.replace(/\/+$/,'')}/api/students`;
+  private academicBase = `${environment.baseURL.replace(/\/+$/,'')}/api/academic`;
 
   getStudents(filters: { class_id?: number; section_id?: number; status?: string; search?: string } = {}): Observable<Student[]> {
     let params = new HttpParams();
@@ -29,5 +30,18 @@ export class StudentsService {
 
   deleteStudent(id: number): Observable<boolean> {
     return this.http.delete<any>(`${this.baseUrl}/${id}`).pipe(map(res => res?.success === true));
+  }
+
+  admitStudent(payload: any): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/admission`, payload).pipe(map(res => res));
+  }
+
+  getClasses(): Observable<any[]> {
+    return this.http.get<any>(`${this.academicBase}/getClasses`).pipe(map(res => res?.data || []));
+  }
+
+  getSections(classId: number): Observable<any[]> {
+    let params = new HttpParams().set('class_id', String(classId));
+    return this.http.get<any>(`${this.academicBase}/sections`, { params }).pipe(map(res => res?.data || []));
   }
 }
