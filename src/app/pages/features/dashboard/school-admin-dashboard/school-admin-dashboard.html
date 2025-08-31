@@ -1,1 +1,293 @@
-<p>school-admin-dashboard works!</p>
+<div class="p-6 space-y-8">
+  <!-- Header Section -->
+  <div>
+    <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+      <div>
+        <h1 class="text-3xl font-bold m-0 text-blue-600">School Admin Dashboard</h1>
+        <p class="text-gray-500 m-0 mt-2">Welcome back! Here's what's happening at your school today.</p>
+      </div>
+      <div class="flex flex-wrap gap-3">
+        <p-button 
+          label="Generate Report" 
+          icon="pi pi-file-pdf" 
+          severity="secondary" 
+          size="small">
+        </p-button>
+        <p-button 
+          label="Export Data" 
+          icon="pi pi-download" 
+          size="small">
+        </p-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Statistics Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div>
+      <p-card styleClass="h-full">
+        <div class="flex justify-between items-center">
+          <div>
+            <div class="text-2xl font-bold text-blue-500 mb-2">{{dashboardStats.totalStudents | number}}</div>
+            <div class="text-gray-500 mb-1">Total Students</div>
+            <div class="text-xs font-medium text-green-600">+3.2% from last month</div>
+          </div>
+          <div class="bg-blue-100 rounded-full p-3">
+            <i class="pi pi-users text-blue-500 text-xl"></i>
+          </div>
+        </div>
+      </p-card>
+    </div>
+
+    <div>
+      <p-card styleClass="h-full">
+        <div class="flex justify-between items-center">
+          <div>
+            <div class="text-2xl font-bold text-green-500 mb-2">{{dashboardStats.totalTeachers}}</div>
+            <div class="text-gray-500 mb-1">Total Teachers</div>
+            <div class="text-xs font-medium text-green-600">+2 new hires</div>
+          </div>
+          <div class="bg-green-100 rounded-full p-3">
+            <i class="pi pi-user-edit text-green-500 text-xl"></i>
+          </div>
+        </div>
+      </p-card>
+    </div>
+
+    <div>
+      <p-card styleClass="h-full">
+        <div class="flex justify-between items-center">
+          <div>
+            <div class="text-2xl font-bold text-purple-500 mb-2">{{dashboardStats.averageAttendance}}%</div>
+            <div class="text-gray-500 mb-1">Avg Attendance</div>
+            <div class="text-xs font-medium text-green-600">+0.8% this week</div>
+          </div>
+          <div class="bg-purple-100 rounded-full p-3">
+            <i class="pi pi-calendar-check text-purple-500 text-xl"></i>
+          </div>
+        </div>
+      </p-card>
+    </div>
+
+    <div>
+      <p-card styleClass="h-full">
+        <div class="flex justify-between items-center">
+          <div>
+            <div class="text-2xl font-bold text-orange-500 mb-2">${{(dashboardStats.totalRevenue / 1000000) | number:'1.1-1'}}M</div>
+            <div class="text-gray-500 mb-1">Total Revenue</div>
+            <div class="text-xs font-medium text-green-600">+5.4% this year</div>
+          </div>
+          <div class="bg-orange-100 rounded-full p-3">
+            <i class="pi pi-dollar text-orange-500 text-xl"></i>
+          </div>
+        </div>
+      </p-card>
+    </div>
+  </div>
+
+  <!-- Charts Section -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div>
+      <p-card header="Student Enrollment Trend">
+        <div class="h-[300px] relative">
+          <canvas 
+            baseChart
+            [data]="enrollmentChartData"
+            [options]="enrollmentChartOptions"
+            type="line">
+          </canvas>
+        </div>
+      </p-card>
+    </div>
+
+    <div>
+      <p-card header="Today's Attendance Overview">
+        <div class="h-[300px] relative">
+          <canvas 
+            baseChart
+            [data]="attendanceChartData"
+            [options]="attendanceChartOptions"
+            type="doughnut">
+          </canvas>
+        </div>
+      </p-card>
+    </div>
+
+    <div>
+      <p-card header="Grade Distribution">
+        <div class="h-[300px] relative">
+          <canvas 
+            baseChart
+            [data]="gradeChartData"
+            [options]="gradeChartOptions"
+            type="bar">
+          </canvas>
+        </div>
+      </p-card>
+    </div>
+
+    <div>
+      <p-card header="Monthly Revenue Breakdown">
+        <div class="h-[300px] relative">
+          <canvas 
+            baseChart
+            [data]="revenueChartData"
+            [options]="revenueChartOptions"
+            type="bar">
+          </canvas>
+        </div>
+      </p-card>
+    </div>
+
+    <!-- Class-wise Present Students Today -->
+    <div class="lg:col-span-2">
+      <p-card header="Today's Present Students (Class-wise)">
+        <div class="h-[380px] relative">
+          <canvas
+            baseChart
+            [data]="classAttendanceChartData"
+            [options]="classAttendanceChartOptions"
+            type="bar">
+          </canvas>
+        </div>
+      </p-card>
+    </div>
+  </div>
+
+  <!-- Recent Activities & Events -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2">
+      <p-card header="Recent Activities">
+        <div class="flex flex-col gap-3">
+          <div 
+            *ngFor="let activity of recentActivities" 
+            class="flex items-center p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors">
+            <div class="mr-3 shrink-0">
+              <i [class]="activity.icon + ' text-xl'" [ngClass]="{
+                'text-green-500': activity.severity === 'success',
+                'text-blue-500': activity.severity === 'info',
+                'text-yellow-500': activity.severity === 'warning',
+                'text-red-500': activity.severity === 'danger'
+              }"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="m-0 font-medium text-gray-800 truncate">{{activity.message}}</p>
+              <p class="m-0 text-xs text-gray-500 mt-1">{{activity.timestamp}}</p>
+            </div>
+            <p-tag 
+              [value]="activity.type" 
+              [severity]="getSeverity(activity.type)">
+            </p-tag>
+          </div>
+        </div>
+      </p-card>
+    </div>
+
+    <div>
+      <p-card header="Upcoming Events">
+        <div class="flex flex-col gap-3">
+          <div 
+            *ngFor="let event of upcomingEvents.slice(0, 4)" 
+            class="p-4 rounded-md border border-gray-200 bg-white shadow-sm hover:shadow transition-shadow">
+            <div class="flex justify-between items-start mb-3 gap-3">
+              <h4 class="m-0 font-semibold text-gray-800 text-sm leading-snug">{{event.title}}</h4>
+              <p-badge 
+                [value]="event.priority" 
+                [severity]="event.priority === 'high' ? 'danger' : event.priority === 'medium' ? 'warn' : 'success'">
+              </p-badge>
+            </div>
+            <div class="flex flex-col gap-1 text-xs text-gray-500">
+              <div class="flex items-center">
+                <i class="pi pi-calendar mr-2 text-gray-400"></i>
+                <span>{{event.date}}</span>
+              </div>
+              <div class="flex items-center">
+                <i class="pi pi-clock mr-2 text-gray-400"></i>
+                <span>{{event.time}}</span>
+              </div>
+              <div class="flex items-center">
+                <i class="pi pi-map-marker mr-2 text-gray-400"></i>
+                <span>{{event.location}}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </p-card>
+    </div>
+  </div>
+
+  <!-- Top Classes Table -->
+  <div class="mt-6">
+    <p-card header="Top Performing Classes">
+      <p-table [value]="topClasses" [paginator]="false">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Rank</th>
+            <th>Class</th>
+            <th>Teacher</th>
+            <th class="hidden md:table-cell">Students</th>
+            <th>Avg Grade</th>
+            <th class="hidden lg:table-cell">Attendance</th>
+            <th class="hidden md:table-cell">Performance</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-class>
+          <tr>
+            <td>
+              <p-badge 
+                [value]="class.rank" 
+                [severity]="class.rank <= 3 ? 'success' : 'info'">
+              </p-badge>
+            </td>
+            <td class="font-semibold">{{class.className}}</td>
+            <td class="min-w-[140px]">
+              <div class="flex items-center">
+                <p-avatar 
+                  [label]="getInitials(class.teacher)" 
+                  shape="circle" 
+                  styleClass="mr-2">
+                </p-avatar>
+                <span class="hidden sm:inline">{{class.teacher}}</span>
+                <span class="sm:hidden">{{class.teacher.split(' ')[0]}}</span>
+              </div>
+            </td>
+            <td class="hidden md:table-cell">{{class.students}}</td>
+            <td>
+              <span class="font-semibold text-green-500">{{class.averageGrade}}%</span>
+            </td>
+            <td class="hidden lg:table-cell">
+              <div class="flex items-center">
+                <p-progressBar 
+                  [value]="class.attendance" 
+                  [style]="{'width': '60px', 'height': '6px'}"
+                  styleClass="mr-2">
+                </p-progressBar>
+                <span class="text-sm">{{class.attendance}}%</span>
+              </div>
+            </td>
+            <td class="hidden md:table-cell">
+              <p-tag 
+                [value]="class.rank <= 3 ? 'Excellent' : 'Good'" 
+                [severity]="class.rank <= 3 ? 'success' : 'info'">
+              </p-tag>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </p-card>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="mt-6">
+    <p-card header="Quick Actions">
+      <div class="flex flex-wrap gap-3">
+        <p-button label="Add Student" icon="pi pi-user-plus" size="small" severity="success"></p-button>
+        <p-button label="Schedule Event" icon="pi pi-calendar-plus" size="small" severity="info"></p-button>
+        <p-button label="Generate Report" icon="pi pi-file-pdf" size="small" severity="warn"></p-button>
+        <p-button label="Send Alert" icon="pi pi-bell" size="small" severity="secondary"></p-button>
+        <p-button label="Manage Classes" icon="pi pi-objects-column" size="small"></p-button>
+        <p-button label="Fee Management" icon="pi pi-credit-card" size="small"></p-button>
+      </div>
+    </p-card>
+  </div>
+</div>
