@@ -123,6 +123,7 @@ export class AuthService {
 
     login(payload: { username?: string; email?: string; password?: string }) {
         const url = `${environment.baseURL}/api/auth/login`;
+        localStorage.clear();
         return this.http.post(url, payload);
     }
 
