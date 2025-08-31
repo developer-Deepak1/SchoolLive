@@ -44,4 +44,8 @@ export class StudentsService {
     let params = new HttpParams().set('class_id', String(classId));
     return this.http.get<any>(`${this.academicBase}/sections`, { params }).pipe(map(res => res?.data || []));
   }
+
+  getStudent(id: number): Observable<Student|null> {
+    return this.http.get<any>(`${this.baseUrl}/${id}`).pipe(map(res => res?.data || null));
+  }
 }

@@ -61,8 +61,10 @@
 				<input pInputText formControlName="MotherContactNumber" />
 			</div>
 			<div class="col-span-3 flex gap-3 pt-2">
-				<p-button label="Submit" icon="pi pi-check" [loading]="loading" type="submit" />
-				<p-button label="Reset" icon="pi pi-refresh" severity="secondary" type="button" (onClick)="resetForm()" />
+				<!-- Show 'Update' when editing -->
+				<p-button [label]="editingId ? 'Update' : 'Submit'" icon="pi pi-check" [loading]="loading" type="submit" />
+				<!-- When editing, Reset should restore loaded student data -->
+				<p-button [label]="editingId ? 'Reset to Loaded' : 'Reset'" icon="pi pi-refresh" severity="secondary" type="button" (onClick)="editingId ? restoreLoaded() : resetForm()" />
 			</div>
 		</form>
 	</p-card>

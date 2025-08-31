@@ -1,4 +1,5 @@
 import { Component, OnInit, ViewChild, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { Table, TableModule } from 'primeng/table';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
@@ -37,7 +38,7 @@ export class AllStudents implements OnInit {
 
   @ViewChild('dt') dt!: Table;
 
-  constructor(private fb: FormBuilder, private studentsService: StudentsService, private msg: MessageService, private confirm: ConfirmationService) {
+  constructor(private fb: FormBuilder, private studentsService: StudentsService, private msg: MessageService, private confirm: ConfirmationService, private router: Router) {
     this.initForm();
   }
 
@@ -70,8 +71,14 @@ export class AllStudents implements OnInit {
   }
 
   edit(stu: Student) {
-    this.form.patchValue(stu);
-    this.studentDialog = true;
+    // Navigate to the student admission page and pass the StudentID as a query param
+    if (stu && stu.StudentID) {
+      this.router.navigate(['/features/student-admission'], { queryParams: { id: stu.StudentID } });
+    } else {
+      // Fallback: open dialog for cases where no ID is present
+      this.form.patchValue(stu || {});
+      this.studentDialog = true;
+    }
   }
 
   save() {

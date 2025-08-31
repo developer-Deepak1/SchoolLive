@@ -88,7 +88,7 @@ class StudentModel extends Model {
     }
 
     public function updateStudent($id, $schoolId, $data) {
-        $allowed = ['StudentName','Gender','DOB','SectionID','FatherName','FatherContactNumber','MotherName','MotherContactNumber','Status','UpdatedBy'];
+        $allowed = ['StudentName','Gender','DOB','SectionID','FatherName','FatherContactNumber','MotherName','MotherContactNumber','AdmissionDate','Status','UpdatedBy'];
         $set = [];
         $params = [':id' => $id, ':school' => $schoolId];
         foreach ($allowed as $field) {

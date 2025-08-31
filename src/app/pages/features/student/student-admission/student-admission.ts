@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators, FormGroup } from '@angular/forms';
 import { InputTextModule } from 'primeng/inputtext';
@@ -24,6 +25,9 @@ export class StudentAdmission {
   form!: FormGroup;
   loading = false;
   issuedCredentials: { username: string; password: string } | null = null;
+  editingId: number | null = null;
+  // holds the originally loaded student data in edit mode so Reset restores it
+  originalData: any = null;
 
   classOptions: any[] = [];
   sectionOptions: any[] = [];
@@ -36,7 +40,7 @@ export class StudentAdmission {
     { label: 'Other', value: 'O' }
   ];
 
-  constructor(private fb: FormBuilder, private studentsService: StudentsService, private msg: MessageService, private academicYearService: AcademicYearService) {
+  constructor(private fb: FormBuilder, private studentsService: StudentsService, private msg: MessageService, private academicYearService: AcademicYearService, private route: ActivatedRoute, private router: Router) {
     this.form = this.fb.group({
       FirstName: ['', [Validators.required, Validators.minLength(2)]],
       MiddleName: [''],
@@ -54,6 +58,63 @@ export class StudentAdmission {
     });
     this.loadClasses();
     this.loadAcademicYears();
+    this.route.queryParams.subscribe(params => {
+      const id = params['id'];
+      if (id) {
+        const nid = Number(id);
+        if (!isNaN(nid)) this.loadForEdit(nid);
+      }
+    });
+  }
+
+  private loadForEdit(id: number) {
+    this.editingId = id;
+    this.studentsService.getStudent(id).subscribe({
+      next: (s: any) => {
+        if (!s) return;
+        // Map backend fields to form fields. Be defensive about property names.
+        // If backend provides a single StudentName, split into First/Middle/Last
+        let first = s.FirstName || s.first_name || '';
+        let middle = s.MiddleName || s.middle_name || '';
+        let last = s.LastName || s.last_name || '';
+        const full = s.StudentName || s.student_name || s.name || '';
+        if (full && !(first || middle || last)) {
+          const parts = full.trim().split(/\s+/);
+          if (parts.length === 1) {
+            first = parts[0];
+          } else if (parts.length === 2) {
+            first = parts[0];
+            last = parts[1];
+          } else if (parts.length >= 3) {
+            first = parts[0];
+            last = parts[parts.length - 1];
+            middle = parts.slice(1, parts.length - 1).join(' ');
+          }
+        }
+
+        this.form.patchValue({
+          FirstName: first,
+          MiddleName: middle,
+          LastName: last,
+          Gender: s.Gender || s.gender || '',
+          DOB: s.DOB ? new Date(s.DOB) : (s.dob ? new Date(s.dob) : null),
+          AcademicYearID: s.AcademicYearID || s.academic_year_id || null,
+          ClassID: s.ClassID || s.class_id || null,
+          SectionID: s.SectionID || s.section_id || null,
+          FatherName: s.FatherName || s.father_name || '',
+          FatherContactNumber: s.FatherContactNumber || s.father_contact_number || '',
+          MotherName: s.MotherName || s.mother_name || '',
+          MotherContactNumber: s.MotherContactNumber || s.mother_contact_number || '',
+          AdmissionDate: s.AdmissionDate ? new Date(s.AdmissionDate) : (s.admission_date ? new Date(s.admission_date) : new Date())
+        });
+  // keep a copy of loaded values so Reset can restore them
+  this.originalData = { ...this.form.value };
+        // If class is present, load sections for that class so SectionID select is populated
+        const classId = this.form.value.ClassID;
+        if (classId) this.onClassChange(classId);
+      },
+      error: () => this.msg.add({ severity: 'error', summary: 'Error', detail: 'Failed to load student' })
+    });
   }
 
   loadAcademicYears() {
@@ -73,8 +134,16 @@ export class StudentAdmission {
     this.sectionOptions = [];
     this.form.patchValue({ SectionID: null });
     if (!classId) return;
+    // if we're in edit mode and originalData has a SectionID, remember it
+    const preselectedSection = this.editingId && this.originalData ? (this.originalData.SectionID || this.originalData.section_id || null) : null;
     this.studentsService.getSections(classId).subscribe(sections => {
       this.sectionOptions = sections.map((s: any)=> ({ label: s.SectionName || s.section_name, value: s.SectionID || s.section_id }));
+      // restore the previously loaded section when editing
+      if (preselectedSection) {
+        // Only patch if the option exists in loaded sections
+        const found = this.sectionOptions.find(o => o.value === preselectedSection);
+        if (found) this.form.patchValue({ SectionID: preselectedSection });
+      }
     });
   }
 
@@ -86,14 +155,77 @@ export class StudentAdmission {
     this.loading = true;
   const payload = { ...this.form.value };
     // Format dates to yyyy-MM-dd
-  const toISO = (d: any) => d instanceof Date ? d.toISOString().substring(0,10) : d;
-  payload.DOB = toISO(payload.DOB);
-  payload.AdmissionDate = toISO(payload.AdmissionDate);
+  // Format dates as local yyyy-MM-dd to avoid timezone shifts (toISOString() uses UTC and may reduce the day)
+  const toLocalYMD = (d: any) => {
+    if (!d) return d;
+    let dt: Date;
+    if (d instanceof Date) dt = d;
+    else dt = new Date(d);
+    if (Number.isNaN(dt.getTime())) return d;
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const day = String(dt.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  payload.DOB = toLocalYMD(payload.DOB);
+  payload.AdmissionDate = toLocalYMD(payload.AdmissionDate);
+  // Some backend APIs accept snake_case fields; include both variants to be defensive
+  payload.dob = payload.DOB;
+  payload.admission_date = payload.AdmissionDate;
+  // Also include ISO timestamp (set to noon UTC to avoid timezone day-shift issues) and alternative keys
+  try {
+    const ad = payload.AdmissionDate;
+    if (ad) {
+      // ad is yyyy-MM-dd at this point
+      const [yy, mm, dd] = String(ad).split('-');
+      if (yy && mm && dd) {
+        const isoNoon = new Date(Date.UTC(Number(yy), Number(mm) - 1, Number(dd), 12, 0, 0)).toISOString();
+        payload.AdmissionDateISO = isoNoon;
+        payload.admission_date_iso = isoNoon;
+        // Some APIs use Admission_Date or admissionDate
+        payload.Admission_Date = payload.AdmissionDate;
+        payload.admissionDate = payload.AdmissionDate;
+      }
+    }
+  } catch (e) {
+    // ignore formatting errors
+  }
+  // Ensure backend receives a single StudentName (concat first/middle/last) as some APIs expect this
+  const parts = [this.form.value.FirstName, this.form.value.MiddleName, this.form.value.LastName].filter((p:any) => p && String(p).trim() !== '');
+  if (parts.length) {
+    payload.StudentName = parts.join(' ');
+  }
   // Move selected Class/Section IDs
   if (payload.ClassID) delete payload.ClassID; // backend expects SectionID only
-    this.studentsService.admitStudent(payload).subscribe({
+    const finish = () => { this.loading = false; };
+    if (this.editingId) {
+      // In edit mode, call updateStudent. Backend may expect different shape; try sending form values.
+      // For update calls, prefer sending StudentName rather than separate name fields if backend uses that.
+      delete payload.FirstName;
+      delete payload.MiddleName;
+      delete payload.LastName;
+      // debug
+      try { console.debug('updateStudent - sending payload', { id: this.editingId, payload }); } catch (e) {}
+      this.studentsService.updateStudent(this.editingId, payload).subscribe({
+        next: res => {
+          finish();
+          try { console.debug('updateStudent - response', res); } catch (e) {}
+          if (res) {
+            this.msg.add({ severity: 'success', summary: 'Updated', detail: 'Student updated successfully' });
+            // Give the toast a moment to render before navigating so user sees the message
+            try { setTimeout(() => this.router.navigate(['/features/all-students']), 200); } catch (e) { /* ignore navigation failures in tests */ }
+          } else {
+            this.msg.add({ severity: 'error', summary: 'Error', detail: 'Update failed' });
+          }
+        },
+        error: err => { finish(); try { console.debug('updateStudent - error', err); } catch (e) {} ; this.msg.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Update failed' }); }
+      });
+    } else {
+      try { console.debug('admitStudent - sending payload', payload); } catch (e) {}
+      this.studentsService.admitStudent(payload).subscribe({
       next: res => {
         this.loading = false;
+        try { console.debug('admitStudent - response', res); } catch (e) {}
         if (res?.success) {
           this.issuedCredentials = res.data?.credentials || null;
           this.msg.add({severity:'success', summary:'Admitted', detail:'Student admitted successfully'});
@@ -102,8 +234,9 @@ export class StudentAdmission {
           this.msg.add({severity:'error', summary:'Error', detail: res?.message || 'Failed'});
         }
       },
-      error: err => { this.loading = false; this.msg.add({severity:'error', summary:'Error', detail: err.error?.message || 'Request failed'}); }
+      error: err => { this.loading = false; try { console.debug('admitStudent - error', err); } catch (e) {} ; this.msg.add({severity:'error', summary:'Error', detail: err.error?.message || 'Request failed'}); }
     });
+    }
   }
 
   fieldInvalid(name: string) {
@@ -114,6 +247,22 @@ export class StudentAdmission {
   this.form.reset({ FirstName:'', MiddleName:'', LastName:'', Gender:'', AdmissionDate: new Date() });
     this.sectionOptions = [];
     this.issuedCredentials = null;
+  }
+
+  /**
+   * Restore the originally loaded student values when editing.
+   * If not in edit mode, behave like resetForm().
+   */
+  restoreLoaded() {
+    if (this.editingId && this.originalData) {
+      this.form.patchValue({ ...this.originalData });
+      // ensure section options are loaded for the current class
+      const classId = this.form.value.ClassID;
+      if (classId) this.onClassChange(classId);
+      this.issuedCredentials = null;
+    } else {
+      this.resetForm();
+    }
   }
 
 }
