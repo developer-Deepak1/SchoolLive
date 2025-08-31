@@ -96,85 +96,112 @@ class StudentController {
      * Generates username = schoolId + userId (after insert) and returns credentials (username/password same for first login).
      */
     public function admission($params = []) {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['success'=>false,'message'=>'Method not allowed']); return; }
-        $current = AuthMiddleware::getCurrentUser();
-        if (!$current) { http_response_code(401); echo json_encode(['success'=>false,'message'=>'Unauthorized']); return; }
-        $input = json_decode(file_get_contents('php://input'), true) ?? [];
-        $required = ['FirstName','Gender','DOB','SectionID'];
-        foreach ($required as $f) {
-            if (empty($input[$f])) { http_response_code(400); echo json_encode(['success'=>false,'message'=>"$f is required"]); return; }
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+            return;
         }
 
-        // Build composite student name
+        $current = AuthMiddleware::getCurrentUser();
+        if (!$current) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+            return;
+        }
+
+        $input = json_decode(file_get_contents('php://input'), true) ?? [];
+        $required = ['FirstName', 'Gender', 'DOB', 'SectionID'];
+        foreach ($required as $f) {
+            if (empty($input[$f])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => "$f is required"]);
+                return;
+            }
+        }
+
+        // Compose student name
         $nameParts = [];
-        foreach (['FirstName','MiddleName','LastName'] as $p) {
+        foreach (['FirstName', 'MiddleName', 'LastName'] as $p) {
             if (!empty($input[$p])) { $nameParts[] = trim($input[$p]); }
         }
         $studentName = trim(implode(' ', $nameParts));
         if ($studentName === '') { http_response_code(400); echo json_encode(['success'=>false,'message'=>'Valid name required']); return; }
 
+        $pdo = $this->students->getPdo();
         $schoolId = (int)$current['school_id'];
-        $academicYearId = $current['AcademicYearID'] ?? 1;
+        $academicYearId = $input['AcademicYearID'] ?? ($current['AcademicYearID'] ?? 1);
 
-        // Resolve student role id
-    $roleStmt = $this->students->getPdo()->prepare("SELECT RoleID FROM Tm_Roles WHERE RoleName='student' LIMIT 1");
-        $roleStmt->execute();
-        $roleRow = $roleStmt->fetch(PDO::FETCH_ASSOC);
-        if (!$roleRow) { http_response_code(500); echo json_encode(['success'=>false,'message'=>'Student role not configured']); return; }
-        $studentRoleId = (int)$roleRow['RoleID'];
+        try {
+            // begin transaction
+            $pdo->beginTransaction();
 
-    // Create bare user first (temporary username placeholder); we'll update username after we know UserID
-    $firstName = $input['FirstName'];
-    $middleName = $input['MiddleName'] ?? '';
-    $lastName = $input['LastName'] ?? '';
-        $rawPassword = $schoolId . 'Temp'; // initial simple password, will be replaced with final pattern if needed
-        $userData = [
-            'first_name' => $firstName,
-            'middle_name' => $middleName,
-            'last_name' => $lastName,
-            'username' => uniqid('stu_'), // provisional to avoid collision
-            'password' => $rawPassword,
-            'role_id' => $studentRoleId,
-            'school_id' => $schoolId,
-            'created_by' => $current['username'] ?? 'System'
-        ];
-        $userId = $this->users->createUser($userData);
-        if (!$userId) { http_response_code(500); echo json_encode(['success'=>false,'message'=>'Failed to create user']); return; }
+            // resolve numeric role id for 'student'
+            $roleStmt = $pdo->prepare("SELECT RoleID FROM Tm_Roles WHERE RoleName = :r LIMIT 1");
+            $roleStmt->execute([':r' => 'student']);
+            $roleRow = $roleStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$roleRow) { throw new \Exception('Student role not configured'); }
+            $studentRoleId = (int)$roleRow['RoleID'];
 
-        // Generate final username pattern schoolid+userid
-        $finalUsername = $schoolId . $userId; // concatenation as specified
-        // Update username (and set password again to match if required pattern means same password)
-    $update = $this->students->getPdo()->prepare("UPDATE Tx_Users SET Username=:u WHERE UserID=:id");
-        $update->execute([':u'=>$finalUsername, ':id'=>$userId]);
+            // create user with provisional username and password
+            $provisionalUsername = uniqid('stu_');
+            $provisionalPassword = bin2hex(random_bytes(4)); // short random temp password
 
-        // Student record
-        $studentData = [
-            'StudentName' => $studentName,
-            'Gender' => $input['Gender'],
-            'DOB' => $input['DOB'],
-            'SectionID' => $input['SectionID'],
-            'FatherName' => $input['FatherName'] ?? null,
-            'FatherContactNumber' => $input['FatherContactNumber'] ?? null,
-            'MotherName' => $input['MotherName'] ?? null,
-            'MotherContactNumber' => $input['MotherContactNumber'] ?? null,
-            'AdmissionDate' => $input['AdmissionDate'] ?? date('Y-m-d'),
-            'Status' => 'Active',
-            'SchoolID' => $schoolId,
-            'AcademicYearID' => $academicYearId,
-            'UserID' => $userId,
-            'CreatedBy' => $current['username'] ?? 'System'
-        ];
-        $studentId = $this->students->createStudent($studentData);
-        if (!$studentId) { http_response_code(500); echo json_encode(['success'=>false,'message'=>'Failed to create student']); return; }
-        $student = $this->students->getStudent($studentId, $schoolId);
+            $userData = [
+                'first_name' => $input['FirstName'],
+                'middle_name' => $input['MiddleName'] ?? null,
+                'last_name' => $input['LastName'] ?? null,
+                'username' => $provisionalUsername,
+                'password' => $provisionalPassword,
+                'role_id' => $studentRoleId,
+                'school_id' => $schoolId,
+                'created_by' => $current['username'] ?? 'System'
+            ];
 
-        echo json_encode(['success'=>true,'message'=>'Admission successful','data'=>[
-            'student'=>$student,
-            'credentials'=>[
-                'username'=>$finalUsername,
-                // Provide raw password suggestion: as per requirement "same password" meaning same as username
-                'password'=>$finalUsername
-            ]
-        ]]);
+            $userId = $this->users->createUser($userData);
+            if (!$userId) { throw new \Exception('Failed to create user'); }
+
+            // final credentials: username = schoolId + userId, password = same
+            $finalUsername = (string)$schoolId . (string)$userId;
+            $finalPasswordPlain = $finalUsername;
+            $finalPasswordHash = password_hash($finalPasswordPlain, PASSWORD_DEFAULT);
+
+            $upd = $pdo->prepare("UPDATE Tx_Users SET Username = :u, PasswordHash = :p, IsFirstLogin = 1 WHERE UserID = :id");
+            $upd->execute([':u' => $finalUsername, ':p' => $finalPasswordHash, ':id' => $userId]);
+
+            // create student record
+            $studentData = [
+                'StudentName' => $studentName,
+                'Gender' => $input['Gender'],
+                'DOB' => $input['DOB'],
+                'SectionID' => $input['SectionID'],
+                'FatherName' => $input['FatherName'] ?? null,
+                'FatherContactNumber' => $input['FatherContactNumber'] ?? null,
+                'MotherName' => $input['MotherName'] ?? null,
+                'MotherContactNumber' => $input['MotherContactNumber'] ?? null,
+                'AdmissionDate' => $input['AdmissionDate'] ?? date('Y-m-d'),
+                'Status' => 'Active',
+                'SchoolID' => $schoolId,
+                'AcademicYearID' => $academicYearId,
+                'UserID' => $userId,
+                'CreatedBy' => $current['username'] ?? 'System'
+            ];
+
+            $studentId = $this->students->createStudent($studentData);
+            if (!$studentId) { throw new \Exception('Failed to create student'); }
+
+            $pdo->commit();
+
+            $student = $this->students->getStudent($studentId, $schoolId);
+            echo json_encode(['success' => true, 'message' => 'Admission successful', 'data' => [
+                'student' => $student,
+                'credentials' => ['username' => $finalUsername, 'password' => $finalPasswordPlain]
+            ]]);
+            return;
+        } catch (\Exception $e) {
+            if ($pdo && $pdo->inTransaction()) { $pdo->rollBack(); }
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+            return;
+        }
     }
 }
