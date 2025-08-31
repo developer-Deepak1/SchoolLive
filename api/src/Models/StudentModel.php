@@ -7,12 +7,15 @@ class StudentModel extends Model {
     protected $table = 'Tx_Students';
 
     public function listStudents($schoolId, $academicYearId = null, $filters = []) {
-        $sql = "SELECT s.StudentID, s.StudentName, s.Gender, s.DOB, s.SectionID, s.UserID, s.FatherName, s.MotherName, s.AdmissionDate, s.Status,
-                       sec.SectionName, c.ClassName, c.ClassID
-                FROM Tx_Students s
-                LEFT JOIN Tx_Sections sec ON s.SectionID = sec.SectionID
-                LEFT JOIN Tx_Classes c ON sec.ClassID = c.ClassID
-                WHERE s.SchoolID = :school";
+    // Include Username from Tx_Users so UI can display it
+    $sql = "SELECT s.StudentID, s.StudentName, s.FirstName, s.MiddleName, s.LastName, s.ContactNumber, s.EmailID,
+               s.Gender, s.DOB, s.SectionID, s.UserID, s.FatherName, s.MotherName, s.AdmissionDate, s.Status,
+               sec.SectionName, c.ClassName, c.ClassID, u.Username
+        FROM Tx_Students s
+        LEFT JOIN Tx_Sections sec ON s.SectionID = sec.SectionID
+        LEFT JOIN Tx_Classes c ON sec.ClassID = c.ClassID
+        LEFT JOIN Tx_Users u ON s.UserID = u.UserID
+        WHERE s.SchoolID = :school";
         if ($academicYearId) {
             $sql .= " AND s.AcademicYearID = :ay";
         }
@@ -58,11 +61,13 @@ class StudentModel extends Model {
     }
 
     public function getStudent($id, $schoolId) {
-        $sql = "SELECT s.*, sec.SectionName, c.ClassName, c.ClassID
-                FROM Tx_Students s
-                LEFT JOIN Tx_Sections sec ON s.SectionID = sec.SectionID
-                LEFT JOIN Tx_Classes c ON sec.ClassID = c.ClassID
-                WHERE s.StudentID = :id AND s.SchoolID = :school LIMIT 1";
+    // Include Username for single student fetch
+    $sql = "SELECT s.*, sec.SectionName, c.ClassName, c.ClassID, u.Username
+        FROM Tx_Students s
+        LEFT JOIN Tx_Sections sec ON s.SectionID = sec.SectionID
+        LEFT JOIN Tx_Classes c ON sec.ClassID = c.ClassID
+        LEFT JOIN Tx_Users u ON s.UserID = u.UserID
+        WHERE s.StudentID = :id AND s.SchoolID = :school LIMIT 1";
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':id', $id, PDO::PARAM_INT);
         $stmt->bindValue(':school', $schoolId, PDO::PARAM_INT);
@@ -72,8 +77,21 @@ class StudentModel extends Model {
 
     public function createStudent($data) {
         $data['CreatedAt'] = date('Y-m-d H:i:s');
+        // Derive StudentName if not provided but First/Last present
+        if (empty($data['StudentName'])) {
+            $parts = [];
+            foreach (['FirstName','MiddleName','LastName'] as $n) { if (!empty($data[$n])) { $parts[] = trim($data[$n]); } }
+            if (!empty($parts)) { $data['StudentName'] = trim(implode(' ', $parts)); }
+        }
+        // Derive FirstName if missing but StudentName present (take first token)
+        if (empty($data['FirstName']) && !empty($data['StudentName'])) {
+            $tok = preg_split('/\s+/', trim($data['StudentName']));
+            if ($tok && isset($tok[0])) { $data['FirstName'] = $tok[0]; }
+        }
+        // Guarantee non-null FirstName (NOT NULL column) even if empty
+        if (!isset($data['FirstName']) || $data['FirstName'] === null) { $data['FirstName'] = ''; }
         $fields = [
-            'StudentName','Gender','DOB','SchoolID','SectionID','UserID','AcademicYearID','FatherName','FatherContactNumber','MotherName','MotherContactNumber','AdmissionDate','Status','CreatedAt','CreatedBy'
+            'StudentName','FirstName','MiddleName','LastName','ContactNumber','EmailID','Gender','DOB','SchoolID','SectionID','UserID','AcademicYearID','FatherName','FatherContactNumber','MotherName','MotherContactNumber','AdmissionDate','Status','CreatedAt','CreatedBy'
         ];
         $placeholders = array_map(fn($f) => ':' . $f, $fields);
         $sql = 'INSERT INTO Tx_Students (' . implode(',', $fields) . ') VALUES (' . implode(',', $placeholders) . ')';
@@ -88,7 +106,17 @@ class StudentModel extends Model {
     }
 
     public function updateStudent($id, $schoolId, $data) {
-        $allowed = ['StudentName','Gender','DOB','SectionID','FatherName','FatherContactNumber','MotherName','MotherContactNumber','AdmissionDate','Status','UpdatedBy'];
+        $allowed = ['StudentName','FirstName','MiddleName','LastName','ContactNumber','EmailID','Gender','DOB','SectionID','FatherName','FatherContactNumber','MotherName','MotherContactNumber','AdmissionDate','Status','UpdatedBy'];
+        // Auto-derive StudentName if not explicitly set but name parts are provided
+        $namePartsChanged = false;
+        foreach (['FirstName','MiddleName','LastName'] as $n) {
+            if (array_key_exists($n, $data)) { $namePartsChanged = true; break; }
+        }
+        if ($namePartsChanged && !array_key_exists('StudentName', $data)) {
+            $parts = [];
+            foreach (['FirstName','MiddleName','LastName'] as $n) { if (!empty($data[$n])) { $parts[] = trim($data[$n]); } }
+            if (!empty($parts)) { $data['StudentName'] = trim(implode(' ', $parts)); }
+        }
         $set = [];
         $params = [':id' => $id, ':school' => $schoolId];
         foreach ($allowed as $field) {

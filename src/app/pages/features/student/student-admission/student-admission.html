@@ -16,6 +16,15 @@
 				<input pInputText formControlName="LastName" placeholder="Last name" />
 			</div>
 			<div class="field">
+				<label class="block mb-2 font-medium">Contact Number</label>
+				<input pInputText formControlName="ContactNumber" placeholder="Student contact" />
+			</div>
+			<div class="field">
+				<label class="block mb-2 font-medium">Email</label>
+				<input pInputText formControlName="EmailID" placeholder="Email" />
+				<small class="text-red-500" [class.invisible]="!fieldInvalid('EmailID')" style="min-height:1rem;display:block">Invalid email</small>
+			</div>
+			<div class="field">
 				<label class="block mb-2 font-medium">Gender *</label>
 				<p-select formControlName="Gender" [options]="genders" optionLabel="label" optionValue="value" appendTo="body" />
 			</div>

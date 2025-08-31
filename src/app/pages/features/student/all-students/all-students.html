@@ -1,4 +1,4 @@
-<p-table #dt [value]="students()" dataKey="StudentID" [rows]="10" [paginator]="true" [rowsPerPageOptions]="[10,20,30]" [globalFilterFields]="['StudentName','ClassName','SectionName','FatherName','MotherName','DOB','AdmissionDate','Gender']" [tableStyle]="{'min-width':'85rem'}" [rowHover]="true" [showCurrentPageReport]="true" currentPageReportTemplate="Showing {first} to {last} of {totalRecords}">
+<p-table #dt [value]="students()" dataKey="StudentID" [rows]="10" [paginator]="true" [rowsPerPageOptions]="[10,20,30]" [globalFilterFields]="['Username','StudentName','ClassName','SectionName','FatherName','MotherName','DOB','AdmissionDate','Gender']" [tableStyle]="{'min-width':'90rem'}" [rowHover]="true" [showCurrentPageReport]="true" currentPageReportTemplate="Showing {first} to {last} of {totalRecords}">
 	<ng-template pTemplate="caption">
         <h3 class="m-0">All Students</h3>
 		<div class="flex items-center justify-between">
@@ -11,6 +11,10 @@
 	</ng-template>
 	<ng-template pTemplate="header">
 		<tr>
+			<th pSortableColumn="Username">
+				Username
+				<p-columnFilter field="Username" type="text" display="menu" />
+			</th>
 			<th pSortableColumn="StudentName">
 				Name
 			</th>
@@ -46,6 +50,7 @@
 	</ng-template>
 	<ng-template pTemplate="body" let-s>
 		<tr>
+			<td>{{s.Username || '-'}}</td>
 			<td>{{s.StudentName}}</td>
 			<td>{{s.Gender}}</td>
 			<td>{{s.ClassName}}</td>

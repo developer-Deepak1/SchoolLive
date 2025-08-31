@@ -1,5 +1,6 @@
 export interface Student {
   StudentID?: number;
+  Username?: string; // login username (from Tx_Users)
   StudentName: string;
   Gender: 'M' | 'F' | 'O';
   DOB: string; // ISO date

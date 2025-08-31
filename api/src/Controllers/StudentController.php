@@ -63,6 +63,19 @@ class StudentController extends BaseController {
         foreach ($required as $f) {
             if (empty($input[$f])) { $this->fail("$f is required",400); return; }
         }
+        // If name parts missing, attempt to split StudentName into First/Middle/Last
+        if (empty($input['FirstName']) && !empty($input['StudentName'])) {
+            $parts = preg_split('/\s+/', trim($input['StudentName']));
+            if ($parts) {
+                $input['FirstName'] = $parts[0];
+                if (count($parts) > 2) {
+                    $input['MiddleName'] = implode(' ', array_slice($parts,1,-1));
+                    $input['LastName'] = end($parts);
+                } elseif (count($parts) === 2) {
+                    $input['LastName'] = $parts[1];
+                }
+            }
+        }
         $input['SchoolID'] = $current['school_id'];
         $input['AcademicYearID'] = $current['AcademicYearID'] ?? 1;
         $input['UserID'] = $input['UserID'] ?? 0; // Could be created separately
@@ -171,6 +184,11 @@ class StudentController extends BaseController {
             // create student record
             $studentData = [
                 'StudentName' => $studentName,
+                'FirstName' => $input['FirstName'] ?? null,
+                'MiddleName' => $input['MiddleName'] ?? null,
+                'LastName' => $input['LastName'] ?? null,
+                'ContactNumber' => $input['ContactNumber'] ?? null,
+                'EmailID' => $input['EmailID'] ?? null,
                 'Gender' => $input['Gender'],
                 'DOB' => $input['DOB'],
                 'SectionID' => $input['SectionID'],

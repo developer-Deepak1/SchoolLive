@@ -45,6 +45,8 @@ export class StudentAdmission {
       FirstName: ['', [Validators.required, Validators.minLength(2)]],
       MiddleName: [''],
       LastName: [''],
+  ContactNumber: [''],
+  EmailID: ['', [Validators.email]],
       Gender: ['', Validators.required],
       DOB: [null, Validators.required],
       AcademicYearID: [null, Validators.required],
@@ -96,6 +98,8 @@ export class StudentAdmission {
           FirstName: first,
           MiddleName: middle,
           LastName: last,
+          ContactNumber: s.ContactNumber || s.contact_number || '',
+          EmailID: s.EmailID || s.email || s.email_id || '',
           Gender: s.Gender || s.gender || '',
           DOB: s.DOB ? new Date(s.DOB) : (s.dob ? new Date(s.dob) : null),
           AcademicYearID: s.AcademicYearID || s.academic_year_id || null,
@@ -200,10 +204,7 @@ export class StudentAdmission {
     const finish = () => { this.loading = false; };
     if (this.editingId) {
       // In edit mode, call updateStudent. Backend may expect different shape; try sending form values.
-      // For update calls, prefer sending StudentName rather than separate name fields if backend uses that.
-      delete payload.FirstName;
-      delete payload.MiddleName;
-      delete payload.LastName;
+  // For update we now keep First/Middle/Last plus ContactNumber, EmailID (backend supports them)
       // debug
       try { console.debug('updateStudent - sending payload', { id: this.editingId, payload }); } catch (e) {}
       this.studentsService.updateStudent(this.editingId, payload).subscribe({
@@ -229,7 +230,7 @@ export class StudentAdmission {
         if (res?.success) {
           this.issuedCredentials = res.data?.credentials || null;
           this.msg.add({severity:'success', summary:'Admitted', detail:'Student admitted successfully'});
-          this.form.reset({ FirstName:'', MiddleName:'', LastName:'', Gender:'', DOB: null, AcademicYearID: null, ClassID: null, SectionID: null, FatherName:'', FatherContactNumber:'', MotherName:'', MotherContactNumber:'', AdmissionDate: new Date() });
+          this.form.reset({ FirstName:'', MiddleName:'', LastName:'', ContactNumber:'', EmailID:'', Gender:'', DOB: null, AcademicYearID: null, ClassID: null, SectionID: null, FatherName:'', FatherContactNumber:'', MotherName:'', MotherContactNumber:'', AdmissionDate: new Date() });
         } else {
           this.msg.add({severity:'error', summary:'Error', detail: res?.message || 'Failed'});
         }
@@ -245,6 +246,8 @@ export class StudentAdmission {
 
   resetForm() {
   this.form.reset({ FirstName:'', MiddleName:'', LastName:'', Gender:'', AdmissionDate: new Date() });
+  // also clear new fields
+  this.form.patchValue({ ContactNumber:'', EmailID:'', DOB:null, AcademicYearID:null, ClassID:null, SectionID:null, FatherName:'', FatherContactNumber:'', MotherName:'', MotherContactNumber:'' });
     this.sectionOptions = [];
     this.issuedCredentials = null;
   }

@@ -159,7 +159,12 @@ CREATE TABLE Tx_Sections (
 
 CREATE TABLE Tx_Employees (
     EmployeeID BIGINT AUTO_INCREMENT PRIMARY KEY,
-    EmployeeName VARCHAR(300),
+    EmployeeName VARCHAR(300), -- legacy full name
+    FirstName VARCHAR(100) NOT NULL DEFAULT '',
+    MiddleName VARCHAR(100) NULL,
+    LastName VARCHAR(100) NULL,
+    ContactNumber VARCHAR(15) NULL, -- direct contact (was FatherContactNumber earlier for students, keeping both where relevant)
+    EmailID VARCHAR(100) NULL,
     UserID BIGINT NOT NULL,
     SchoolID INT NOT NULL,
     RoleID INT,
@@ -215,7 +220,12 @@ CREATE TABLE Tx_ClassTeachers (
 -- Create Students table
 CREATE TABLE Tx_Students (
     StudentID BIGINT PRIMARY KEY AUTO_INCREMENT,
-    StudentName VARCHAR(300),
+    StudentName VARCHAR(300), -- legacy full name
+    FirstName VARCHAR(100) NOT NULL DEFAULT '',
+    MiddleName VARCHAR(100) NULL,
+    LastName VARCHAR(100) NULL,
+    ContactNumber VARCHAR(15) NULL,
+    EmailID VARCHAR(100) NULL,
     Gender CHAR(1) CHECK (Gender IN ('M','F','O')),
     DOB DATE NOT NULL,
     SchoolID INT NOT NULL,  
