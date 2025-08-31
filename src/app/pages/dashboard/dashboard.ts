@@ -16,15 +16,12 @@ import { UserService } from '@/services/user.service';
     imports: [CommonModule,SchoolAdminDashboard, TeacherDashboard, StudentDashboard],
     template: `
         @if (userRoles === USER_ROLES.ROLE_SCHOOLADMIN){
-        <h1>deepak</h1>
         <app-school-admin-dashboard/>
         }
         @if (userRoles === USER_ROLES.ROLE_TEACHER){
-        <h1>Teacher Dashboard</h1>
         <app-teacher-dashboard/>
         }
         @if (userRoles === USER_ROLES.ROLE_STUDENT){
-        <h1>Student Dashboard</h1>
         <app-student-dashboard/>
         }
     `
