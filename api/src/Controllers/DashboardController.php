@@ -3,13 +3,14 @@ namespace SchoolLive\Controllers;
 
 use SchoolLive\Middleware\AuthMiddleware;
 use SchoolLive\Models\DashboardModel;
+use SchoolLive\Core\BaseController;
 
-class DashboardController {
+class DashboardController extends BaseController {
     private $model;
 
     public function __construct() {
-        $this->model = new DashboardModel();
-        header('Content-Type: application/json');
+    parent::__construct();
+    $this->model = new DashboardModel();
     }
 
     /**
@@ -17,12 +18,8 @@ class DashboardController {
      * Returns aggregated stats & minimal chart datasets for the dashboard.
      */
     public function summary($params = []) {
-        $user = AuthMiddleware::getCurrentUser();
-        if (!$user) {
-            http_response_code(401);
-            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-            return;
-        }
+    $user = AuthMiddleware::getCurrentUser();
+    if (!$user) { $this->fail('Unauthorized',401); return; }
 
         $schoolId = $user['school_id'];
         $academicYearId = $user['AcademicYearID'] ?? null; // may be null first login
@@ -32,10 +29,7 @@ class DashboardController {
             static $cache = [];
             $cacheKey = $schoolId . ':' . ($academicYearId ?? 'na');
             $now = time();
-            if (isset($cache[$cacheKey]) && $cache[$cacheKey]['expires'] > $now) {
-                echo json_encode($cache[$cacheKey]['payload']);
-                return;
-            }
+            if (isset($cache[$cacheKey]) && $cache[$cacheKey]['expires'] > $now) { echo json_encode($cache[$cacheKey]['payload']); return; }
 
             $stats = $this->model->getStats($schoolId, $academicYearId);
             $attendanceOverview = $this->model->getAttendanceOverviewToday($schoolId, $academicYearId);
@@ -71,11 +65,7 @@ class DashboardController {
             $cache[$cacheKey] = [ 'expires' => $now + 60, 'payload' => $response ];
             echo json_encode($response);
         } catch (\Throwable $e) {
-            http_response_code(500);
-            echo json_encode([
-                'success' => false,
-                'message' => 'Failed to load dashboard: ' . $e->getMessage()
-            ]);
+            $this->fail('Failed to load dashboard: ' . $e->getMessage(),500);
         }
     }
 }

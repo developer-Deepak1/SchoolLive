@@ -5,20 +5,21 @@ use SchoolLive\Models\StudentModel;
 use SchoolLive\Models\UserModel;
 use PDO;
 use SchoolLive\Middleware\AuthMiddleware;
+use SchoolLive\Core\BaseController;
 
-class StudentController {
+class StudentController extends BaseController {
     private StudentModel $students;
     private UserModel $users;
 
     public function __construct() {
+    parent::__construct();
     $this->students = new StudentModel();
     $this->users = new UserModel();
-        header('Content-Type: application/json');
     }
 
     public function list($params = []) {
         $current = AuthMiddleware::getCurrentUser();
-        if (!$current) { http_response_code(401); echo json_encode(['success'=>false,'message'=>'Unauthorized']); return; }
+    if (!$current) { $this->fail('Unauthorized',401); return; }
         $filters = [
             'class_id' => $_GET['class_id'] ?? null,
             'section_id' => $_GET['section_id'] ?? null,
@@ -27,24 +28,24 @@ class StudentController {
             'search' => $_GET['search'] ?? null
         ];
         $data = $this->students->listStudents($current['school_id'], $current['AcademicYearID'] ?? null, $filters);
-        echo json_encode(['success'=>true,'message'=>'Students retrieved','data'=>$data]);
+    $this->ok('Students retrieved', $data);
     }
 
     public function get($params = []) {
-        if (!isset($params['id'])) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'Student ID required']); return; }
+    if (!isset($params['id'])) { $this->fail('Student ID required',400); return; }
         $current = AuthMiddleware::getCurrentUser();
         $stu = $this->students->getStudent($params['id'], $current['school_id']);
-        if (!$stu) { http_response_code(404); echo json_encode(['success'=>false,'message'=>'Student not found']); return; }
-        echo json_encode(['success'=>true,'message'=>'Student retrieved','data'=>$stu]);
+    if (!$stu) { $this->fail('Student not found',404); return; }
+    $this->ok('Student retrieved', $stu);
     }
 
     public function create($params = []) {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(['success'=>false,'message'=>'Method not allowed']); return; }
+    if (!$this->requireMethod('POST')) return;
         $current = AuthMiddleware::getCurrentUser();
-        $input = json_decode(file_get_contents('php://input'), true) ?? [];
+    $input = $this->input();
         $required = ['StudentName','Gender','DOB','SectionID'];
         foreach ($required as $f) {
-            if (empty($input[$f])) { http_response_code(400); echo json_encode(['success'=>false,'message'=>"$f is required"]); return; }
+            if (empty($input[$f])) { $this->fail("$f is required",400); return; }
         }
         $input['SchoolID'] = $current['school_id'];
         $input['AcademicYearID'] = $current['AcademicYearID'] ?? 1;
@@ -55,37 +56,37 @@ class StudentController {
         $id = $this->students->createStudent($input);
         if ($id) {
             $stu = $this->students->getStudent($id, $current['school_id']);
-            echo json_encode(['success'=>true,'message'=>'Student created','data'=>$stu]);
+            $this->ok('Student created', $stu);
         } else {
-            http_response_code(500); echo json_encode(['success'=>false,'message'=>'Failed to create student']);
+            $this->fail('Failed to create student',500);
         }
     }
 
     public function update($params = []) {
-        if ($_SERVER['REQUEST_METHOD'] !== 'PUT') { http_response_code(405); echo json_encode(['success'=>false,'message'=>'Method not allowed']); return; }
-        if (!isset($params['id'])) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'Student ID required']); return; }
+        if (!$this->requireMethod('PUT')) return;
+        if (!isset($params['id'])) { $this->fail('Student ID required',400); return; }
         $current = AuthMiddleware::getCurrentUser();
-        $input = json_decode(file_get_contents('php://input'), true) ?? [];
+        $input = $this->input();
         $input['UpdatedBy'] = $current['username'] ?? 'System';
         $exists = $this->students->getStudent($params['id'], $current['school_id']);
-        if (!$exists) { http_response_code(404); echo json_encode(['success'=>false,'message'=>'Student not found']); return; }
+        if (!$exists) { $this->fail('Student not found',404); return; }
         if ($this->students->updateStudent($params['id'], $current['school_id'], $input)) {
             $stu = $this->students->getStudent($params['id'], $current['school_id']);
-            echo json_encode(['success'=>true,'message'=>'Student updated','data'=>$stu]);
+            $this->ok('Student updated', $stu);
         } else {
-            http_response_code(500); echo json_encode(['success'=>false,'message'=>'Failed to update student']);
+            $this->fail('Failed to update student',500);
         }
     }
 
     public function delete($params = []) {
-        if ($_SERVER['REQUEST_METHOD'] !== 'DELETE') { http_response_code(405); echo json_encode(['success'=>false,'message'=>'Method not allowed']); return; }
-        if (!isset($params['id'])) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'Student ID required']); return; }
+        if (!$this->requireMethod('DELETE')) return;
+        if (!isset($params['id'])) { $this->fail('Student ID required',400); return; }
         $current = AuthMiddleware::getCurrentUser();
         $exists = $this->students->getStudent($params['id'], $current['school_id']);
-        if (!$exists) { http_response_code(404); echo json_encode(['success'=>false,'message'=>'Student not found']); return; }
+        if (!$exists) { $this->fail('Student not found',404); return; }
         if ($this->students->deleteStudent($params['id'], $current['school_id'])) {
-            echo json_encode(['success'=>true,'message'=>'Student deleted']);
-        } else { http_response_code(500); echo json_encode(['success'=>false,'message'=>'Failed to delete student']); }
+            $this->ok('Student deleted');
+        } else { $this->fail('Failed to delete student',500); }
     }
 
     /**
@@ -96,27 +97,14 @@ class StudentController {
      * Generates username = schoolId + userId (after insert) and returns credentials (username/password same for first login).
      */
     public function admission($params = []) {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            echo json_encode(['success' => false, 'message' => 'Method not allowed']);
-            return;
-        }
+    if (!$this->requireMethod('POST')) return;
 
         $current = AuthMiddleware::getCurrentUser();
-        if (!$current) {
-            http_response_code(401);
-            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-            return;
-        }
-
-        $input = json_decode(file_get_contents('php://input'), true) ?? [];
+    if (!$current) { $this->fail('Unauthorized',401); return; }
+    $input = $this->input();
         $required = ['FirstName', 'Gender', 'DOB', 'SectionID'];
         foreach ($required as $f) {
-            if (empty($input[$f])) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'message' => "$f is required"]);
-                return;
-            }
+            if (empty($input[$f])) { $this->fail("$f is required",400); return; }
         }
 
         // Compose student name
@@ -125,7 +113,7 @@ class StudentController {
             if (!empty($input[$p])) { $nameParts[] = trim($input[$p]); }
         }
         $studentName = trim(implode(' ', $nameParts));
-        if ($studentName === '') { http_response_code(400); echo json_encode(['success'=>false,'message'=>'Valid name required']); return; }
+    if ($studentName === '') { $this->fail('Valid name required',400); return; }
 
         $pdo = $this->students->getPdo();
         $schoolId = (int)$current['school_id'];
@@ -192,15 +180,14 @@ class StudentController {
             $pdo->commit();
 
             $student = $this->students->getStudent($studentId, $schoolId);
-            echo json_encode(['success' => true, 'message' => 'Admission successful', 'data' => [
-                'student' => $student,
-                'credentials' => ['username' => $finalUsername, 'password' => $finalPasswordPlain]
-            ]]);
+                $this->ok('Admission successful', [
+                    'student' => $student,
+                    'credentials' => ['username' => $finalUsername, 'password' => $finalPasswordPlain]
+                ]);
             return;
         } catch (\Exception $e) {
             if ($pdo && $pdo->inTransaction()) { $pdo->rollBack(); }
-            http_response_code(500);
-            echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+            $this->fail('Server error: ' . $e->getMessage(),500);
             return;
         }
     }
