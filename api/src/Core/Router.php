@@ -36,6 +36,8 @@ class Router {
 
     // Dashboard summary (authenticated)
     $this->routes['GET']['/api/dashboard/summary'] = ['handler' => ['SchoolLive\Controllers\DashboardController', 'summary'], 'roles' => true];
+    // Student specific dashboard
+    $this->routes['GET']['/api/dashboard/student'] = ['handler' => ['SchoolLive\Controllers\StudentDashboardController', 'summary'], 'roles' => true];
 
     // Students routes
     $this->routes['GET']['/api/students'] = ['handler' => ['SchoolLive\Controllers\StudentController', 'list'], 'roles' => true];

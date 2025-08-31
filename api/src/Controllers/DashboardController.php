@@ -33,6 +33,7 @@ class DashboardController extends BaseController {
             $stats = $this->model->getStats($schoolId, $academicYearId);
             $attendanceOverview = $this->model->getAttendanceOverviewToday($schoolId, $academicYearId);
             $classAttendance = $this->model->getClassAttendanceToday($schoolId, $academicYearId);
+            $monthlyAttendance = $this->model->getMonthlyAttendance($schoolId, $academicYearId, 12);
             $enrollmentTrend = $this->model->getEnrollmentTrend($schoolId, $academicYearId);
             $gradeDistribution = $this->model->getGradeDistribution($schoolId, $academicYearId);
             $revenueBreakdown = $this->model->getRevenueBreakdown($schoolId, $academicYearId);
@@ -49,7 +50,8 @@ class DashboardController extends BaseController {
                         'gradeDistribution' => $gradeDistribution,
                         'revenue' => $revenueBreakdown,
                         'classAttendance' => $classAttendance,
-                        'classGender' => $classGender
+                        'classGender' => $classGender,
+                        'monthlyAttendance' => $monthlyAttendance
                     ],
                     // 'classGender' moved under charts to match frontend expectation
                     'recentActivities' => $recentActivities,

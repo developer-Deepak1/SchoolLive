@@ -214,6 +214,60 @@ class DashboardModel extends Model {
     }
 
     /**
+     * Monthly attendance percentages for last $months months (including current month).
+     * Percentage = (Present records / Total attendance records) * 100 per month.
+     */
+    public function getMonthlyAttendance(int $schoolId, ?int $academicYearId, int $months = 12): array {
+        if ($months < 1) { $months = 1; }
+        if ($months > 24) { $months = 24; }
+        $end = new DateTime('first day of this month');
+        $start = (clone $end)->modify('-' . ($months - 1) . ' months');
+
+        // Aggregate present and total per month in range
+        $sql = "SELECT DATE_FORMAT(Date,'%Y-%m') ym,
+                       SUM(CASE WHEN Status='Present' THEN 1 ELSE 0 END) AS present,
+                       COUNT(*) AS total
+                FROM Tx_Students_Attendance
+                WHERE SchoolID = :school AND Date >= :startDate" . ($academicYearId ? " AND AcademicYearID = :ay" : "") . "
+                GROUP BY ym";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindValue(':school', $schoolId, PDO::PARAM_INT);
+        $stmt->bindValue(':startDate', $start->format('Y-m-d'));
+        if ($academicYearId) $stmt->bindValue(':ay', $academicYearId, PDO::PARAM_INT);
+        try { $stmt->execute(); } catch (\Throwable $e) { return ['labels'=>[],'datasets'=>[]]; }
+        $map = [];
+        while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $map[$r['ym']] = [ 'present' => (int)$r['present'], 'total' => (int)$r['total'] ];
+        }
+        $labels = [];
+        $data = [];
+        $cursor = clone $start;
+        while ($cursor <= $end) {
+            $ym = $cursor->format('Y-m');
+            $labels[] = $cursor->format('M');
+            if (isset($map[$ym]) && $map[$ym]['total'] > 0) {
+                $pct = ($map[$ym]['present'] / $map[$ym]['total']) * 100;
+                $data[] = round($pct, 2);
+            } else {
+                $data[] = 0;
+            }
+            $cursor->modify('+1 month');
+        }
+        return [
+            'labels' => $labels,
+            'datasets' => [[
+                'label' => 'Attendance %',
+                'data' => $data,
+                'borderColor' => '#10b981',
+                'backgroundColor' => 'rgba(16,185,129,0.15)',
+                'tension' => 0.35,
+                'fill' => true,
+                'pointRadius' => 3
+            ]]
+        ];
+    }
+
+    /**
      * Monthly enrollment trend (student cumulative counts by month based on AdmissionDate)
      */
     public function getEnrollmentTrend(int $schoolId, ?int $academicYearId, int $months = 12): array {

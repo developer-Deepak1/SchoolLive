@@ -14,7 +14,8 @@ export interface DashboardSummaryResponse {
       gradeDistribution: any;
       revenue: any;
       classAttendance: { labels: string[]; datasets: any[] };
-  classGender?: { labels: string[]; datasets: any[] };
+      classGender?: { labels: string[]; datasets: any[] };
+      monthlyAttendance?: { labels: string[]; datasets: any[] };
     };
     recentActivities: any[];
     topClasses: any[];

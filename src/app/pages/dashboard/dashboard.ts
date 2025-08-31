@@ -6,6 +6,7 @@ import { BestSellingWidget } from './components/bestsellingwidget';
 import { RevenueStreamWidget } from './components/revenuestreamwidget';
 import { USER_ROLES } from '@/pages/common/constant';
 import { SchoolAdminDashboard } from "../features/dashboard/school-admin-dashboard/school-admin-dashboard";
+import { SuperAdminDashboard } from "../features/dashboard/super-admin-dashboard/super-admin-dashboard";
 import { TeacherDashboard } from "../features/dashboard/teacher-dashboard/teacher-dashboard";
 import { StudentDashboard } from "../features/dashboard/student-dashboard/student-dashboard";
 import { CommonModule } from '@angular/common';
@@ -13,8 +14,11 @@ import { inject } from '@angular/core';
 import { UserService } from '@/services/user.service';
 @Component({
     selector: 'app-dashboard',
-    imports: [CommonModule,SchoolAdminDashboard, TeacherDashboard, StudentDashboard],
+    imports: [CommonModule, SuperAdminDashboard, SchoolAdminDashboard, TeacherDashboard, StudentDashboard],
     template: `
+        @if (userRoles === USER_ROLES.ROLE_SUPERADMIN){
+        <app-super-admin-dashboard/>
+        }
         @if (userRoles === USER_ROLES.ROLE_SCHOOLADMIN){
         <app-school-admin-dashboard/>
         }
