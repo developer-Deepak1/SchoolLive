@@ -10,6 +10,7 @@ import { CardModule } from 'primeng/card';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { StudentsService } from '../../services/students.service';
+import { AcademicYearService } from '../../services/academic-year.service';
 
 @Component({
   selector: 'app-student-admission',
@@ -27,6 +28,7 @@ export class StudentAdmission {
   classOptions: any[] = [];
   sectionOptions: any[] = [];
   filteredSectionOptions: any[] = [];
+  academicYearOptions: any[] = [];
 
   genders = [
     { label: 'Male', value: 'M' },
@@ -34,22 +36,31 @@ export class StudentAdmission {
     { label: 'Other', value: 'O' }
   ];
 
-  constructor(private fb: FormBuilder, private studentsService: StudentsService, private msg: MessageService) {
+  constructor(private fb: FormBuilder, private studentsService: StudentsService, private msg: MessageService, private academicYearService: AcademicYearService) {
     this.form = this.fb.group({
       FirstName: ['', [Validators.required, Validators.minLength(2)]],
       MiddleName: [''],
       LastName: [''],
-      Gender: ['M', Validators.required],
-  DOB: [null, Validators.required],
-  ClassID: [null, Validators.required],
-  SectionID: [null, Validators.required],
-      FatherName: [''],
+      Gender: ['', Validators.required],
+      DOB: [null, Validators.required],
+      AcademicYearID: [null, Validators.required],
+      ClassID: [null, Validators.required],
+      SectionID: [null, Validators.required],
+      FatherName: ['', Validators.required],
       FatherContactNumber: [''],
       MotherName: [''],
       MotherContactNumber: [''],
       AdmissionDate: [new Date()]
     });
     this.loadClasses();
+    this.loadAcademicYears();
+  }
+
+  loadAcademicYears() {
+    this.academicYearOptions = [];
+    this.academicYearService.getAcademicYears().subscribe((yrs: any[]) => {
+      this.academicYearOptions = yrs.map((y: any) => ({ label: y.AcademicYearName || y.name, value: y.AcademicYearID || y.id }));
+    });
   }
 
   loadClasses() {
@@ -86,7 +97,7 @@ export class StudentAdmission {
         if (res?.success) {
           this.issuedCredentials = res.data?.credentials || null;
           this.msg.add({severity:'success', summary:'Admitted', detail:'Student admitted successfully'});
-          this.form.reset({ FirstName:'', MiddleName:'', LastName:'', Gender:'M', AdmissionDate: new Date() });
+          this.form.reset({ FirstName:'', MiddleName:'', LastName:'', Gender:'', DOB: null, AcademicYearID: null, ClassID: null, SectionID: null, FatherName:'', FatherContactNumber:'', MotherName:'', MotherContactNumber:'', AdmissionDate: new Date() });
         } else {
           this.msg.add({severity:'error', summary:'Error', detail: res?.message || 'Failed'});
         }
@@ -100,7 +111,7 @@ export class StudentAdmission {
   }
 
   resetForm() {
-  this.form.reset({ FirstName:'', MiddleName:'', LastName:'', Gender:'M', AdmissionDate: new Date() });
+  this.form.reset({ FirstName:'', MiddleName:'', LastName:'', Gender:'', AdmissionDate: new Date() });
     this.sectionOptions = [];
     this.issuedCredentials = null;
   }

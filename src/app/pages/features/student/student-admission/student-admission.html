@@ -1,11 +1,11 @@
 <p-toast />
 <div class="grid gap-4 md:grid-cols-2">
 	<p-card header="Student Admission" class="col-span-2">
-		<form [formGroup]="form" class="grid gap-4 md:grid-cols-3" (ngSubmit)="submit()">
+		<form [formGroup]="form" class="grid gap-4 md:grid-cols-3 pt-4" (ngSubmit)="submit()">
 			<div class="field">
-				<label class="block mb-2 font-medium">First Name *</label>
+				<label class="block mb-2 font-medium">First Name <span class="text-red-500 ml-1">*</span></label>
 				<input pInputText formControlName="FirstName" placeholder="First name" />
-				<small class="text-red-500" *ngIf="fieldInvalid('FirstName')">Required (min 2 chars)</small>
+				<small class="text-red-500" [class.invisible]="!fieldInvalid('FirstName')" style="min-height:1rem;display:block">Required (min 2 chars)</small>
 			</div>
 			<div class="field">
 				<label class="block mb-2 font-medium">Middle Name</label>
@@ -22,25 +22,31 @@
 					<div class="field">
 						<label class="block mb-2 font-medium">Date of Birth *</label>
 						<p-datepicker formControlName="DOB" dateFormat="yy-mm-dd" [showIcon]="true" class="w-full"></p-datepicker>
-						<small class="text-red-500" *ngIf="fieldInvalid('DOB')">Required</small>
+						<small class="text-red-500" [class.invisible]="!fieldInvalid('DOB')" style="min-height:1rem;display:block">Required</small>
+					</div>
+					<div class="field">
+						<label class="block mb-2 font-medium">Academic Year <span class="text-red-500 ml-1">*</span></label>
+						<p-select formControlName="AcademicYearID" [options]="academicYearOptions" optionLabel="label" optionValue="value" appendTo="body" placeholder="Select Year" />
+						<small class="text-red-500" [class.invisible]="!fieldInvalid('AcademicYearID')" style="min-height:1rem;display:block">Required</small>
 					</div>
 					<div class="field">
 						<label class="block mb-2 font-medium">Class *</label>
 						<p-select formControlName="ClassID" [options]="classOptions" optionLabel="label" optionValue="value" appendTo="body" (onChange)="onClassChange($event.value)" placeholder="Select Class" />
-						<small class="text-red-500" *ngIf="fieldInvalid('ClassID')">Required</small>
+						<small class="text-red-500" [class.invisible]="!fieldInvalid('ClassID')" style="min-height:1rem;display:block">Required</small>
 					</div>
 					<div class="field">
 						<label class="block mb-2 font-medium">Section *</label>
 						<p-select formControlName="SectionID" [options]="sectionOptions" optionLabel="label" optionValue="value" appendTo="body" placeholder="Select Section" />
-						<small class="text-red-500" *ngIf="fieldInvalid('SectionID')">Required</small>
+						<small class="text-red-500" [class.invisible]="!fieldInvalid('SectionID')" style="min-height:1rem;display:block">Required</small>
 					</div>
 					<div class="field">
 						<label class="block mb-2 font-medium">Admission Date</label>
 						<p-datepicker formControlName="AdmissionDate" dateFormat="yy-mm-dd" [showIcon]="true" class="w-full"></p-datepicker>
 					</div>
 			<div class="field">
-				<label class="block mb-2 font-medium">Father Name</label>
+				<label class="block mb-2 font-medium">Father Name <span class="text-red-500 ml-1">*</span></label>
 				<input pInputText formControlName="FatherName" />
+				<small class="text-red-500" [class.invisible]="!fieldInvalid('FatherName')" style="min-height:1rem;display:block">Required</small>
 			</div>
 			<div class="field">
 				<label class="block mb-2 font-medium">Father Contact</label>
