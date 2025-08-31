@@ -72,8 +72,7 @@ export class SchoolAdminDashboard implements OnInit {
     },
     scales: {
       y: {
-        beginAtZero: false,
-        min: 900
+        beginAtZero: true
       }
     }
   };
@@ -214,6 +213,23 @@ export class SchoolAdminDashboard implements OnInit {
         stacked: true,
         title: { display: true, text: 'Class' }
       }
+    }
+  };
+
+  // Class Gender Distribution Chart (stacked horizontal)
+  classGenderChartData: ChartConfiguration<'bar'>['data'] = { labels: [], datasets: [] };
+
+  classGenderChartOptions: ChartOptions<'bar'> = {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      title: { display: true, text: 'Student Count by Class and Gender' },
+      legend: { position: 'top' }
+    },
+    scales: {
+      x: { stacked: true, beginAtZero: true, title: { display: true, text: 'Students' } },
+      y: { stacked: true }
     }
   };
 
@@ -367,6 +383,11 @@ export class SchoolAdminDashboard implements OnInit {
             if (res.data.charts?.classAttendance) {
               const ca = res.data.charts.classAttendance;
               this.classAttendanceChartData = { labels: ca.labels, datasets: ca.datasets } as any;
+            }
+
+            if (res.data.charts?.classGender) {
+              const g = res.data.charts.classGender;
+              this.classGenderChartData = { labels: g.labels, datasets: g.datasets } as any;
             }
 
             // Enrollment trend

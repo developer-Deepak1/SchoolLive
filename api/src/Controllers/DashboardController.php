@@ -45,6 +45,7 @@ class DashboardController {
             $revenueBreakdown = $this->model->getRevenueBreakdown($schoolId, $academicYearId);
             $recentActivities = $this->model->getRecentActivities($schoolId, $academicYearId);
             $upcomingEvents = $this->model->getUpcomingEvents($schoolId, $academicYearId);
+            $classGender = $this->model->getClassGenderCounts($schoolId, $academicYearId);
             $topClasses = $this->model->getTopClasses($schoolId, $academicYearId, 5);
 
             $response = [
@@ -57,8 +58,10 @@ class DashboardController {
                         'enrollmentTrend' => $enrollmentTrend,
                         'gradeDistribution' => $gradeDistribution,
                         'revenue' => $revenueBreakdown,
-                        'classAttendance' => $classAttendance
+                        'classAttendance' => $classAttendance,
+                        'classGender' => $classGender
                     ],
+                    // 'classGender' moved under charts to match frontend expectation
                     'recentActivities' => $recentActivities,
                     'topClasses' => $topClasses,
                     'upcomingEvents' => $upcomingEvents,

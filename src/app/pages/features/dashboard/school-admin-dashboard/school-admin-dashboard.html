@@ -64,8 +64,8 @@
     <div>
       <p-card styleClass="h-full">
     <div class="flex justify-between items-center">
-          <div>
-      <div class="text-2xl font-bold text-purple-500 mb-2">{{dashboardStats?.averageAttendance || 0 | number:'1.0-2'}}%</div>
+      <div>
+      <div class="text-2xl font-bold text-purple-500 mb-2">{{ (dashboardStats?.averageAttendance || 0) | number:'1.0-2' }}%</div>
             <div class="text-gray-500 mb-1">Avg Attendance</div>
             <div class="text-xs font-medium text-green-600">+0.8% this week</div>
           </div>
@@ -77,10 +77,10 @@
     </div>
 
     <div>
-      <p-card styleClass="h-full">
+      <p-card styleClass="h-full">  
         <div class="flex justify-between items-center">
           <div>
-            <div class="text-2xl font-bold text-orange-500 mb-2">${{(dashboardStats.totalRevenue / 1000000) | number:'1.1-1'}}M</div>
+      <div class="text-2xl font-bold text-orange-500 mb-2">₹{{ (dashboardStats.totalRevenue / 1000000) | number:'1.1-1' }}M</div>
             <div class="text-gray-500 mb-1">Total Revenue</div>
             <div class="text-xs font-medium text-green-600">+5.4% this year</div>
           </div>
@@ -109,6 +109,19 @@
             baseChart
             [data]="classAttendanceChartData"
             [options]="classAttendanceChartOptions"
+            type="bar">
+          </canvas>
+        </div>
+      </p-card>
+    </div>
+     <!-- Class Gender Distribution (placed after class-wise attendance) -->
+    <div class="lg:col-span-2">
+      <p-card header="Students by Class & Gender">
+        <div class="h-[320px] relative">
+          <canvas
+            baseChart
+            [data]="classGenderChartData"
+            [options]="classGenderChartOptions"
             type="bar">
           </canvas>
         </div>
@@ -144,12 +157,20 @@
     <div>
       <p-card header="Grade Distribution">
         <div class="h-[300px] relative">
-          <canvas 
-            baseChart
-            [data]="gradeChartData"
-            [options]="gradeChartOptions"
-            type="bar">
-          </canvas>
+          <ng-container *ngIf="(gradeChartData?.labels?.length || 0) > 0; else noGradeData">
+            <canvas 
+              baseChart
+              [data]="gradeChartData"
+              [options]="gradeChartOptions"
+              type="bar">
+            </canvas>
+          </ng-container>
+          <ng-template #noGradeData>
+            <div class="h-full flex flex-col items-center justify-center text-gray-500">
+              <p class="mb-2">No grade distribution data available.</p>
+              <button pButton label="Refresh" size="small" (click)="dashboardApi.refreshNow(); loadFromApi()"></button>
+            </div>
+          </ng-template>
         </div>
       </p-card>
     </div>

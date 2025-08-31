@@ -188,7 +188,7 @@ class DashboardModel extends Model {
                       AND a.Date = :dt
                       " . ($academicYearId ? " AND a.AcademicYearID = :ay" : "") . "
                 WHERE s.SchoolID = :school" . ($academicYearId ? " AND s.AcademicYearID = :ay" : "") . "
-                GROUP BY c.ClassName
+                GROUP BY c.ClassID, c.ClassName
                 ORDER BY c.ClassName";
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':dt', $dateToUse);
@@ -269,10 +269,21 @@ class DashboardModel extends Model {
 
     /** Grade distribution chart (A+,A,B+,B,C+,C,D,F) derived from Tx_StudentGrades */
     public function getGradeDistribution(int $schoolId, ?int $academicYearId): array {
-        if (!$this->tableExists('Tx_StudentGrades')) {
-            return ['labels'=>[], 'datasets'=>[]];
-        }
         $gradeBuckets = ['A+','A','B+','B','C+','C','D','F'];
+        // If the grades table doesn't exist, return labeled buckets with zero counts
+        if (!$this->tableExists('Tx_StudentGrades')) {
+            return [
+                'labels' => $gradeBuckets,
+                'datasets' => [[
+                    'label' => 'Students',
+                    'data' => array_fill(0, count($gradeBuckets), 0),
+                    'backgroundColor' => [
+                        '#10b981','#34d399','#60a5fa','#3b82f6','#a78bfa','#8b5cf6','#f59e0b','#ef4444'
+                    ],
+                    'borderRadius' => 4
+                ]]
+            ];
+        }
         $placeholders = implode(',', array_fill(0, count($gradeBuckets), '?'));
         $sql = "SELECT g.GradeLetter, COUNT(*) cnt
                 FROM Tx_StudentGrades g
@@ -380,6 +391,52 @@ class DashboardModel extends Model {
             ];
         }
         return $rows;
+    }
+
+    /**
+     * Class-wise student count split by gender.
+     * Returns labels and datasets for Male/Female/Other
+     */
+    public function getClassGenderCounts(int $schoolId, ?int $academicYearId): array {
+    $sql = "SELECT c.ClassID, c.ClassName,
+               SUM(CASE WHEN s.Gender='M' THEN 1 ELSE 0 END) AS male,
+               SUM(CASE WHEN s.Gender='F' THEN 1 ELSE 0 END) AS female,
+               SUM(CASE WHEN s.Gender='O' THEN 1 ELSE 0 END) AS other
+        FROM Tx_Classes c
+                LEFT JOIN Tx_Sections sec ON sec.ClassID = c.ClassID
+                LEFT JOIN Tx_Students s ON s.SectionID = sec.SectionID AND s.SchoolID = c.SchoolID
+                WHERE c.SchoolID = :school" . ($academicYearId ? " AND c.AcademicYearID = :ay" : "") . "
+                GROUP BY c.ClassID, c.ClassName
+                ORDER BY c.ClassName";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindValue(':school', $schoolId, PDO::PARAM_INT);
+        if ($academicYearId) $stmt->bindValue(':ay', $academicYearId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $labels = [];
+        $male = [];
+        $female = [];
+        $other = [];
+        while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $label = trim($r['ClassName'] ?? '');
+            if ($label === '') {
+                $label = 'Class ' . ($r['ClassID'] ?? '');
+            }
+            $labels[] = $label;
+            $male[] = (int)$r['male'];
+            $female[] = (int)$r['female'];
+            $other[] = (int)$r['other'];
+        }
+
+        return [
+            'labels' => $labels,
+            'datasets' => [
+                ['label' => 'Male', 'data' => $male, 'backgroundColor' => '#3b82f6', 'stack' => 'gender'],
+                ['label' => 'Female', 'data' => $female, 'backgroundColor' => '#ec4899', 'stack' => 'gender'],
+                ['label' => 'Other', 'data' => $other, 'backgroundColor' => '#9ca3af', 'stack' => 'gender']
+            ]
+        ];
     }
 
     /**
