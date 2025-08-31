@@ -38,7 +38,27 @@ class AcademicModel extends Model {
 
     public function updateAcademicYear($id, $data) {
         $data['UpdatedAt'] = date('Y-m-d H:i:s');
-        return $this->update($id, $data);
+        
+        // Build the SET clause dynamically based on provided data
+        $allowedFields = ['AcademicYearName', 'StartDate', 'EndDate', 'Status', 'UpdatedAt', 'UpdatedBy'];
+        $setFields = [];
+        $params = [':id' => $id];
+        
+        foreach ($allowedFields as $field) {
+            if (isset($data[$field])) {
+                $setFields[] = $field . ' = :' . $field;
+                $params[':' . $field] = $data[$field];
+            }
+        }
+        
+        if (empty($setFields)) {
+            return false; // No fields to update
+        }
+        
+        $query = "UPDATE " . $this->table . " SET " . implode(', ', $setFields) . " WHERE AcademicYearID = :id";
+        
+        $stmt = $this->conn->prepare($query);
+        return $stmt->execute($params);
     }
 
     public function getAcademicYearById($id) {
@@ -100,7 +120,7 @@ class AcademicModel extends Model {
         return $stmt3->fetch();
     }
 
-    public function deleteAcademicYear($id) {
+    public function deleteAcademicYear($id, $schoolId) {
         // First check if the academic year exists and get its status
         $query = "SELECT AcademicYearID, Status FROM " . $this->table . " WHERE AcademicYearID = :id LIMIT 1";
         $stmt = $this->conn->prepare($query);
@@ -112,8 +132,10 @@ class AcademicModel extends Model {
             return ['success' => false, 'message' => 'Academic year not found'];
         }
 
+        $currentacademicYear = $this->getCurrentAcademicYear($schoolId);
+        
         // Check if the academic year is active - prevent deletion
-        if (strtolower($academicYear['Status']) === 'active') {
+        if (strtolower($academicYear['Status']) === 'active' && $academicYear['AcademicYearID'] == $currentacademicYear['AcademicYearID']) {
             return ['success' => false, 'message' => 'Cannot delete active academic year. Please change status first.'];
         }
 

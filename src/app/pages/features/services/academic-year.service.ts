@@ -48,7 +48,7 @@ export class AcademicYearService {
   // Helper method to get raw response for update (useful for error handling)
   updateAcademicYearResponse(year: AcademicYear): Observable<AcademicYearResponse> {
     const payload = this.toApiPayload(year);
-    return this.http.put<AcademicYearResponse>(`${this.baseUrl}/academicYears/${year.AcademicYearID}`, payload);
+    return this.http.put<AcademicYearResponse>(`${this.baseUrl}/UpdateAcademicYears/${year.AcademicYearID}`, payload);
   }
 
   // Helper method to get raw response for delete (useful for error handling)

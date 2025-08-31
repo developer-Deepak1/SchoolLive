@@ -46,7 +46,7 @@ class AcademicController {
         // Validate dates
         if (strtotime($input['StartDate']) >= strtotime($input['EndDate'])) {
             http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'End date must be after start date']);
+            echo json_encode(['success' => false, 'message' => 'End date must be after start date1']);
             return;
         }
 
@@ -65,9 +65,9 @@ class AcademicController {
             $input['Status'] = 'active';
         }
 
-        if (strtotime($input['StartDate']) >= strtotime($currentyear['EndDate'])) {
+        if (strtotime($input['StartDate']) > strtotime($currentyear['EndDate'])) {
             http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'End date must be after start date']);
+            echo json_encode(['success' => false, 'message' => 'End date must be after start date of current academic year']);
             return;
         }
 
@@ -101,8 +101,9 @@ class AcademicController {
             echo json_encode(['success' => false, 'message' => 'Academic Year ID is required']);
             return;
         }
+        $currentUser = AuthMiddleware::getCurrentUser();
 
-        $result = $this->academicModel->deleteAcademicYear($params['id']);
+        $result = $this->academicModel->deleteAcademicYear($params['id'],$currentUser['school_id']);
 
         if ($result['success']) {
             echo json_encode([
@@ -121,6 +122,65 @@ class AcademicController {
                 'success' => false,
                 'message' => $result['message']
             ]);
+        }
+    }
+
+    public function updateAcademicYear($params = []) {
+        if ($_SERVER['REQUEST_METHOD'] !== 'PUT') {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+            return;
+        }
+
+        if (!isset($params['id'])) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Academic Year ID is required']);
+            return;
+        }
+
+        $input = json_decode(file_get_contents('php://input'), true);
+
+        // Check if academic year exists
+        $existingYear = $this->academicModel->getAcademicYearById($params['id']);
+        if (!$existingYear) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Academic year not found']);
+            return;
+        }
+
+        // Validate dates if provided
+        if (isset($input['StartDate']) && isset($input['EndDate'])) {
+            if (strtotime($input['StartDate']) >= strtotime($input['EndDate'])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'End date must be after start date1']);
+                return;
+            }
+        }
+
+        $currentUser = AuthMiddleware::getCurrentUser();
+        
+        // Set UpdatedBy to current user
+        $input['UpdatedBy'] = $currentUser['username'];
+
+        $currentacademicYear = $this->academicModel->getCurrentAcademicYear($currentUser['school_id']);
+        if (isset($input['StartDate']) && $params['id'] != $currentacademicYear['AcademicYearID'] && strtotime($input['StartDate']) > strtotime($currentacademicYear['EndDate'])) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Start date must be before end date of current academic year']);
+            return;
+        }
+
+        $result = $this->academicModel->updateAcademicYear($params['id'], $input);
+
+        if ($result) {
+            $updatedYear = $this->academicModel->getAcademicYearById($params['id']);
+            echo json_encode([
+                'success' => true,
+                'message' => 'Academic year updated successfully',
+                'data' => $updatedYear
+            ]);
+        } else {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Failed to update academic year']);
         }
     }
 

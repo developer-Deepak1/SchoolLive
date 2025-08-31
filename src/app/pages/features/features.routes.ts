@@ -12,8 +12,11 @@ import { StudentAttandanceReports } from './reports/student-attandance-reports/s
 import { EmployeeAttandanceReports } from './reports/employee-attandance-reports/employee-attandance-reports';
 import { AcademicYears } from './academic-years/academic-years';
 import { AuthGuard } from '@/guards/auth.guard';
+import { SchoolAdminDashboard } from './dashboard/school-admin-dashboard/school-admin-dashboard';
 
 export default [
+    { path: '', component: SchoolAdminDashboard, canActivate: [AuthGuard] },
+    { path: 'dashboard', component: SchoolAdminDashboard, canActivate: [AuthGuard] },
     { path: 'profile-setting', component: ProfileSetting, canActivate: [AuthGuard] },
     { path: 'academic-years', component: AcademicYears, canActivate: [AuthGuard] },
     { path: 'add-edit-classes', component: AddEditClasses, canActivate: [AuthGuard] },

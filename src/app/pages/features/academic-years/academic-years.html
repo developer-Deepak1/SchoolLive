@@ -1,6 +1,6 @@
 <div class="mb-6 p-4 rounded-md bg-white">
   <h5 class="mt-0 mb-4 font-semibold">{{ editing ? 'Edit Academic Year' : 'Add Academic Year' }}</h5>
-  <form [formGroup]="yearForm" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
+  <form [formGroup]="yearForm" class="grid grid-cols-1 md:grid-cols-5 gap-4 items-start">
     <div>
       <label for="AcademicYearName" class="block font-bold mb-2">Year Name *</label>
       <input type="text" pInputText id="AcademicYearName" formControlName="AcademicYearName" class="w-full" />
@@ -16,10 +16,24 @@
       </div>
     </div>
     <div>
-      <label for="EndDate" class="block font-bold mb-2">End Date *</label>
-      <p-datepicker id="EndDate" formControlName="EndDate" dateFormat="yy-mm-dd" [showIcon]="true" [minDate]="startDateValue" [timeOnly]="false" [showTime]="false" class="w-full"></p-datepicker>
+      <label for="EndDate" class="block font-bold mb-2">
+        End Date *
+        <span class="text-sm font-normal text-gray-500" *ngIf="isEndDateDisabled">(Select Start Date first)</span>
+      </label>
+      <p-datepicker id="EndDate" formControlName="EndDate" dateFormat="yy-mm-dd" [showIcon]="true" [minDate]="startDateValue" [timeOnly]="false" [showTime]="false" [disabled]="isEndDateDisabled" class="w-full"></p-datepicker>
       <div class="h-5 mt-1">
-        <small class="text-red-500" *ngIf="isFieldInvalid('EndDate')">Required</small>
+        <small class="text-red-500" *ngIf="isFieldInvalid('EndDate') && !isEndDateDisabled">Required</small>
+        <small class="text-gray-500" *ngIf="isEndDateDisabled">Please select a start date first</small>
+      </div>
+    </div>
+    <div>
+      <label for="Status" class="block font-bold mb-2">
+        Status *
+        <span class="text-sm font-normal text-gray-500" *ngIf="isStatusDisabled">(Cannot change Active status)</span>
+      </label>
+      <p-select id="Status" formControlName="Status" [options]="statusOptions" optionLabel="label" optionValue="value" placeholder="Select Status" class="w-full" [disabled]="isStatusDisabled"></p-select>
+      <div class="h-5 mt-1">
+        <small class="text-red-500" *ngIf="isFieldInvalid('Status')">Required</small>
       </div>
     </div>
     <div class="flex flex-col justify-end">
@@ -36,7 +50,7 @@
   [value]="years()"
   [rows]="10"
   [paginator]="true"
-  [globalFilterFields]="['AcademicYearName','StartDate','EndDate']"
+  [globalFilterFields]="['AcademicYearName','StartDate','EndDate','Status']"
   dataKey="AcademicYearID"
   [tableStyle]="{ 'min-width': '60rem' }"
   currentPageReportTemplate="Showing {first} to {last} of {totalRecords} academic years"
@@ -69,7 +83,17 @@
       <td class="pl-4">{{year.AcademicYearName}}</td>
       <td>{{year.StartDate | date:'yyyy-MM-dd'}}</td>
       <td>{{year.EndDate   | date:'yyyy-MM-dd'}}</td>
-      <td>{{year.Status}}</td>
+      <td>
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+              [ngClass]="{
+                'bg-green-100 text-green-800': year.Status === 'Active',
+                'bg-gray-100 text-gray-800': year.Status === 'Inactive',
+                'bg-blue-100 text-blue-800': year.Status === 'Upcoming',
+                'bg-red-100 text-red-800': year.Status === 'End'
+              }">
+          {{year.Status}}
+        </span>
+      </td>
       <td>
         <p-button icon="pi pi-pencil" class="mr-2" [rounded]="true" [outlined]="true" (onClick)="editYear(year)" />
         <p-button icon="pi pi-trash" severity="danger" [rounded]="true" [outlined]="true" (onClick)="deleteYear(year)" />

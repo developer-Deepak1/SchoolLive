@@ -10,6 +10,7 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { InputIconModule } from 'primeng/inputicon';
 import { IconFieldModule } from 'primeng/iconfield';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { SelectModule } from 'primeng/select';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { AcademicYear, AcademicYearResponse } from '../model/academic-year.model';
 import { AcademicYearService } from '../services/academic-year.service';
@@ -30,8 +31,9 @@ interface Column { field: string; header: string; }
     InputTextModule,
     InputIconModule,
     IconFieldModule,
-  ConfirmDialogModule,
-  DatePickerModule
+    ConfirmDialogModule,
+    DatePickerModule,
+    SelectModule
   ],
   templateUrl: './academic-years.html',
   styleUrl: './academic-years.scss',
@@ -43,6 +45,13 @@ export class AcademicYears implements OnInit {
   submitted = false;
   years = signal<AcademicYear[]>([]);
   selectedYears!: AcademicYear[] | null;
+
+  statusOptions = [
+    { label: 'Active', value: 'Active' },
+    { label: 'Inactive', value: 'Inactive' },
+    { label: 'Upcoming', value: 'Upcoming' },
+    { label: 'End', value: 'End' }
+  ];
 
   cols: Column[] = [
     { field: 'AcademicYearName', header: 'Year Name' },
@@ -65,12 +74,28 @@ export class AcademicYears implements OnInit {
       AcademicYearID: [null],
       AcademicYearName: ['', [Validators.required]],
       StartDate: ['', [Validators.required]],
-      EndDate: ['', [Validators.required]]
+      EndDate: ['', [Validators.required]],
+      Status: ['Active', [Validators.required]]
     });
     
     // Ensure form starts in pristine state
     this.yearForm.markAsUntouched();
     this.yearForm.markAsPristine();
+    
+    // Initially disable EndDate since StartDate is empty
+    const endDateControl = this.yearForm.get('EndDate');
+    endDateControl?.disable();
+    
+    // Listen for StartDate changes to enable/disable EndDate
+    this.yearForm.get('StartDate')?.valueChanges.subscribe(startDateValue => {
+      const endDateControl = this.yearForm.get('EndDate');
+      if (startDateValue && startDateValue !== '') {
+        endDateControl?.enable();
+      } else {
+        endDateControl?.disable();
+        endDateControl?.setValue(''); // Clear EndDate when StartDate is cleared
+      }
+    });
   }
 
   ngOnInit(): void { this.loadYears(); }
@@ -100,6 +125,19 @@ export class AcademicYears implements OnInit {
     this.yearForm.reset();
     this.yearForm.markAsUntouched();
     this.yearForm.markAsPristine();
+    
+    // Ensure Status field is enabled for new records
+    const statusControl = this.yearForm.get('Status');
+    statusControl?.enable();
+    
+    // Disable EndDate initially since StartDate will be empty
+    const endDateControl = this.yearForm.get('EndDate');
+    endDateControl?.disable();
+    
+    // Set default status value after reset
+    this.yearForm.patchValue({
+      Status: 'Active'
+    });
   }
 
   editYear(y: AcademicYear) {
@@ -112,6 +150,22 @@ export class AcademicYears implements OnInit {
     
     this.yearForm.patchValue(formData);
     this.editing = true;
+    
+    // Disable Status field if the record has Active status
+    const statusControl = this.yearForm.get('Status');
+    if (y.Status === 'Active') {
+      statusControl?.disable();
+    } else {
+      statusControl?.enable();
+    }
+    
+    // Enable/disable EndDate based on StartDate value
+    const endDateControl = this.yearForm.get('EndDate');
+    if (formData.StartDate) {
+      endDateControl?.enable();
+    } else {
+      endDateControl?.disable();
+    }
   }
 
   deleteYear(y: AcademicYear) {
@@ -183,6 +237,10 @@ export class AcademicYears implements OnInit {
           this.submitted = false;
           this.yearForm.markAsUntouched();
           this.yearForm.markAsPristine();
+          
+          // Ensure Status field is enabled after successful save
+          const statusControl = this.yearForm.get('Status');
+          statusControl?.enable();
         } else {
           this.msg.add({ 
             severity: 'error', 
@@ -193,8 +251,7 @@ export class AcademicYears implements OnInit {
         }
       },
       error: (err) => {
-        console.error('Save error:', err);
-        this.msg.add({ severity: 'error', summary: 'Error', detail: 'Save failed', life: 3000 });
+        this.msg.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Save failed', life: 3000 });
       }
     });
   }
@@ -205,6 +262,19 @@ export class AcademicYears implements OnInit {
     this.submitted = false;
     this.yearForm.markAsUntouched();
     this.yearForm.markAsPristine();
+    
+    // Ensure Status field is enabled when canceling
+    const statusControl = this.yearForm.get('Status');
+    statusControl?.enable();
+    
+    // Reset EndDate state - disable it since form is reset
+    const endDateControl = this.yearForm.get('EndDate');
+    endDateControl?.disable();
+    
+    // Set default status value after cancel
+    this.yearForm.patchValue({
+      Status: 'Active'
+    });
   }
 
   onGlobalFilter(table: Table, event: Event) {
@@ -235,6 +305,16 @@ export class AcademicYears implements OnInit {
     }
     
     return null;
+  }
+
+  get isStatusDisabled(): boolean {
+    const statusControl = this.yearForm.get('Status');
+    return statusControl ? statusControl.disabled : false;
+  }
+
+  get isEndDateDisabled(): boolean {
+    const startDateValue = this.yearForm.get('StartDate')?.value;
+    return !startDateValue || startDateValue === '';
   }
 
   private formatDateOnly(dateValue: any): string {
