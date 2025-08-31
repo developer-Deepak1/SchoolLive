@@ -4,6 +4,8 @@ import { RouterModule } from '@angular/router';
 import { MenuItem } from 'primeng/api';
 import { AppMenuitem } from './app.menuitem';
 import { USER_ROLES } from '@/pages/common/constant';
+import { inject } from '@angular/core';
+import { UserService } from '@/services/user.service';
 
 @Component({
     selector: 'app-menu',
@@ -18,7 +20,9 @@ import { USER_ROLES } from '@/pages/common/constant';
 })
 export class AppMenu {
     model: MenuItem[] = [];
-    userRoles: number=2;
+    private userService = inject(UserService);
+    // initialize from UserService.getRoleId(), fall back to 0
+    userRoles: number = this.userService.getRoleId() ?? 0;
     ngOnInit() {
         this.LoadMenu();
     }

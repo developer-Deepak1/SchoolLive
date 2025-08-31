@@ -9,23 +9,30 @@ import { SchoolAdminDashboard } from "../features/dashboard/school-admin-dashboa
 import { TeacherDashboard } from "../features/dashboard/teacher-dashboard/teacher-dashboard";
 import { StudentDashboard } from "../features/dashboard/student-dashboard/student-dashboard";
 import { CommonModule } from '@angular/common';
+import { inject } from '@angular/core';
+import { UserService } from '@/services/user.service';
 @Component({
     selector: 'app-dashboard',
     imports: [CommonModule,SchoolAdminDashboard, TeacherDashboard, StudentDashboard],
     template: `
         @if (userRoles === USER_ROLES.ROLE_SCHOOLADMIN){
+        <h1>deepak</h1>
         <app-school-admin-dashboard/>
         }
         @if (userRoles === USER_ROLES.ROLE_TEACHER){
+        <h1>Teacher Dashboard</h1>
         <app-teacher-dashboard/>
         }
         @if (userRoles === USER_ROLES.ROLE_STUDENT){
+        <h1>Student Dashboard</h1>
         <app-student-dashboard/>
         }
     `
 })
 export class Dashboard {
-    userRoles: number = 2;
+    // initialize from UserService.getRoleId(), fall back to 0 for compatibility
+    private userService = inject(UserService);
+    userRoles: number = this.userService.getRoleId() ?? 0;
     // ✅ expose constant so template can access it
     USER_ROLES = USER_ROLES;
 }
