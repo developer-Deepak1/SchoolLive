@@ -36,6 +36,13 @@ class Router {
 
     // Dashboard summary (authenticated)
     $this->routes['GET']['/api/dashboard/summary'] = ['handler' => ['SchoolLive\Controllers\DashboardController', 'summary'], 'roles' => true];
+
+    // Students routes
+    $this->routes['GET']['/api/students'] = ['handler' => ['SchoolLive\Controllers\StudentController', 'list'], 'roles' => true];
+    $this->routes['POST']['/api/students'] = ['handler' => ['SchoolLive\Controllers\StudentController', 'create'], 'roles' => true];
+    $this->routes['GET']['/api/students/{id}'] = ['handler' => ['SchoolLive\Controllers\StudentController', 'get'], 'roles' => true];
+    $this->routes['PUT']['/api/students/{id}'] = ['handler' => ['SchoolLive\Controllers\StudentController', 'update'], 'roles' => true];
+    $this->routes['DELETE']['/api/students/{id}'] = ['handler' => ['SchoolLive\Controllers\StudentController', 'delete'], 'roles' => true];
     }
 
     public function dispatch() {
