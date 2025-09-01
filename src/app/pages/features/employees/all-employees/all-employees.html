@@ -62,7 +62,7 @@
     <div class="grid grid-cols-2 gap-3">
       <div>
         <label class="block font-bold mb-2">Role</label>
-        <input pInputText formControlName="RoleName" />
+        <p-select formControlName="RoleID" [options]="roleOptions" optionLabel="label" optionValue="value" appendTo="body" placeholder="Select Role" />
       </div>
       <div>
         <label class="block font-bold mb-2">Joining Date</label>

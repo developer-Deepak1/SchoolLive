@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { Table, TableModule } from 'primeng/table';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { EmployeesService } from '@/pages/features/services/employees.service';
+import { HttpClient } from '@angular/common/http';
 import { Employee } from '@/pages/features/model/employee.model';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -38,8 +39,9 @@ export class AllEmployees implements OnInit {
   ];
 
   @ViewChild('dt') dt!: Table;
+  roleOptions: any[] = [];
 
-  constructor(private fb: FormBuilder, private employeesService: EmployeesService, private msg: MessageService, private confirm: ConfirmationService, private router: Router) {
+  constructor(private fb: FormBuilder, private employeesService: EmployeesService, private msg: MessageService, private confirm: ConfirmationService, private router: Router, private http: HttpClient) {
     this.initForm();
   }
 
@@ -49,13 +51,30 @@ export class AllEmployees implements OnInit {
       EmployeeName: ['', Validators.required],
       Gender: ['M', Validators.required],
       DOB: ['', Validators.required],
-      RoleName: [''],
+  RoleID: [null],
       JoiningDate: ['']
     });
   }
 
   ngOnInit(): void {
     this.load();
+    // load roles for dialog select
+    const base = (window as any).__env?.baseURL || '';
+    const url = base.replace(/\/+$/,'') + '/api/roles';
+    try {
+      this.http.get<any>(url).subscribe({
+        next: res => {
+          const rows = Array.isArray(res) ? res : (res?.data || []);
+          const filtered = rows.filter((r: any) => {
+            const rn = (r.RoleName || '').toString().toLowerCase();
+            const rd = (r.RoleDisplayName || '').toString().toLowerCase();
+            return rn === 'teacher' || rd === 'teacher';
+          });
+          this.roleOptions = filtered.map((r: any) => ({ label: r.RoleDisplayName || r.RoleName, value: r.RoleID || r.id }));
+        },
+        error: () => {}
+      });
+    } catch (e) {}
   }
 
   load() {
@@ -75,7 +94,10 @@ export class AllEmployees implements OnInit {
     if (emp && emp.EmployeeID) {
       this.router.navigate(['/features/add-employees'], { queryParams: { id: emp.EmployeeID } });
     } else {
-      this.form.patchValue(emp || {});
+  // normalize RoleID if RoleID or role_id present
+  const patch = { ...emp } as any;
+  if (emp && (emp as any).RoleID) patch.RoleID = (emp as any).RoleID;
+  this.form.patchValue(patch || {});
       this.employeeDialog = true;
     }
   }

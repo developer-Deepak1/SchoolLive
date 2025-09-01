@@ -47,7 +47,7 @@ export class AddEmployees {
       EmailID: ['', [Validators.email]],
       Gender: ['', Validators.required],
       DOB: [null, Validators.required],
-      RoleName: [''],
+  RoleID: [null],
       JoiningDate: [null],
       Salary: ['']
     });
@@ -75,7 +75,7 @@ export class AddEmployees {
           EmailID: e.EmailID || e.email || e.email_id || '',
           Gender: e.Gender || e.gender || 'M',
           DOB: e.DOB ? new Date(e.DOB) : (e.dob ? new Date(e.dob) : null),
-          RoleName: e.RoleName || e.role_name || '',
+          RoleID: e.RoleID || e.role_id || e.RoleID || null,
           JoiningDate: e.JoiningDate ? new Date(e.JoiningDate) : (e.joining_date ? new Date(e.joining_date) : null),
           Salary: e.Salary || e.salary || ''
         });
@@ -92,7 +92,13 @@ export class AddEmployees {
       next: (res) => {
         // backend may return envelope or raw array; normalize
         const rows = Array.isArray(res) ? res : (res?.data || res?.roles || []);
-        this.roleOptions = rows.map((r: any) => ({ label: r.RoleDisplayName || r.RoleName, value: r.RoleID || r.id }));
+        // For now show only a single role (Teacher) in the UI to simplify selection
+        const filtered = rows.filter((r: any) => {
+          const rn = (r.RoleName || '').toString().toLowerCase();
+          const rd = (r.RoleDisplayName || '').toString().toLowerCase();
+          return rn === 'teacher' || rd === 'teacher';
+        });
+        this.roleOptions = filtered.map((r: any) => ({ label: r.RoleDisplayName || r.RoleName, value: r.RoleID || r.id }));
       },
       error: () => { /* ignore role load failures for now */ }
     });
@@ -110,6 +116,8 @@ export class AddEmployees {
     payload.JoiningDate = toLocalYMDIST(payload.JoiningDate);
     payload.dob = payload.DOB;
     payload.joining_date = payload.JoiningDate;
+  // ensure consistent role key for backend
+  if (payload.RoleID !== undefined) payload.role_id = payload.RoleID;
     try {
       const jd = payload.JoiningDate;
       if (jd) {
@@ -138,7 +146,7 @@ export class AddEmployees {
           finish();
           if (res) {
             this.msg.add({ severity: 'success', summary: 'Created', detail: 'Employee created successfully' });
-            this.form.reset({ EmployeeName: '', ContactNumber: '', EmailID: '', Gender: '', DOB: null, RoleName: '', JoiningDate: null, Salary: '' });
+              this.form.reset({ EmployeeName: '', ContactNumber: '', EmailID: '', Gender: '', DOB: null, RoleID: null, JoiningDate: null, Salary: '' });
           } else {
             this.msg.add({ severity: 'error', summary: 'Error', detail: 'Failed to create employee' });
           }
@@ -152,7 +160,7 @@ export class AddEmployees {
     const c = this.form.get(name); return !!c && c.invalid && (c.touched || c.dirty);
   }
   resetForm() {
-    this.form.reset({ EmployeeName: '', ContactNumber: '', EmailID: '', Gender: '', DOB: null, RoleName: '', JoiningDate: null, Salary: '' });
+  this.form.reset({ EmployeeName: '', ContactNumber: '', EmailID: '', Gender: '', DOB: null, RoleID: null, JoiningDate: null, Salary: '' });
     this.issuedCredentials = null;
   }
 

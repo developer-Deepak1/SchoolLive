@@ -7,7 +7,8 @@ class EmployeeModel extends Model {
     protected $table = 'Tx_Employees';
 
     public function listEmployees($schoolId, $academicYearId = null, $filters = []) {
-        $sql = "SELECT e.EmployeeID, e.EmployeeName, e.DOB, e.Gender, e.JoiningDate, e.Salary, e.Status, r.RoleName, u.Username
+        // Include RoleID so front-end can preselect role when editing from lists
+        $sql = "SELECT e.EmployeeID, e.EmployeeName, e.DOB, e.Gender, e.JoiningDate, e.Salary, e.Status, e.RoleID, r.RoleName, u.Username
             FROM Tx_Employees e
             LEFT JOIN Tm_Roles r ON e.RoleID = r.RoleID
             LEFT JOIN Tx_Users u ON e.UserID = u.UserID
@@ -37,7 +38,8 @@ class EmployeeModel extends Model {
     }
 
     public function getEmployee($id, $schoolId) {
-        $sql = "SELECT e.*, r.RoleName, u.Username FROM Tx_Employees e
+    // Explicitly include r.RoleID as RoleID to ensure the joined role id is available
+    $sql = "SELECT e.*, r.RoleID AS RoleID, r.RoleName, u.Username FROM Tx_Employees e
             LEFT JOIN Tm_Roles r ON e.RoleID = r.RoleID
             LEFT JOIN Tx_Users u ON e.UserID = u.UserID
             WHERE e.EmployeeID = :id AND e.SchoolID = :school LIMIT 1";
