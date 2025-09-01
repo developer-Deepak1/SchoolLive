@@ -1,7 +1,8 @@
 import { Component, signal, inject } from '@angular/core';
+import { toLocalYMDIST } from '@/utils/date-utils';
 import { CommonModule } from '@angular/common';
-import { AttendanceService, AttendanceRecord } from '../../services/attendance.service';
-import { StudentsService } from '../../services/students.service';
+import { AttendanceService, AttendanceRecord } from '@/pages/features/services/attendance.service';
+import { StudentsService } from '@/pages/features/services/students.service';
 import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
 import { SelectButtonModule } from 'primeng/selectbutton';
@@ -29,9 +30,9 @@ export class StudentAttandance {
   private msg: MessageService = inject(MessageService);
   private studentsSvc: StudentsService = inject(StudentsService);
 
-  date = signal<string>(new Date().toISOString().substring(0,10));
+  date = signal<string>(toLocalYMDIST(new Date()) || '');
   // separate model for template two-way binding
-  dateModel: string = new Date().toISOString().substring(0,10);
+  dateModel: string = toLocalYMDIST(new Date()) || '';
   loading = signal<boolean>(false);
   rows = signal<(AttendanceRecord & { _dirty?: boolean; _original?: string | null })[]>([]);
   saving = signal<boolean>(false);
@@ -55,10 +56,10 @@ export class StudentAttandance {
 
   private normalizeDate(v: any): string {
     if (!v) return '';
-    if (typeof v === 'string') return v;
+    // Use IST-aware formatting for any incoming value
     try {
-      const d = new Date(v);
-      return d.toISOString().substring(0,10);
+      const ymd = toLocalYMDIST(v);
+      return ymd || '';
     } catch (e) { return ''; }
   }
 

@@ -13,6 +13,7 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { SelectModule } from 'primeng/select';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { AcademicYear, AcademicYearResponse } from '../model/academic-year.model';
+import { toLocalYMDIST } from '@/utils/date-utils';
 import { AcademicYearService } from '../services/academic-year.service';
 
 interface Column { field: string; header: string; }
@@ -329,8 +330,8 @@ export class AcademicYears implements OnInit {
       return '';
     }
     
-    // Format as YYYY-MM-DD (date only, no time)
-    return date.toISOString().split('T')[0];
+  // Format as YYYY-MM-DD in India Standard Time (date only, no time)
+  return toLocalYMDIST(date) || '';
   }
 }
 

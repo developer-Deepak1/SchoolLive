@@ -41,11 +41,18 @@ class AcademicController extends BaseController {
             $input['Status'] = 'active';
         }
 
-    // Enforce the rule: the start_date of the next academic year must be exactly the day after the previous year's end_date
-    if ($currentyear) {
-        $expected = date('Y-m-d', strtotime($currentyear['EndDate'] . ' +1 day'));
-        if ($input['StartDate'] !== $expected) {
-            $this->fail("Start date must be exactly the day after current academic year's end date ({$expected})",400);
+    // Enforce rule: the next academic year's StartDate must not be before
+    // the current academic year's EndDate. We allow StartDate on the same day
+    // as the current EndDate (some schools switch on the same date) or later.
+    if ($currentyear && isset($input['StartDate'])) {
+        $currEndTs = strtotime($currentyear['EndDate']);
+        $startTs = strtotime($input['StartDate']);
+        if ($startTs === false || $currEndTs === false) {
+            $this->fail('Invalid date format for StartDate or current academic year EndDate',400);
+            return;
+        }
+        if ($startTs < $currEndTs) {
+            $this->fail("Start date must be on or after current academic year's end date ({$currentyear['EndDate']})",400);
             return;
         }
     }
@@ -144,7 +151,16 @@ class AcademicController extends BaseController {
         $input['UpdatedBy'] = $currentUser['username'];
 
         $currentacademicYear = $this->academicModel->getCurrentAcademicYear($currentUser['school_id']);
-    if ($currentacademicYear && isset($input['StartDate']) && $id != $currentacademicYear['AcademicYearID'] && strtotime($input['StartDate']) > strtotime($currentacademicYear['EndDate'])) { $this->fail('Start date must be before end date of current academic year',400); return; }
+    // When updating a non-current academic year, ensure its StartDate does not
+    // come before the current academic year's EndDate (prevents overlap).
+    if ($currentacademicYear && isset($input['StartDate']) && $id != $currentacademicYear['AcademicYearID']) {
+        $currEndTs = strtotime($currentacademicYear['EndDate']);
+        $startTs = strtotime($input['StartDate']);
+        if ($startTs === false || $currEndTs === false) {
+            $this->fail('Invalid date format for StartDate or current academic year EndDate',400); return;
+        }
+        if ($startTs < $currEndTs) { $this->fail('Start date must be on or after the current academic year\'s end date',400); return; }
+    }
 
     $result = $this->academicModel->updateAcademicYear($id, $input);
 
