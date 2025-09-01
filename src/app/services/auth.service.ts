@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { UserService } from './user.service';
 
 @Injectable({
     providedIn: 'root'
@@ -13,7 +14,7 @@ export class AuthService {
     private tokenKeys = ['authToken', 'token', 'jwt'];
     private userKey = 'user';
 
-    constructor(private router: Router, private http: HttpClient) {}
+    constructor(private router: Router, private http: HttpClient, private userService: UserService) {}
 
     getToken(): string | null {
         for (const k of this.tokenKeys) {
@@ -32,18 +33,26 @@ export class AuthService {
     }
 
     setUser(user: object | string) {
-        const v = typeof user === 'string' ? user : JSON.stringify(user);
-        localStorage.setItem(this.userKey, v);
+        // delegate to UserService so subscribers are notified immediately
+        try {
+            this.userService.setUser(user as any);
+        } catch (e) {
+            const v = typeof user === 'string' ? user : JSON.stringify(user);
+            localStorage.setItem(this.userKey, v);
+        }
     }
 
     logout(redirect: string = '/auth/login') {
-        // Remove known token keys and user data
+        // Remove known token keys
         for (const k of this.tokenKeys) {
             localStorage.removeItem(k);
         }
-        localStorage.removeItem(this.userKey);
-
-        // Optionally, you can preserve other storage items if needed.
+        // Clear user via UserService (notifies subscribers in same window)
+        try {
+            this.userService.clearUser();
+        } catch (e) {
+            localStorage.removeItem(this.userKey);
+        }
 
         // Navigate to login
         try {
@@ -115,7 +124,12 @@ export class AuthService {
         }
 
         if (data.user) {
-            this.setUser(data.user);
+            // Ensure UserService is updated so subscribers (same window) react immediately
+            try {
+                this.userService.setUser(data.user as any);
+            } catch (e) {
+                this.setUser(data.user);
+            }
         }
 
         return true;
@@ -123,7 +137,11 @@ export class AuthService {
 
     login(payload: { username?: string; email?: string; password?: string }) {
         const url = `${environment.baseURL}/api/auth/login`;
-        localStorage.clear();
+        // clear known tokens and user before attempting login; use UserService to notify subscribers
+        for (const k of this.tokenKeys) {
+            localStorage.removeItem(k);
+        }
+        try { this.userService.clearUser(); } catch (e) { localStorage.removeItem(this.userKey); }
         return this.http.post(url, payload);
     }
 

@@ -10,7 +10,8 @@ import { SuperAdminDashboard } from "../features/dashboard/super-admin-dashboard
 import { TeacherDashboard } from "../features/dashboard/teacher-dashboard/teacher-dashboard";
 import { StudentDashboard } from "../features/dashboard/student-dashboard/student-dashboard";
 import { CommonModule } from '@angular/common';
-import { inject } from '@angular/core';
+import { inject, OnDestroy } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { UserService } from '@/services/user.service';
 @Component({
     selector: 'app-dashboard',
@@ -30,10 +31,22 @@ import { UserService } from '@/services/user.service';
         }
     `
 })
-export class Dashboard {
-    // initialize from UserService.getRoleId(), fall back to 0 for compatibility
+export class Dashboard implements OnDestroy {
+    // subscribe to user changes so dashboard updates when user logs out/logs in in same window
     private userService = inject(UserService);
-    userRoles: number = this.userService.getRoleId() ?? 0;
+    userRoles: number = 0;
+    private userSub: Subscription;
+
+    constructor() {
+        // update role id whenever stored user changes
+        this.userSub = this.userService.getUser$().subscribe(u => {
+            this.userRoles = (u && ((u.role_id as unknown as number) ?? 0)) || 0;
+        });
+    }
+
+    ngOnDestroy(): void {
+        this.userSub?.unsubscribe();
+    }
     // ✅ expose constant so template can access it
     USER_ROLES = USER_ROLES;
 }

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, BehaviorSubject, switchMap, timer, shareReplay } from 'rxjs';
+import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export interface StudentDashboardResponse {
@@ -20,20 +20,15 @@ export interface StudentDashboardResponse {
 
 @Injectable({ providedIn: 'root' })
 export class StudentDashboardService {
-  private cache$?: Observable<StudentDashboardResponse>;
-  private invalidate$ = new BehaviorSubject<void>(undefined);
-  private REFRESH_MS = 60_000;
+  // Auto-refresh removed. Components should explicitly call getSummary() when they need fresh data.
   constructor(private http: HttpClient) {}
   private load(): Observable<StudentDashboardResponse> { return this.http.get<StudentDashboardResponse>(`${environment.baseURL}/api/dashboard/student`); }
   getSummary(): Observable<StudentDashboardResponse> {
-    if (!this.cache$) {
-      this.cache$ = this.invalidate$.pipe(
-        switchMap(() => timer(0, this.REFRESH_MS)),
-        switchMap(() => this.load()),
-        shareReplay({ bufferSize: 1, refCount: true })
-      );
-    }
-    return this.cache$;
+    return this.load();
   }
-  refreshNow() { this.invalidate$.next(); }
+
+  /**
+   * Kept for compatibility. No automatic invalidation is performed.
+   */
+  refreshNow() { /* no-op */ }
 }

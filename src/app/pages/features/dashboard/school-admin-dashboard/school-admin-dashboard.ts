@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartOptions } from 'chart.js';
@@ -38,7 +38,7 @@ import { HttpClientModule } from '@angular/common/http';
   templateUrl: './school-admin-dashboard.html',
   styleUrl: './school-admin-dashboard.scss'
 })
-export class SchoolAdminDashboard implements OnInit {
+export class SchoolAdminDashboard implements OnInit, OnDestroy {
   loading = false;
   loadError: string | null = null;
 
@@ -349,5 +349,8 @@ export class SchoolAdminDashboard implements OnInit {
     let stars = '★'.repeat(fullStars);
     if (hasHalfStar) stars += '☆';
     return stars;
+  }
+  ngOnDestroy(): void {
+   // alert('Destroying school admin dashboard component');
   }
 }

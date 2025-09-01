@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, BehaviorSubject, timer, switchMap, shareReplay } from 'rxjs';
+import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export interface DashboardSummaryResponse {
@@ -26,9 +26,7 @@ export interface DashboardSummaryResponse {
 
 @Injectable({ providedIn: 'root' })
 export class DashboardService {
-  private cache$?: Observable<DashboardSummaryResponse>;
-  private invalidate$ = new BehaviorSubject<void>(undefined);
-  private REFRESH_INTERVAL_MS = 60_000; // 1 minute
+  // Auto-refresh removed: callers should request updates manually via getSummary() or UI-triggered actions.
 
   constructor(private http: HttpClient) {}
 
@@ -39,19 +37,19 @@ export class DashboardService {
   /**
    * Returns cached summary with auto-refresh every REFRESH_INTERVAL_MS.
    */
+  /**
+   * Returns a fresh summary observable. Auto-refresh disabled.
+   * Callers may subscribe each time they need a fresh payload.
+   */
   getSummary(): Observable<DashboardSummaryResponse> {
-    if (!this.cache$) {
-      this.cache$ = this.invalidate$.pipe(
-        switchMap(() => timer(0, this.REFRESH_INTERVAL_MS)),
-        switchMap(() => this.load()),
-        shareReplay({ bufferSize: 1, refCount: true })
-      );
-    }
-    return this.cache$;
+    return this.load();
   }
 
   /** Manually force reload immediately (e.g., user pressed Refresh). */
+  /**
+   * Kept for compatibility with UI code. With auto-refresh removed this is a no-op.
+   */
   refreshNow() {
-    this.invalidate$.next();
+    // no-op: components should call getSummary() / loadFromApi() to explicitly refresh
   }
 }
