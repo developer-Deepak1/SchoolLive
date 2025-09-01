@@ -48,6 +48,13 @@ class Router {
     $this->routes['DELETE']['/api/students/{id}'] = ['handler' => ['SchoolLive\Controllers\StudentController', 'delete'], 'roles' => true];
     $this->routes['POST']['/api/students/{id}/reset-password'] = ['handler' => ['SchoolLive\\Controllers\\StudentController', 'resetPassword'], 'roles' => true];
 
+    // Employees routes
+    $this->routes['GET']['/api/employees'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'list'], 'roles' => true];
+    $this->routes['POST']['/api/employees'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'create'], 'roles' => true];
+    $this->routes['GET']['/api/employees/{id}'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'get'], 'roles' => true];
+    $this->routes['PUT']['/api/employees/{id}'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'update'], 'roles' => true];
+    $this->routes['DELETE']['/api/employees/{id}'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'delete'], 'roles' => true];
+
     // Attendance routes (daily mark & list)
     $this->routes['GET']['/api/attendance'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'list'], 'roles' => true];
     $this->routes['POST']['/api/attendance'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'save'], 'roles' => true];
