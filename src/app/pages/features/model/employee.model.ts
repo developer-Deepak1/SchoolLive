@@ -8,4 +8,7 @@ export interface Employee {
   JoiningDate?: string;
   Salary?: number;
   Status?: string;
+  Username?: string;
+  ContactNumber?: string;
+  EmailID?: string;
 }
