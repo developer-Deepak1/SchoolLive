@@ -1,6 +1,11 @@
 <?php
 require_once __DIR__ . '/../vendor/autoload.php';
 
+// Ensure server uses India Standard Time for all date/time functions
+// This central setting makes PHP date(), strtotime(), DateTime, etc. use IST (Asia/Kolkata)
+date_default_timezone_set('Asia/Kolkata');
+ini_set('date.timezone', 'Asia/Kolkata');
+
 use SchoolLive\Core\Router;
 
 // Set headers

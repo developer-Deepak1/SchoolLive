@@ -14,6 +14,7 @@ import { StudentsService } from '../../services/students.service';
 import { AcademicYearService } from '../../services/academic-year.service';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../../environments/environment';
+import { toLocalYMDIST, toISOStringNoonIST } from '../../../../utils/date-utils';
 
 @Component({
   selector: 'app-student-admission',
@@ -164,19 +165,9 @@ export class StudentAdmission {
   const payload = { ...this.form.value };
     // Format dates to yyyy-MM-dd
   // Format dates as local yyyy-MM-dd to avoid timezone shifts (toISOString() uses UTC and may reduce the day)
-  const toLocalYMD = (d: any) => {
-    if (!d) return d;
-    let dt: Date;
-    if (d instanceof Date) dt = d;
-    else dt = new Date(d);
-    if (Number.isNaN(dt.getTime())) return d;
-    const y = dt.getFullYear();
-    const m = String(dt.getMonth() + 1).padStart(2, '0');
-    const day = String(dt.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
-  payload.DOB = toLocalYMD(payload.DOB);
-  payload.AdmissionDate = toLocalYMD(payload.AdmissionDate);
+  // Use centralized IST helpers to format dates so backend and frontend agree on date semantics
+  payload.DOB = toLocalYMDIST(payload.DOB);
+  payload.AdmissionDate = toLocalYMDIST(payload.AdmissionDate);
   // Some backend APIs accept snake_case fields; include both variants to be defensive
   payload.dob = payload.DOB;
   payload.admission_date = payload.AdmissionDate;
@@ -184,13 +175,10 @@ export class StudentAdmission {
   try {
     const ad = payload.AdmissionDate;
     if (ad) {
-      // ad is yyyy-MM-dd at this point
-      const [yy, mm, dd] = String(ad).split('-');
-      if (yy && mm && dd) {
-        const isoNoon = new Date(Date.UTC(Number(yy), Number(mm) - 1, Number(dd), 12, 0, 0)).toISOString();
+      const isoNoon = toISOStringNoonIST(ad);
+      if (isoNoon) {
         payload.AdmissionDateISO = isoNoon;
         payload.admission_date_iso = isoNoon;
-        // Some APIs use Admission_Date or admissionDate
         payload.Admission_Date = payload.AdmissionDate;
         payload.admissionDate = payload.AdmissionDate;
       }
