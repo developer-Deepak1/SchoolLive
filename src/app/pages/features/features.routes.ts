@@ -12,10 +12,12 @@ import { StudentAttandanceReports } from './reports/student-attandance-reports/s
 import { EmployeeAttandanceReports } from './reports/employee-attandance-reports/employee-attandance-reports';
 import { AcademicYears } from './academic-years/academic-years';
 import { AuthGuard } from '@/guards/auth.guard';
+import { AcademicCalander } from './academic-calander/academic-calander';
 
 export default [
     { path: 'profile-setting', component: ProfileSetting, canActivate: [AuthGuard] },
     { path: 'academic-years', component: AcademicYears, canActivate: [AuthGuard] },
+    { path: 'academic-calendar', component: AcademicCalander, canActivate: [AuthGuard] },
     { path: 'add-edit-classes', component: AddEditClasses, canActivate: [AuthGuard] },
     { path: 'all-employees', component: AllEmployees, canActivate: [AuthGuard] },
     { path: 'add-employees', component: AddEmployees, canActivate: [AuthGuard] },

@@ -57,6 +57,9 @@ CREATE TABLE Tm_AcademicYears (
     INDEX idx_school_academic_year (SchoolID, AcademicYearName),
     INDEX idx_status (Status)
 );
+-- Migration: create tx_academic_calendar
+-- Created: 2025-09-01
+
 
 -- Set auto-increment start value
 ALTER TABLE Tm_Schools AUTO_INCREMENT = 1000;
@@ -415,20 +418,29 @@ CREATE TABLE IF NOT EXISTS Tx_Events (
 CREATE TABLE IF NOT EXISTS Tx_Academic_Calendar (
     CalendarID BIGINT AUTO_INCREMENT PRIMARY KEY,
     AcademicYearID INT NOT NULL,
-    `Date` DATE NOT NULL,
+    `Date` DATE NULL,
     DayType ENUM('working_day','holiday','exam_day','special_event') NOT NULL DEFAULT 'working_day',
+    HolidayCode VARCHAR(50) NULL,
+    HolidayType VARCHAR(50) NULL, -- e.g. 'National','Religious','School'
+    IsHalfDay BOOLEAN DEFAULT FALSE,
+    IsRecurring BOOLEAN DEFAULT FALSE,
+    RecurrenceRule VARCHAR(100) NULL, -- iCal RRULE or simple rule like 'YEARLY'
+    AppliesTo ENUM('school','class','section') DEFAULT 'school', -- scope of holiday
+    TargetID BIGINT NULL, -- optional id for class or section when AppliesTo != 'school'
     Title VARCHAR(200) NOT NULL,
     Description TEXT NULL,
-    IsHalfDay BOOLEAN DEFAULT FALSE,
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CreatedBy VARCHAR(100),
     UpdatedBy VARCHAR(100),
-
     FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID) ON DELETE CASCADE,
+    -- Keep unique constraint for single-day date entries; range/recurring entries may have NULL `Date`.
     UNIQUE KEY unique_calendar_date (AcademicYearID, `Date`),
     INDEX idx_calendar_academicyear (AcademicYearID),
-    INDEX idx_calendar_date (Date)
+    INDEX idx_calendar_date (`Date`),
+    INDEX idx_calendar_holiday_type (HolidayType),
+    INDEX idx_calendar_recurring (IsRecurring),
+    INDEX idx_calendar_scope (AppliesTo, TargetID)
 );
 
 -- Activity Log table

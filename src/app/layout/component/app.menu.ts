@@ -37,9 +37,10 @@ export class AppMenu {
                 ]
             },
             {
-                label: 'Academy Management',
+                label: 'Academic Management',
                 items: [
                     { label: 'Academic years', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/academic-years'] },
+                    { label: 'Academic Calendar', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/academic-calendar'] },
                     { label: 'Add/View Classes', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/add-edit-classes'] }
                 ]
             },
