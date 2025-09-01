@@ -28,7 +28,7 @@ class AcademicController extends BaseController {
 
     $currentUser = $this->currentUser(); if(!$currentUser) return;
 
-        $currentyear = $this->academicModel->getCurrentAcademicYear($currentUser['school_id']);
+    $currentyear = $this->academicModel->getCurrentAcademicYear($currentUser['school_id']);
 
         if (!isset($input['CreatedBy'])) {
             $input['CreatedBy'] = $currentUser['username'];
@@ -41,7 +41,14 @@ class AcademicController extends BaseController {
             $input['Status'] = 'active';
         }
 
-    if ($currentyear && strtotime($input['StartDate']) > strtotime($currentyear['EndDate'])) { $this->fail('Start date must be before end date of current academic year',400); return; }
+    // Enforce the rule: the start_date of the next academic year must be exactly the day after the previous year's end_date
+    if ($currentyear) {
+        $expected = date('Y-m-d', strtotime($currentyear['EndDate'] . ' +1 day'));
+        if ($input['StartDate'] !== $expected) {
+            $this->fail("Start date must be exactly the day after current academic year's end date ({$expected})",400);
+            return;
+        }
+    }
 
         $academicYearId = $this->academicModel->createAcademicYear($input);
 
@@ -49,6 +56,57 @@ class AcademicController extends BaseController {
             $academicYear = $this->academicModel->getAcademicYearById($academicYearId);
             $this->ok('Academic year created successfully', [$academicYear]);
         } else { $this->fail('Failed to create academic year',500); }
+    }
+
+    // Academic Calendar endpoints
+    public function getAcademicCalendar($params = []) {
+        $ay = $_GET['academic_year_id'] ?? null;
+        if (!$ay) { $this->fail('academic_year_id is required',400); return; }
+        $calModel = new \SchoolLive\Models\AcademicCalendarModel();
+        $entries = $calModel->getByAcademicYear($ay);
+        $this->ok('Calendar entries retrieved successfully', $entries);
+    }
+
+    public function createAcademicCalendarEntry($params = []) {
+        if (!$this->requireMethod('POST')) return;
+        $input = $this->input();
+        if (!$this->ensure($input, ['AcademicYearID','Date','DayType','Title'])) return;
+        $currentUser = $this->currentUser(); if(!$currentUser) return;
+        // Do not store implicit working days. Only store exceptions like holidays, exam days, special events.
+        if (isset($input['DayType']) && $input['DayType'] === 'working_day') {
+            $this->fail('Working days are implicit for the academic year; only create entries for holidays, exam days or special events',400);
+            return;
+        }
+        $input['CreatedBy'] = $currentUser['username'];
+        $calModel = new \SchoolLive\Models\AcademicCalendarModel();
+        // Ensure uniqueness per academic year/date is handled by DB unique constraint; catch exception in Model layer if needed
+        $id = $calModel->create($input);
+        if ($id) { $this->ok('Calendar entry created', ['CalendarID' => $id]); }
+        else { $this->fail('Failed to create calendar entry',500); }
+    }
+
+    public function updateAcademicCalendarEntry($params = []) {
+        if (!$this->requireMethod('PUT')) return;
+        $id = $this->requireKey($params,'id','Calendar ID'); if($id===null) return;
+        $input = $this->input();
+        $currentUser = $this->currentUser(); if(!$currentUser) return;
+        // Prevent changing an entry to an implicit working_day
+        if (isset($input['DayType']) && $input['DayType'] === 'working_day') {
+            $this->fail('Cannot set DayType to working_day; working days are implicit for the academic year',400);
+            return;
+        }
+        $input['UpdatedBy'] = $currentUser['username'];
+        $calModel = new \SchoolLive\Models\AcademicCalendarModel();
+        $res = $calModel->update($id,$input);
+        if ($res) { $this->ok('Calendar entry updated'); } else { $this->fail('Failed to update calendar entry',500); }
+    }
+
+    public function deleteAcademicCalendarEntry($params = []) {
+        if (!$this->requireMethod('DELETE')) return;
+        $id = $this->requireKey($params,'id','Calendar ID'); if($id===null) return;
+        $calModel = new \SchoolLive\Models\AcademicCalendarModel();
+        $res = $calModel->delete($id);
+        if ($res) { $this->ok('Calendar entry deleted'); } else { $this->fail('Failed to delete calendar entry',500); }
     }
 
     public function deleteAcademicYear($params = []) {

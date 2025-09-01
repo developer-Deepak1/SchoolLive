@@ -59,6 +59,7 @@
 			<td>{{s.AdmissionDate | date:'dd-MMM-yyyy'}}</td>
 			<td>{{s.FatherName}} / {{s.MotherName}}</td>
 			<td>
+				<p-button icon="pi pi-eye" [rounded]="true" [outlined]="true" class="mr-2" (onClick)="viewProfile(s)" />
 				<p-button icon="pi pi-pencil" [rounded]="true" [outlined]="true" class="mr-2" (onClick)="edit(s)" />
 				<p-button icon="pi pi-trash" severity="danger" [rounded]="true" [outlined]="true" (onClick)="delete(s)" />
 			</td>

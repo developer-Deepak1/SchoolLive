@@ -78,11 +78,19 @@
 		</form>
 	</p-card>
 
-		<p-card header="Issued Credentials" *ngIf="issuedCredentials as creds">
-			<div class="space-y-2">
-				<p><strong>Username:</strong> {{creds.username}}</p>
-				<p><strong>Password:</strong> {{creds.password}}</p>
-				<p class="text-xs text-gray-500">Provide these to the student. They should change password at first login.</p>
-			</div>
-		</p-card>
+	<p-card header="Existing Credentials" *ngIf="editingId && studentUsername" class="col-span-2">
+		<div class="space-y-2">
+			<p><strong>Username:</strong> {{studentUsername}}</p>
+			<p class="text-xs text-gray-500">Password is hidden. Use Reset Password to issue a new one.</p>
+			<p-button label="Reset Password" icon="pi pi-refresh" severity="warn" (onClick)="resetPassword()" [loading]="loading" />
+		</div>
+	</p-card>
+
+	<p-card header="Issued Credentials" *ngIf="issuedCredentials as creds" class="col-span-2">
+		<div class="space-y-2">
+			<p><strong>Username:</strong> {{creds.username}}</p>
+			<p><strong>Password:</strong> {{creds.password}}</p>
+			<p class="text-xs text-gray-500">Provide these to the student. They should change password at first login.</p>
+		</div>
+	</p-card>
 </div>

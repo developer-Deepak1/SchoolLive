@@ -411,6 +411,26 @@ CREATE TABLE IF NOT EXISTS Tx_Events (
     INDEX idx_event_school_date (SchoolID, EventDate)
 );
 
+-- Academic Calendar table (calendar entries per academic year)
+CREATE TABLE IF NOT EXISTS Tx_Academic_Calendar (
+    CalendarID BIGINT AUTO_INCREMENT PRIMARY KEY,
+    AcademicYearID INT NOT NULL,
+    `Date` DATE NOT NULL,
+    DayType ENUM('working_day','holiday','exam_day','special_event') NOT NULL DEFAULT 'working_day',
+    Title VARCHAR(200) NOT NULL,
+    Description TEXT NULL,
+    IsHalfDay BOOLEAN DEFAULT FALSE,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CreatedBy VARCHAR(100),
+    UpdatedBy VARCHAR(100),
+
+    FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID) ON DELETE CASCADE,
+    UNIQUE KEY unique_calendar_date (AcademicYearID, `Date`),
+    INDEX idx_calendar_academicyear (AcademicYearID),
+    INDEX idx_calendar_date (Date)
+);
+
 -- Activity Log table
 CREATE TABLE IF NOT EXISTS Tx_ActivityLog (
     ActivityID BIGINT AUTO_INCREMENT PRIMARY KEY,

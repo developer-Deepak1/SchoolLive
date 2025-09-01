@@ -46,6 +46,11 @@ class Router {
     $this->routes['GET']['/api/students/{id}'] = ['handler' => ['SchoolLive\Controllers\StudentController', 'get'], 'roles' => true];
     $this->routes['PUT']['/api/students/{id}'] = ['handler' => ['SchoolLive\Controllers\StudentController', 'update'], 'roles' => true];
     $this->routes['DELETE']['/api/students/{id}'] = ['handler' => ['SchoolLive\Controllers\StudentController', 'delete'], 'roles' => true];
+    $this->routes['POST']['/api/students/{id}/reset-password'] = ['handler' => ['SchoolLive\\Controllers\\StudentController', 'resetPassword'], 'roles' => true];
+
+    // Attendance routes (daily mark & list)
+    $this->routes['GET']['/api/attendance'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'list'], 'roles' => true];
+    $this->routes['POST']['/api/attendance'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'save'], 'roles' => true];
     }
 
     public function dispatch() {

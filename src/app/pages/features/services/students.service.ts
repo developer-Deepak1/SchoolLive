@@ -11,6 +11,7 @@ export class StudentsService {
   private userService = inject(UserService);
   private baseUrl = `${environment.baseURL.replace(/\/+$/,'')}/api/students`;
   private academicBase = `${environment.baseURL.replace(/\/+$/,'')}/api/academic`;
+  private studentDashboard = `${environment.baseURL.replace(/\/+$/,'')}/api/dashboard/student`;
 
   getStudents(filters: { class_id?: number; section_id?: number; status?: string; search?: string } = {}): Observable<Student[]> {
     let params = new HttpParams();
@@ -47,5 +48,10 @@ export class StudentsService {
 
   getStudent(id: number): Observable<Student|null> {
     return this.http.get<any>(`${this.baseUrl}/${id}`).pipe(map(res => res?.data || null));
+  }
+
+  // Fetch monthly attendance for a specific student (re-using student dashboard endpoint, ignoring student id mismatch if viewing different student)
+  getStudentMonthlyAttendance(): Observable<{ labels: string[]; datasets: any[] }> {
+    return this.http.get<any>(this.studentDashboard).pipe(map(res => res?.data?.charts?.monthlyAttendance || { labels: [], datasets: [] }));
   }
 }

@@ -40,6 +40,22 @@ class StudentDashboardModel extends Model {
         if ($months < 1) $months = 1; if ($months>24) $months=24;
         $end = new DateTime('first day of this month');
         $start = (clone $end)->modify('-'.($months-1).' months');
+        // Align start to student admission month if later than calculated window
+        try {
+            $admQ = $this->conn->prepare("SELECT AdmissionDate FROM Tx_Students WHERE SchoolID=:school AND StudentID=:sid LIMIT 1");
+            $admQ->bindValue(':school',$schoolId,PDO::PARAM_INT);
+            $admQ->bindValue(':sid',$studentId,PDO::PARAM_INT);
+            $admQ->execute();
+            $adDate = $admQ->fetchColumn();
+            if ($adDate) {
+                $ad = new DateTime($adDate);
+                // Normalize to first day of admission month
+                $ad->modify('first day of this month');
+                if ($ad > $start && $ad <= $end) {
+                    $start = $ad; // shrink window to admission month onward
+                }
+            }
+        } catch (\Throwable $e) { /* ignore and keep original start */ }
         $sql = "SELECT DATE_FORMAT(Date,'%Y-%m') ym, SUM(CASE WHEN Status='Present' THEN 1 ELSE 0 END) p, COUNT(*) t
                 FROM Tx_Students_Attendance
                 WHERE SchoolID=:school AND StudentID=:sid AND Date >= :start" . ($academicYearId?" AND AcademicYearID=:ay":"") . "

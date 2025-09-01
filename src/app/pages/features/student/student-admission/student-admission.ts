@@ -12,6 +12,8 @@ import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { StudentsService } from '../../services/students.service';
 import { AcademicYearService } from '../../services/academic-year.service';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../../../environments/environment';
 
 @Component({
   selector: 'app-student-admission',
@@ -26,6 +28,7 @@ export class StudentAdmission {
   loading = false;
   issuedCredentials: { username: string; password: string } | null = null;
   editingId: number | null = null;
+  studentUsername: string | null = null; // existing username in edit mode
   // holds the originally loaded student data in edit mode so Reset restores it
   originalData: any = null;
 
@@ -40,7 +43,7 @@ export class StudentAdmission {
     { label: 'Other', value: 'O' }
   ];
 
-  constructor(private fb: FormBuilder, private studentsService: StudentsService, private msg: MessageService, private academicYearService: AcademicYearService, private route: ActivatedRoute, private router: Router) {
+  constructor(private fb: FormBuilder, private studentsService: StudentsService, private msg: MessageService, private academicYearService: AcademicYearService, private route: ActivatedRoute, private router: Router, private http: HttpClient) {
     this.form = this.fb.group({
       FirstName: ['', [Validators.required, Validators.minLength(2)]],
       MiddleName: [''],
@@ -111,6 +114,7 @@ export class StudentAdmission {
           MotherContactNumber: s.MotherContactNumber || s.mother_contact_number || '',
           AdmissionDate: s.AdmissionDate ? new Date(s.AdmissionDate) : (s.admission_date ? new Date(s.admission_date) : new Date())
         });
+  this.studentUsername = s.Username || s.username || null;
   // keep a copy of loaded values so Reset can restore them
   this.originalData = { ...this.form.value };
         // If class is present, load sections for that class so SectionID select is populated
@@ -266,6 +270,26 @@ export class StudentAdmission {
     } else {
       this.resetForm();
     }
+  }
+
+  resetPassword() {
+    if (!this.editingId) return;
+    const base = environment.baseURL.replace(/\/+$/,'');
+    this.loading = true;
+    this.http.post<any>(`${base}/api/students/${this.editingId}/reset-password`, {}).subscribe({
+      next: res => {
+        this.loading = false;
+        if (res?.success) {
+          const pwd = res.data?.password;
+            const user = res.data?.username || this.studentUsername;
+            this.msg.add({severity:'success', summary:'Password Reset', detail:'New password generated'});
+            this.issuedCredentials = { username: user, password: pwd };
+        } else {
+          this.msg.add({severity:'error', summary:'Error', detail: res?.message || 'Reset failed'});
+        }
+      },
+      error: err => { this.loading = false; this.msg.add({severity:'error', summary:'Error', detail: err.error?.message || 'Reset failed'}); }
+    });
   }
 
 }

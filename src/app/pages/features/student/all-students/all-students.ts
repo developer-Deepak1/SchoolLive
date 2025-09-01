@@ -81,6 +81,10 @@ export class AllStudents implements OnInit {
     }
   }
 
+  viewProfile(stu: Student) {
+    if (stu && stu.StudentID) this.router.navigate(['/features/student-profile', stu.StudentID]);
+  }
+
   save() {
     this.submitted = true;
     if (this.form.invalid) return;
