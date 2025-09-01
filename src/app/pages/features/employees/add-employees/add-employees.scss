@@ -1,0 +1,10 @@
+:host ::ng-deep .p-inputtext, :host ::ng-deep .p-dropdown, :host ::ng-deep .p-datepicker, :host ::ng-deep .p-calendar {
+	width: 100% !important;
+}
+
+.field { width: 100%; }
+
+:host ::ng-deep .p-select, :host ::ng-deep .p-select .p-dropdown, :host ::ng-deep .p-select .p-dropdown .p-inputtext {
+	width: 100% !important;
+}
+

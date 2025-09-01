@@ -55,6 +55,18 @@ class Router {
     $this->routes['PUT']['/api/employees/{id}'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'update'], 'roles' => true];
     $this->routes['DELETE']['/api/employees/{id}'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'delete'], 'roles' => true];
 
+    // Roles helper endpoint - lightweight implementation using UserModel's PDO to avoid creating a separate RolesController
+    $this->routes['GET']['/api/roles'] = ['handler' => function($params = []) {
+        // Lazy-load model and fetch roles
+        $um = new \SchoolLive\Models\UserModel();
+        $pdo = $um->getPdo();
+    // Some databases may not have an IsActive column on Tm_Roles; avoid filtering by it to be compatible.
+    $stmt = $pdo->prepare("SELECT RoleID, RoleName, RoleDisplayName FROM Tm_Roles ORDER BY RoleDisplayName");
+        $stmt->execute();
+    $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'data' => $rows]);
+    }, 'roles' => true];
+
     // Attendance routes (daily mark & list)
     $this->routes['GET']['/api/attendance'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'list'], 'roles' => true];
     $this->routes['POST']['/api/attendance'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'save'], 'roles' => true];
