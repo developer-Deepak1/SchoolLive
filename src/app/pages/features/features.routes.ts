@@ -5,6 +5,7 @@ import { AllEmployees } from './employees/all-employees/all-employees';
 import { AddEmployees } from './employees/add-employees/add-employees';
 import { EmployeeAttandance } from './employees/employee-attandance/employee-attandance';
 import { AllStudents } from './student/all-students/all-students';
+import { StudentProfile } from './student/student-profile/student-profile';
 import { EmployeeProfile } from './employees/employee-profile/employee-profile';
 import { StudentAdmission } from './student/student-admission/student-admission';
 import { StudentAttandance } from './student/student-attandance/student-attandance';
@@ -24,6 +25,7 @@ export default [
     { path: 'add-employees', component: AddEmployees, canActivate: [AuthGuard] },
     { path: 'employee-profile/:id', component: EmployeeProfile, canActivate: [AuthGuard] },
     { path: 'employee-attendance', component: EmployeeAttandance, canActivate: [AuthGuard] },
+    { path: 'student-profile/:id', component: StudentProfile, canActivate: [AuthGuard] },
     { path: 'all-students', component: AllStudents, canActivate: [AuthGuard] },
     { path: 'student-admission', component: StudentAdmission, canActivate: [AuthGuard] },
     { path: 'student-attendance', component: StudentAttandance, canActivate: [AuthGuard] },
