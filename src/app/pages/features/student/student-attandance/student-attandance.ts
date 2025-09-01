@@ -25,9 +25,9 @@ import { TooltipModule } from 'primeng/tooltip';
   styleUrl: './student-attandance.scss'
 })
 export class StudentAttandance {
-  private svc = inject(AttendanceService);
-  private msg = inject(MessageService);
-  private studentsSvc = inject(StudentsService);
+  private svc: AttendanceService = inject(AttendanceService);
+  private msg: MessageService = inject(MessageService);
+  private studentsSvc: StudentsService = inject(StudentsService);
 
   date = signal<string>(new Date().toISOString().substring(0,10));
   // separate model for template two-way binding
@@ -77,8 +77,8 @@ export class StudentAttandance {
 
     this.loading.set(true);
     const sid = selSection ?? undefined;
-    this.svc.getDaily(dt, sid).subscribe({
-      next: res => {
+  this.svc.getDaily(dt, sid).subscribe({
+      next: (res: any) => {
         const data = (res.records || []).map((r:any) => ({...r, Status: r.Status || 'Present', _original: r.Status ?? null}));
         this.rows.set(data);
         // detect if attendance already exists for selected date/section
@@ -89,18 +89,18 @@ export class StudentAttandance {
           this.msg.add({ severity: 'warn', summary: 'Attendance exists', detail: `Attendance already recorded (${count} students) for selected date/section. You may update.`, life: 5000 });
         }
         this.loading.set(false);
-      },
-      error: _ => { this.loading.set(false); }
+  },
+  error: (err: any) => { this.loading.set(false); }
     });
   }
 
   loadClasses(){
-    this.studentsSvc.getClasses().subscribe({ next: (c:any[]) => { this.classOptions = c || []; }, error: _ => {} });
+  this.studentsSvc.getClasses().subscribe({ next: (c:any[]) => { this.classOptions = c || []; }, error: (err: any) => {} });
   }
 
   onClassChange(){
     if (!this.selectedClass) { this.sectionOptions = []; this.selectedSection = null; return; }
-    this.studentsSvc.getSections(this.selectedClass).subscribe({ next: (s:any[]) => { this.sectionOptions = s || []; }, error: _ => { this.sectionOptions = []; } });
+  this.studentsSvc.getSections(this.selectedClass).subscribe({ next: (s:any[]) => { this.sectionOptions = s || []; }, error: (err: any) => { this.sectionOptions = []; } });
   }
 
   search(){
@@ -122,8 +122,8 @@ export class StudentAttandance {
       return;
     }
     this.saving.set(true);
-    this.svc.save(this.date(), entries).subscribe({
-      next: res => {
+  this.svc.save(this.date(), entries).subscribe({
+      next: (res: any) => {
         // update originals
         const map = new Map(entries.map(e=>[e.StudentID,e.Status]));
         this.rows.update(list => list.map(r => {
@@ -132,8 +132,8 @@ export class StudentAttandance {
         }));
         this.saving.set(false);
         this.msg.add({severity:'success', summary:'Attendance saved', detail:`Created ${res.summary.created}, Updated ${res.summary.updated}`});
-      },
-      error: _ => { this.saving.set(false); this.msg.add({severity:'error', summary:'Save failed'}); }
+  },
+  error: (err: any) => { this.saving.set(false); this.msg.add({severity:'error', summary:'Save failed'}); }
     });
   }
 
