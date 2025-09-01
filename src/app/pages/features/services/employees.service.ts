@@ -10,6 +10,7 @@ export class EmployeesService {
   private http = inject(HttpClient);
   private userService = inject(UserService);
   private baseUrl = `${environment.baseURL.replace(/\/+$/,'')}/api/employees`;
+  private dashboardSummary = `${environment.baseURL.replace(/\/+$/, '')}/api/dashboard/summary`;
 
   getEmployees(filters: { role_id?: number; status?: string; search?: string } = {}): Observable<Employee[]> {
     let params = new HttpParams();
@@ -33,5 +34,10 @@ export class EmployeesService {
 
   getEmployee(id: number): Observable<Employee|null> {
     return this.http.get<any>(`${this.baseUrl}/${id}`).pipe(map(res => res?.data || null));
+  }
+
+  // Fallback: use dashboard summary monthlyAttendance chart for employee profile when a specific API is not available
+  getEmployeeMonthlyAttendance(): Observable<{ labels: string[]; datasets: any[] }> {
+    return this.http.get<any>(this.dashboardSummary).pipe(map(res => res?.data?.charts?.monthlyAttendance || { labels: [], datasets: [] }));
   }
 }

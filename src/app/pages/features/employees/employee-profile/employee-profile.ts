@@ -12,11 +12,13 @@ import { AvatarModule } from 'primeng/avatar';
 import { SkeletonModule } from 'primeng/skeleton';
 import { RippleModule } from 'primeng/ripple';
 import { Employee } from '../../model/employee.model';
+import { BaseChartDirective } from 'ng2-charts';
+import { ChartConfiguration, ChartOptions } from 'chart.js';
 
 @Component({
   selector: 'app-employee-profile',
   standalone: true,
-  imports: [CommonModule, CardModule, ButtonModule, ToastModule, TagModule, DividerModule, AvatarModule, SkeletonModule, RippleModule],
+  imports: [CommonModule, CardModule, ButtonModule, ToastModule, TagModule, DividerModule, AvatarModule, SkeletonModule, RippleModule, BaseChartDirective],
   providers: [EmployeesService, MessageService],
   template: `
     <p-toast />
@@ -75,6 +77,16 @@ import { Employee } from '../../model/employee.model';
             </div>
           </p-card>
         </div>
+        <div class="attendance-row">
+          <p-card header="Monthly Attendance %">
+            <div class="chart-wrapper">
+              <canvas baseChart
+                [data]="attendanceLineData"
+                [options]="attendanceLineOptions"
+                type="line"></canvas>
+            </div>
+          </p-card>
+        </div>
       </div>
     </ng-container>
 
@@ -119,13 +131,58 @@ import { Employee } from '../../model/employee.model';
 })
 export class EmployeeProfile implements OnInit {
   employee = signal<Employee | null>(null);
+  attendanceLineData: ChartConfiguration<'line'>['data'] = { labels: [], datasets: [] };
+  attendanceLineOptions: ChartOptions<'line'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: true }, title: { display: false } },
+    scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: '%' } } }
+  };
   constructor(private route: ActivatedRoute, private router: Router, private employees: EmployeesService, private msg: MessageService) {}
 
   ngOnInit(): void {
     const idParam = this.route.snapshot.queryParamMap.get('id') || this.route.snapshot.paramMap.get('id');
     const id = idParam ? Number(idParam) : NaN;
     if (!id) { this.msg.add({severity:'error', summary:'Error', detail:'Invalid employee id'}); return; }
-    this.employees.getEmployee(id).subscribe({ next: (s:any) => this.employee.set(s), error: () => this.msg.add({severity:'error', summary:'Error', detail:'Failed to load'}) });
+    this.employees.getEmployee(id).subscribe({ next: (s:any) => { this.employee.set(s); this.loadAttendance(); }, error: () => this.msg.add({severity:'error', summary:'Error', detail:'Failed to load'}) });
+  }
+
+  loadAttendance() {
+    const emp = this.employee();
+    this.employees.getEmployeeMonthlyAttendance().subscribe({
+      next: (chart: any) => {
+        if (chart?.labels && chart?.datasets && chart.labels.length) {
+          const total = chart.labels.length;
+          const months: Date[] = [];
+          const end = new Date(); end.setDate(1); end.setHours(0,0,0,0);
+          for (let i = total - 1; i >= 0; i--) {
+            const d = new Date(end); d.setMonth(end.getMonth() - (total - 1 - i)); months.push(d);
+          }
+          // If joining exists, remove months before joining month
+          const join = emp?.JoiningDate ? new Date(emp.JoiningDate) : null;
+          if (join) {
+            const joinMon = new Date(join); joinMon.setDate(1); joinMon.setHours(0,0,0,0);
+            let firstIdx = months.findIndex(m => m.getTime() >= joinMon.getTime());
+            if (firstIdx > 0) {
+              chart.labels = chart.labels.slice(firstIdx);
+              chart.datasets = chart.datasets.map((ds: any) => ({ ...ds, data: ds.data.slice(firstIdx) }));
+            }
+          }
+          chart.datasets = chart.datasets.map((d: any) => ({
+            ...d,
+            borderColor: d.borderColor || 'var(--primary-color)',
+            backgroundColor: d.backgroundColor || 'rgba(99,102,241,0.15)',
+            tension: d.tension ?? 0.35,
+            fill: true,
+            pointRadius: d.pointRadius ?? 3
+          }));
+          this.attendanceLineData = chart;
+        } else {
+          this.attendanceLineData = { labels: [], datasets: [] };
+        }
+      },
+      error: () => { this.attendanceLineData = { labels: [], datasets: [] }; }
+    });
   }
 
   back() { this.router.navigate(['/features/all-employees']); }
