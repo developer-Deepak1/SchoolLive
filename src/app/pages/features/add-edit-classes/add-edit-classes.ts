@@ -117,7 +117,7 @@ export class AddEditClasses implements OnInit {
         this.sectionForm = this.fb.group({
             SectionID: [null],
             SectionName: ['', [Validators.required]],
-            SectionDisplayName: ['', [Validators.required]],
+            MaxStrength: [null, [Validators.min(1)]],
             ClassID: [null, [Validators.required]],
             SchoolID: [null],
             AcademicYearID: [null]
@@ -175,7 +175,7 @@ export class AddEditClasses implements OnInit {
         const formValue = this.sectionForm.value;
         const payload: any = {
             SectionName: formValue.SectionName,
-            SectionDisplayName: formValue.SectionDisplayName,
+            MaxStrength: formValue.MaxStrength || null,
             ClassID: formValue.ClassID
         };
     // include AcademicYearID and SchoolID (use user defaults when missing)

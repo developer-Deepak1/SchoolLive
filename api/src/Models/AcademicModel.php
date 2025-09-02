@@ -501,15 +501,18 @@ class AcademicModel extends Model {
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['updated_at'] = date('Y-m-d H:i:s');
 
-        $query = "INSERT INTO Tx_Sections (SectionName, SectionDisplayName, SchoolID, AcademicYearID, ClassID, Status, CreatedAt, CreatedBy, UpdatedAt)
-            VALUES (:section_name, :section_display_name, :school_id, :academic_year_id, :class_id, :status, :created_at, :created_by, :updated_at)";
+        // allow MaxStrength to be provided as PascalCase or snake_case
+        $maxStrength = $data['MaxStrength'] ?? $data['max_strength'] ?? null;
+
+        $query = "INSERT INTO Tx_Sections (SectionName, SchoolID, AcademicYearID, ClassID, MaxStrength, Status, CreatedAt, CreatedBy, UpdatedAt)
+            VALUES (:section_name, :school_id, :academic_year_id, :class_id, :max_strength, :status, :created_at, :created_by, :updated_at)";
 
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':section_name', $data['section_name']);
-        $stmt->bindParam(':section_display_name', $data['section_display_name']);
         $stmt->bindParam(':school_id', $data['school_id']);
         $stmt->bindParam(':academic_year_id', $data['academic_year_id']);
         $stmt->bindParam(':class_id', $data['class_id']);
+        $stmt->bindParam(':max_strength', $maxStrength);
         $status = $data['status'] ?? 'Active';
         $stmt->bindParam(':status', $status);
         $stmt->bindParam(':created_at', $data['created_at']);

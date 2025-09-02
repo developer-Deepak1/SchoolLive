@@ -127,14 +127,14 @@
 <p-confirmDialog [style]="{ width: '450px' }" />
     <!-- Manage Sections -->
     <section class="p-mt-8">
-            <p-table #dtSections
-                     [value]="sections()"
-                     [rows]="10"
-                     [paginator]="true"
-                     [globalFilterFields]="['ClassName','SectionName','SectionDisplayName']"
-                     [tableStyle]="{ 'min-width': '50rem' }"
-                     dataKey="SectionID"
-                     [rowsPerPageOptions]="[5,10,20]">
+                <p-table #dtSections
+                             [value]="sections()"
+                             [rows]="10"
+                             [paginator]="true"
+                             [globalFilterFields]="['ClassName','SectionName','MaxStrength']"
+                             [tableStyle]="{ 'min-width': '50rem' }"
+                             dataKey="SectionID"
+                             [rowsPerPageOptions]="[5,10,20]">
                 <ng-template pTemplate="caption">
                     <h5 class="m-0">Manage Sections</h5>
                     <div class="flex items-center justify-between">
@@ -152,7 +152,7 @@
                     <tr>
                         <th>Class Name</th>
                         <th>Section Name</th>
-                        <th>Display Name</th>
+                        <th pSortableColumn="MaxStrength">Max Strength <p-sortIcon field="MaxStrength" /></th>
                         <th>Actions</th>
                     </tr>
                 </ng-template>
@@ -160,7 +160,7 @@
                     <tr>
                         <td>{{ section.ClassName }}</td>
                         <td>{{ section.SectionName }}</td>
-                        <td>{{ section.SectionDisplayName }}</td>
+                        <td>{{ section.MaxStrength }}</td>
                         <td>
                             <p-button icon="pi pi-pencil" class="mr-2" [rounded]="true" [outlined]="true" (onClick)="editSection(section)"></p-button>
                             <p-button icon="pi pi-trash" severity="danger" [rounded]="true" [outlined]="true" (onClick)="deleteSection(section)"></p-button>
@@ -184,10 +184,12 @@
                     </div>
 
                     <div>
-                        <label for="SectionDisplayName" class="block font-bold mb-2">Display Name *</label>
-                        <input pInputText id="SectionDisplayName" formControlName="SectionDisplayName" style="width:100%" />
-                        <small class="text-red-500" *ngIf="sectionSubmitted && sectionForm.controls['SectionDisplayName'].invalid">Display Name is required.</small>
+                        <label for="MaxStrength" class="block font-bold mb-2">Maximum Strength</label>
+                        <p-inputNumber id="MaxStrength" formControlName="MaxStrength" [style]="{'width':'100%'}"></p-inputNumber>
+                        <small class="text-red-500" *ngIf="sectionSubmitted && sectionForm.controls['MaxStrength'].invalid">Maximum Strength must be greater than 0.</small>
                     </div>
+
+                    <!-- Display name removed: sections now use SectionName only -->
 
                     <!-- hidden fields for context (school and academic year) -->
                     <input type="hidden" formControlName="SchoolID" />
