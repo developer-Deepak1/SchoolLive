@@ -145,7 +145,9 @@ export class AddEditClasses implements OnInit {
 
     openNewSection() {
         this.sectionSubmitted = false;
-        this.sectionForm.reset();
+    this.sectionForm.reset();
+    // ensure Class select is enabled for creating a new section
+    this.sectionForm.get('ClassID')?.enable();
     // default to first class if available
     const firstClass = this.classes()[0];
     if (firstClass) this.sectionForm.patchValue({ ClassID: firstClass.ClassID });
@@ -163,6 +165,8 @@ export class AddEditClasses implements OnInit {
     if (section.ClassID) this.sectionForm.patchValue({ ClassID: section.ClassID });
     if (section.SchoolID) this.sectionForm.patchValue({ SchoolID: section.SchoolID });
     if (section.AcademicYearID) this.sectionForm.patchValue({ AcademicYearID: section.AcademicYearID });
+    // disable changing the Class when editing an existing section
+    this.sectionForm.get('ClassID')?.disable();
     this.sectionDialog = true;
     }
 
@@ -172,7 +176,8 @@ export class AddEditClasses implements OnInit {
             this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Please fill required fields.', life: 3000 });
             return;
         }
-        const formValue = this.sectionForm.value;
+    // include disabled controls (ClassID when editing) by using getRawValue()
+    const formValue = this.sectionForm.getRawValue();
         const payload: any = {
             SectionName: formValue.SectionName,
             MaxStrength: formValue.MaxStrength || null,
@@ -194,6 +199,15 @@ export class AddEditClasses implements OnInit {
         }
         this.sectionDialog = false;
         this.sectionForm.reset();
+        // re-enable Class select after dialog closes so it's ready for next create
+        this.sectionForm.get('ClassID')?.enable();
+    }
+
+    onSectionDialogHide() {
+        // centralize cleanup: reset form, clear submission flag, and ensure Class select enabled
+        this.sectionForm.reset();
+        this.sectionSubmitted = false;
+        this.sectionForm.get('ClassID')?.enable();
     }
 
     deleteSection(section: any) {

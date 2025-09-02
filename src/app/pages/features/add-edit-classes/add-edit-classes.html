@@ -114,9 +114,9 @@
         </div>
     </form>
 
-    <ng-template pTemplate="footer">
+        <ng-template pTemplate="footer">
         <p-button label="Cancel" icon="pi pi-times" (onClick)="hideDialog()" styleClass="p-button-text" />
-        <p-button label="Save" icon="pi pi-check" (onClick)="saveClass()" />
+        <p-button label="Save" icon="pi pi-check" severity="success" (onClick)="saveClass()" />
     </ng-template>
 </p-dialog>
 <div>
@@ -138,14 +138,11 @@
                 <ng-template pTemplate="caption">
                     <h5 class="m-0">Manage Sections</h5>
                     <div class="flex items-center justify-between">
-                        <div></div>
-                        <div class="flex items-center">
-                            <p-button label="New Section" icon="pi pi-plus" severity="secondary" class="mr-2" (onClick)="openNewSection()"></p-button>
-                            <p-iconfield>
-                                <p-inputicon styleClass="pi pi-search" />
-                                <input pInputText type="text" (input)="onGlobalFilter(dtSections, $event)" placeholder="Search sections..." />
-                            </p-iconfield>
-                        </div>
+                        <p-button label="New" icon="pi pi-plus" severity="secondary" class="mr-2" (onClick)="openNewSection()"></p-button>
+                        <p-iconfield>
+                            <p-inputicon styleClass="pi pi-search" />
+                            <input pInputText type="text" (input)="onGlobalFilter(dtSections, $event)" placeholder="Search sections..." />
+                        </p-iconfield>
                     </div>
                 </ng-template>
                 <ng-template pTemplate="header">
@@ -169,11 +166,11 @@
                 </ng-template>
             </p-table>
 
-            <p-dialog header="Section" [(visible)]="sectionDialog" [modal]="true" [style]="{ width: '400px' }" (onHide)="sectionForm.reset(); sectionSubmitted=false;">
+            <p-dialog header="Section" [(visible)]="sectionDialog" [modal]="true" [style]="{ width: '400px' }" (onHide)="onSectionDialogHide()">
                 <form [formGroup]="sectionForm" class="flex flex-col gap-4">
                     <div>
                         <label for="ClassID" class="block font-bold mb-2">Class *</label>
-                        <p-select id="ClassID" formControlName="ClassID" [options]="classes()" optionLabel="ClassName" optionValue="ClassID" placeholder="Select Class"></p-select>
+                        <p-select id="ClassID" formControlName="ClassID" [options]="classes()" optionLabel="ClassName" optionValue="ClassID" placeholder="Select Class" [style]="{'width':'100%'}" appendTo="body"></p-select>
                         <small class="text-red-500" *ngIf="sectionSubmitted && sectionForm.controls['ClassID'].invalid">Class is required.</small>
                     </div>
 
@@ -194,12 +191,12 @@
                     <!-- hidden fields for context (school and academic year) -->
                     <input type="hidden" formControlName="SchoolID" />
                     <input type="hidden" formControlName="AcademicYearID" />
-
-                    <ng-template pTemplate="footer">
-                        <p-button label="Cancel" icon="pi pi-times" class="p-button-text" (onClick)="sectionDialog=false"></p-button>
-                        <p-button label="Save" icon="pi pi-check" (onClick)="saveSection()"></p-button>
-                    </ng-template>
                 </form>
+
+                <ng-template pTemplate="footer">
+                    <p-button label="Cancel" icon="pi pi-times" class="p-button-text" (onClick)="sectionDialog=false; sectionForm.reset(); sectionSubmitted=false;"></p-button>
+                    <p-button label="Save" icon="pi pi-check" severity="success" (onClick)="saveSection()"></p-button>
+                </ng-template>
             </p-dialog>
 
         </section>

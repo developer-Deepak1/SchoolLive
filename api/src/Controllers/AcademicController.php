@@ -189,6 +189,25 @@ class AcademicController extends BaseController {
     if (isset($input['AcademicYearID']) && !isset($input['academic_year_id'])) $input['academic_year_id'] = $input['AcademicYearID'];
     if (isset($input['SchoolID']) && !isset($input['school_id'])) $input['school_id'] = $input['SchoolID'];
 
+    // Ensure update uses the database column names (PascalCase). If client sent snake_case
+    // convert them to PascalCase and remove snake_case keys so the dynamic SET clause
+    // doesn't try to update non-existent snake_case columns.
+    $mapping = [
+        'section_name' => 'SectionName',
+        'class_id' => 'ClassID',
+        'max_strength' => 'MaxStrength',
+        'academic_year_id' => 'AcademicYearID',
+        'school_id' => 'SchoolID'
+    ];
+    foreach ($mapping as $snake => $pascal) {
+        if (isset($input[$snake]) && !isset($input[$pascal])) {
+            $input[$pascal] = $input[$snake];
+        }
+        if (isset($input[$snake])) {
+            unset($input[$snake]);
+        }
+    }
+
     $result = $this->academicModel->updateSection($id, $input);
 
     if ($result) { $section = $this->academicModel->getSectionById($id); $this->ok('Section updated successfully',['section'=>$section]); }
