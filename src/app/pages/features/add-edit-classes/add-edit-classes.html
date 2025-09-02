@@ -32,6 +32,9 @@
             <th pSortableColumn="ClassName" class="pl-4">
                 Class Name <p-sortIcon field="ClassName" />
             </th>
+            <th pSortableColumn="SectionCount">
+                Sections <p-sortIcon field="SectionCount" />
+            </th>
             <th pSortableColumn="ClassCode">
                 Class Code <p-sortIcon field="ClassCode" />
             </th>
@@ -53,6 +56,7 @@
             </td> -->
             <td></td>
             <td class="pl-4">{{class.ClassName}}</td>
+            <td>{{ class.SectionCount || 0 }}</td>
             <td>{{class.ClassCode}}</td>
             <td>{{class.Stream}}</td>
             <td>{{class.MaxStrength}}</td>
@@ -111,7 +115,7 @@
             <small class="text-red-500" *ngIf="isFieldInvalid('MaxStrength')">
                 Maximum Strength is required and must be greater than 0.
             </small>
-        </div>
+        </div>  
     </form>
 
         <ng-template pTemplate="footer">
