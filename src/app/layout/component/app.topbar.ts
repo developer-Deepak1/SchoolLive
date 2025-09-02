@@ -60,10 +60,10 @@ import { AuthService } from '@/services/auth.service';
                         <i class="pi pi-inbox"></i>
                         <span>Messages</span>
                     </button> -->
-                    <button type="button" class="layout-topbar-action">
+                    <!-- <button type="button" class="layout-topbar-action">
                         <i class="pi pi-user"></i>
                         <span>Profile</span>
-                    </button>
+                    </button> -->
                     <button type="button" class="layout-topbar-action" (click)="logout()">
                         <i class="pi pi-lock"></i>
                         <span>Logout</span>

@@ -287,7 +287,21 @@ export class AcademicCalander implements OnInit {
     const ay = this.selectedAcademicYear?.value?.AcademicYearID;
     const days = Array.from(this.weeklyOffSet.values());
     if (!ay) return;
-    this.calendarService.setWeeklyOffs(ay, days).subscribe({ next: () => {}, error: (err) => console.error('Failed to save weekly offs', err) });
+    this.calendarService.setWeeklyOffs(ay, days).subscribe({
+      next: (ok) => {
+        if (ok) {
+          this.showToast('success','Weekly Offs','Weekly offs updated');
+        } else {
+          // service maps to boolean; inform user that server responded negatively
+          this.showToast('warn','Weekly Offs','Server did not confirm update');
+        }
+      },
+      error: (err) => {
+        console.error('Failed to save weekly offs', err);
+        const detail = err?.error?.message ?? err?.message ?? 'Server error';
+        this.showToast('error','Weekly Offs save failed', detail, 6000);
+      }
+    });
   }
 
   loadHolidays() {
@@ -306,4 +320,16 @@ export class AcademicCalander implements OnInit {
   // Exception Working Days removed; use holiday.type === 'WorkingDay' instead
 
   // search functionality intentionally removed; tables remain simple and local
+
+  // Helper to show toasts via PrimeNG MessageService and also log attempts for debugging
+  showToast(severity: 'success' | 'info' | 'warn' | 'error', summary: string, detail?: string, life: number = 4000) {
+    try {
+      // Console log helps debug when toasts are not visible in the UI
+      console.log('[Toast]', { severity, summary, detail, life });
+      this.msg.add({ severity, summary, detail, life });
+    } catch (e) {
+      // Fallback log if MessageService is not available for some reason
+      console.error('showToast failed', e, { severity, summary, detail, life });
+    }
+  }
 }
