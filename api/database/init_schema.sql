@@ -57,8 +57,28 @@ CREATE TABLE Tm_AcademicYears (
     INDEX idx_school_academic_year (SchoolID, AcademicYearName),
     INDEX idx_status (Status)
 );
--- Migration: create tx_academic_calendar
--- Created: 2025-09-01
+
+CREATE TABLE Tx_WeeklyOffs (
+    WeeklyOffID INT AUTO_INCREMENT PRIMARY KEY,
+    AcademicYearID INT NOT NULL,
+    DayOfWeek TINYINT NOT NULL, -- 1=Monday, 2=Tuesday, ... 7=Sunday
+    FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID),
+    CONSTRAINT chk_weekday CHECK (DayOfWeek BETWEEN 1 AND 7),
+    UNIQUE KEY ux_weeklyoff_ay_day (AcademicYearID, DayOfWeek),
+    INDEX idx_weeklyoff_ay_day (AcademicYearID, DayOfWeek)
+);
+
+CREATE TABLE Tx_Holidays (
+    HolidayID INT AUTO_INCREMENT PRIMARY KEY,
+    AcademicYearID INT NOT NULL,
+    Date DATE NOT NULL,
+    Title VARCHAR(100),
+    HolidayType ENUM('Holiday', 'WorkingDay') DEFAULT 'Holiday',
+    FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID),
+    UNIQUE KEY ux_holidays_ay_date (AcademicYearID, Date),
+    INDEX idx_holidays_ay_date (AcademicYearID, Date)
+);
+
 
 
 -- Set auto-increment start value
@@ -412,35 +432,6 @@ CREATE TABLE IF NOT EXISTS Tx_Events (
     FOREIGN KEY (SchoolID) REFERENCES Tm_Schools(SchoolID) ON DELETE CASCADE,
     FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID) ON DELETE SET NULL,
     INDEX idx_event_school_date (SchoolID, EventDate)
-);
-
--- Academic Calendar table (calendar entries per academic year)
-CREATE TABLE IF NOT EXISTS Tx_Academic_Calendar (
-    CalendarID BIGINT AUTO_INCREMENT PRIMARY KEY,
-    AcademicYearID INT NOT NULL,
-    `Date` DATE NULL,
-    DayType ENUM('working_day','holiday','exam_day','special_event') NOT NULL DEFAULT 'working_day',
-    HolidayCode VARCHAR(50) NULL,
-    HolidayType VARCHAR(50) NULL, -- e.g. 'National','Religious','School'
-    IsHalfDay BOOLEAN DEFAULT FALSE,
-    IsRecurring BOOLEAN DEFAULT FALSE,
-    RecurrenceRule VARCHAR(100) NULL, -- iCal RRULE or simple rule like 'YEARLY'
-    AppliesTo ENUM('school','class','section') DEFAULT 'school', -- scope of holiday
-    TargetID BIGINT NULL, -- optional id for class or section when AppliesTo != 'school'
-    Title VARCHAR(200) NOT NULL,
-    Description TEXT NULL,
-    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CreatedBy VARCHAR(100),
-    UpdatedBy VARCHAR(100),
-    FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID) ON DELETE CASCADE,
-    -- Keep unique constraint for single-day date entries; range/recurring entries may have NULL `Date`.
-    UNIQUE KEY unique_calendar_date (AcademicYearID, `Date`),
-    INDEX idx_calendar_academicyear (AcademicYearID),
-    INDEX idx_calendar_date (`Date`),
-    INDEX idx_calendar_holiday_type (HolidayType),
-    INDEX idx_calendar_recurring (IsRecurring),
-    INDEX idx_calendar_scope (AppliesTo, TargetID)
 );
 
 -- Activity Log table
