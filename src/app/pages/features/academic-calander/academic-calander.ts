@@ -266,6 +266,20 @@ export class AcademicCalander implements OnInit {
   }
 
   addHoliday() {
+    // Basic required-field validation
+    if (!this.holidayDate) {
+      this.msg.add({ severity: 'warn', summary: 'Missing Date', detail: 'Please select a holiday date' });
+      return;
+    }
+    if (!this.holidayType) {
+      this.msg.add({ severity: 'warn', summary: 'Missing Type', detail: 'Please select a holiday type' });
+      return;
+    }
+    if (!this.holidayTitle || String(this.holidayTitle).trim() === '') {
+      this.msg.add({ severity: 'warn', summary: 'Missing Title', detail: 'Please enter a holiday title' });
+      return;
+    }
+
     if (this.holidayDate && this.holidayType) {
       // Ensure selected date is within academic year bounds
       const pickedDate = this.parseToLocalDate(this.holidayDate) || (this.holidayDate instanceof Date ? new Date(this.holidayDate.getFullYear(), this.holidayDate.getMonth(), this.holidayDate.getDate()) : null);
@@ -351,6 +365,21 @@ export class AcademicCalander implements OnInit {
         Type: this.holidayType.value
       };
 
+      // Prevent duplicate single-date holidays (unless updating the same record)
+      if (!this.editingHoliday) {
+        const exists = this.holidays.find(h => h.date === formattedDate);
+        if (exists) {
+          this.msg.add({ severity: 'warn', summary: 'Duplicate', detail: `A holiday already exists for ${formattedDate}` });
+          return;
+        }
+      } else {
+        // If editing, ensure we don't accidentally duplicate to another existing date
+        const existsOther = this.holidays.find(h => h.date === formattedDate && h.id !== this.editingHoliday.id);
+        if (existsOther) {
+          this.msg.add({ severity: 'warn', summary: 'Duplicate', detail: `Another holiday already exists for ${formattedDate}` });
+          return;
+        }
+      }
       // If editingHoliday is set, perform update instead of create
       if (this.editingHoliday && this.editingHoliday.id) {
         this.calendarService.updateHoliday(this.editingHoliday.id, payload).subscribe({

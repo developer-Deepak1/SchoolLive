@@ -39,7 +39,7 @@
 
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
       <div>
-        <label for="holiday-date" class="block font-bold mb-2">Holiday Date</label>
+  <label for="holiday-date" class="block font-bold mb-2">Holiday Date <span class="text-red-600">*</span></label>
         <p-datepicker inputId="holiday-date" [(ngModel)]="holidayDate" dateFormat="yy-mm-dd" [style]="{'width':'100%'}" styleClass="w-full"
           [minDate]="minHolidayDate" [maxDate]="maxHolidayDate">
         </p-datepicker>
@@ -52,12 +52,12 @@
       </div>
 
       <div>
-        <label for="holiday-title" class="block font-bold mb-2">Holiday Title</label>
-        <input id="holiday-title" type="text" pInputText [(ngModel)]="holidayTitle" placeholder="Holiday Title" class="w-full" />
+  <label for="holiday-title" class="block font-bold mb-2">Holiday Title <span class="text-red-600">*</span></label>
+  <input id="holiday-title" type="text" pInputText [(ngModel)]="holidayTitle" placeholder="Holiday Title" class="w-full" />
       </div>
 
       <div>
-        <label for="holiday-type" class="block font-bold mb-2">Type</label>
+  <label for="holiday-type" class="block font-bold mb-2">Type <span class="text-red-600">*</span></label>
         <p-select inputId="holiday-type" 
           [(ngModel)]="holidayType" 
           [options]="holidayTypes" 
