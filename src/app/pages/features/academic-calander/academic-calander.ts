@@ -146,6 +146,32 @@ export class AcademicCalander implements OnInit {
   rangePreview: string[] = [];
   previewCollapsed: boolean = false;
 
+  // Helper: parse a value (Date, 'YYYY-MM-DD', ISO) into a local Date at midnight
+  private parseToLocalDate(v: any): Date | null {
+    if (!v && v !== 0) return null;
+    if (v instanceof Date) {
+      return new Date(v.getFullYear(), v.getMonth(), v.getDate());
+    }
+    if (typeof v === 'number') {
+      const dt = new Date(v);
+      return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+    }
+    if (typeof v === 'string') {
+      // plain YYYY-MM-DD
+      const ymd = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (ymd) {
+        const y = Number(ymd[1]);
+        const m = Number(ymd[2]) - 1;
+        const d = Number(ymd[3]);
+        return new Date(y, m, d);
+      }
+      // try ISO parse then convert to local date-only
+      const parsed = new Date(v);
+      if (!isNaN(parsed.getTime())) return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+    }
+    return null;
+  }
+
   startEditHoliday(h: any) {
     this.editingHoliday = { ...h };
     // populate top form fields for editing
@@ -153,7 +179,7 @@ export class AcademicCalander implements OnInit {
     if (rawDate) {
       // support several date formats: Date object, YYYY-MM-DD, ISO datetime, or timestamp
       if (rawDate instanceof Date) {
-        this.holidayDate = rawDate;
+        this.holidayDate = new Date(rawDate.getFullYear(), rawDate.getMonth(), rawDate.getDate());
       } else if (typeof rawDate === 'string') {
         // handle plain YYYY-MM-DD reliably
         const ymd = rawDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -164,11 +190,11 @@ export class AcademicCalander implements OnInit {
           this.holidayDate = new Date(y, m, d);
         } else {
           // fallback to Date parsing for ISO strings
-          const parsed = new Date(rawDate);
-          this.holidayDate = isNaN(parsed.getTime()) ? null : parsed;
+          const parsed = this.parseToLocalDate(rawDate);
+          this.holidayDate = parsed;
         }
       } else if (typeof rawDate === 'number') {
-        this.holidayDate = new Date(rawDate);
+        this.holidayDate = this.parseToLocalDate(rawDate);
       } else {
         this.holidayDate = null;
       }
@@ -232,15 +258,19 @@ export class AcademicCalander implements OnInit {
   addHoliday() {
     if (this.holidayDate && this.holidayType) {
       // Ensure selected date is within academic year bounds
-      const pickedDate = (this.holidayDate instanceof Date) ? this.holidayDate : new Date(this.holidayDate);
+      const pickedDate = this.parseToLocalDate(this.holidayDate) || (this.holidayDate instanceof Date ? new Date(this.holidayDate.getFullYear(), this.holidayDate.getMonth(), this.holidayDate.getDate()) : null);
+      if (!pickedDate) {
+        this.msg.add({ severity: 'warn', summary: 'Invalid Date', detail: 'Please select a valid start date' });
+        return;
+      }
       const min = this.minHolidayDate;
       const max = this.maxHolidayDate;
       if (min && pickedDate < min) {
-        this.msg.add({ severity: 'warn', summary: 'Invalid Date', detail: `Holiday must be on or after ${min.toISOString().split('T')[0]}` });
+        this.msg.add({ severity: 'warn', summary: 'Invalid Date', detail: `Holiday must be on or after ${toLocalYMDIST(min)}` });
         return;
       }
       if (max && pickedDate > max) {
-        this.msg.add({ severity: 'warn', summary: 'Invalid Date', detail: `Holiday must be on or before ${max.toISOString().split('T')[0]}` });
+        this.msg.add({ severity: 'warn', summary: 'Invalid Date', detail: `Holiday must be on or before ${toLocalYMDIST(max)}` });
         return;
       }
 
@@ -250,7 +280,11 @@ export class AcademicCalander implements OnInit {
           this.msg.add({ severity: 'warn', summary: 'End date required', detail: 'Please select an end date for the range' });
           return;
         }
-        const endDate = (this.holidayEndDate instanceof Date) ? this.holidayEndDate : new Date(this.holidayEndDate);
+        const endDate = this.parseToLocalDate(this.holidayEndDate) || (this.holidayEndDate instanceof Date ? new Date(this.holidayEndDate.getFullYear(), this.holidayEndDate.getMonth(), this.holidayEndDate.getDate()) : null);
+        if (!endDate) {
+          this.msg.add({ severity: 'warn', summary: 'Invalid Date', detail: 'Please select a valid end date' });
+          return;
+        }
         if (endDate < pickedDate) {
           this.msg.add({ severity: 'warn', summary: 'Invalid Range', detail: 'End date must be the same or after start date' });
           return;
@@ -258,8 +292,8 @@ export class AcademicCalander implements OnInit {
         if (min && endDate < min) { this.msg.add({ severity: 'warn', summary: 'Invalid Date', detail: `End date must be on or after ${min.toISOString().split('T')[0]}` }); return; }
         if (max && endDate > max) { this.msg.add({ severity: 'warn', summary: 'Invalid Date', detail: `End date must be on or before ${max.toISOString().split('T')[0]}` }); return; }
 
-        const formattedStart = toLocalYMDIST(this.holidayDate);
-        const formattedEnd = toLocalYMDIST(this.holidayEndDate);
+  const formattedStart = toLocalYMDIST(pickedDate);
+  const formattedEnd = toLocalYMDIST(endDate);
         const payloadRange = {
           AcademicYearID: this.selectedAcademicYear?.value?.AcademicYearID || null,
           StartDate: formattedStart,
@@ -286,12 +320,20 @@ export class AcademicCalander implements OnInit {
             console.error('Create holiday range failed', err);
             const detail = err?.error?.message ?? err?.message ?? 'Server error';
             this.showToast('error','Range create failed', detail, 6000);
+            // reset form even on error to avoid stale input
+            this.holidayDate = null;
+            this.holidayEndDate = null;
+            this.holidayTitle = '';
+            this.holidayType = null;
+            this.rangePreview = [];
+            this.previewCollapsed = false;
+            this.editingHoliday = null;
           }
         });
         return;
       }
 
-      const formattedDate = toLocalYMDIST(this.holidayDate) || (typeof this.holidayDate === 'string' ? this.holidayDate.split('T')[0] : null);
+  const formattedDate = toLocalYMDIST(pickedDate) || (typeof this.holidayDate === 'string' ? this.holidayDate.split('T')[0] : null);
       const payload = {
         AcademicYearID: this.selectedAcademicYear?.value?.AcademicYearID || null,
         Date: formattedDate,
@@ -359,13 +401,18 @@ export class AcademicCalander implements OnInit {
   computeRangePreview() {
     this.rangePreview = [];
     if (!this.holidayDate || !this.holidayEndDate) return;
-    const sd = (this.holidayDate instanceof Date) ? new Date(this.holidayDate) : new Date(this.holidayDate);
-    const ed = (this.holidayEndDate instanceof Date) ? new Date(this.holidayEndDate) : new Date(this.holidayEndDate);
+    const sd = this.parseToLocalDate(this.holidayDate);
+    const ed = this.parseToLocalDate(this.holidayEndDate);
+    if (!sd || !ed) return;
     if (isNaN(sd.getTime()) || isNaN(ed.getTime())) return;
     if (ed < sd) return;
+    const start: Date = sd;
+    const end: Date = ed;
     const list: string[] = [];
-    for (let d = new Date(sd); d <= ed; d.setDate(d.getDate() + 1)) {
-      list.push(d.toISOString().split('T')[0]);
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      // use IST-aware formatter to avoid UTC day shift
+      const ymd = toLocalYMDIST(d);
+      if (ymd) list.push(ymd);
     }
     this.rangePreview = list;
   }
@@ -469,12 +516,12 @@ export class AcademicCalander implements OnInit {
     const s = yearObj.StartDate || yearObj.start_date || yearObj.from || yearObj.start || null;
     const e = yearObj.EndDate || yearObj.end_date || yearObj.to || yearObj.end || null;
     try {
-      this.minHolidayDate = s ? new Date(s) : null;
+      this.minHolidayDate = s ? this.parseToLocalDate(s) : null;
     } catch (err) {
       this.minHolidayDate = null;
     }
     try {
-      this.maxHolidayDate = e ? new Date(e) : null;
+      this.maxHolidayDate = e ? this.parseToLocalDate(e) : null;
     } catch (err) {
       this.maxHolidayDate = null;
     }
