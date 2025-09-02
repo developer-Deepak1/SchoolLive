@@ -10,8 +10,12 @@
     </div>
     <div>
       <label for="StartDate" class="block font-bold mb-2">Start Date *</label>
-      <p-datepicker id="StartDate" formControlName="StartDate" dateFormat="yy-mm-dd" [showIcon]="true" [timeOnly]="false" [showTime]="false" class="w-full"></p-datepicker>
+      <p-datepicker id="StartDate" formControlName="StartDate" dateFormat="yy-mm-dd" [showIcon]="true" [timeOnly]="false" [showTime]="false" [minDate]="nextStartDate" class="w-full"></p-datepicker>
       <div class="mt-1">
+        <div>
+            <small class="text-xs text-gray-500">Start date must be on or after {{ nextStartDate | date:'yyyy-MM-dd' }}</small>
+            <p-button *ngIf="!startDateValue" label="Jump to earliest" class="p-button-text p-button-sm" (onClick)="jumpToNextStart()"></p-button>
+        </div>
         <div *ngIf="predictedStatus" class="mt-1">
           <small class="text-sm font-semibold" [ngClass]="{ 'text-blue-600': predictedStatus === 'Upcoming', 'text-green-600': predictedStatus === 'Active' }">Predicted status: {{ predictedStatus }}</small>
         </div>
@@ -29,6 +33,9 @@
       <div class="h-5 mt-1">
         <small class="text-red-500" *ngIf="isFieldInvalid('EndDate') && !isEndDateDisabled">Required</small>
         <small class="text-gray-500" *ngIf="isEndDateDisabled">Please select a start date first</small>
+        <div *ngIf="startDateValue && !yearForm.get('EndDate')?.value" class="mt-1">
+          <p-splitButton label="Set end" icon="pi pi-calendar" (onClick)="jumpToDefaultEnd()" [model]="endPresetItems" class="p-button-text p-button-sm"></p-splitButton>
+        </div>
       </div>
     </div>
     <div>
@@ -91,19 +98,13 @@
       <td>{{year.StartDate | date:'yyyy-MM-dd'}}</td>
       <td>{{year.EndDate   | date:'yyyy-MM-dd'}}</td>
       <td>
-        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-              [ngClass]="{
-                'bg-green-100 text-green-800': year.Status === 'Active',
-                'bg-gray-100 text-gray-800': year.Status === 'Inactive',
-                'bg-blue-100 text-blue-800': year.Status === 'Upcoming',
-                'bg-red-100 text-red-800': year.Status === 'End'
-              }">
-          {{year.Status}}
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium" [ngClass]="statusBadgeClass(year.Status)" aria-label="Status badge">
+          {{ year.Status }}
         </span>
       </td>
       <td>
-        <p-button icon="pi pi-pencil" class="mr-2" [rounded]="true" [outlined]="true" (onClick)="editYear(year)" />
-        <p-button icon="pi pi-trash" severity="danger" [rounded]="true" [outlined]="true" (onClick)="deleteYear(year)" />
+        <p-button icon="pi pi-pencil" class="mr-2" [rounded]="true" [outlined]="true" (onClick)="editYear(year)" aria-label="Edit year" />
+        <p-button icon="pi pi-trash" severity="danger" [rounded]="true" [outlined]="true" (onClick)="deleteYear(year)" aria-label="Delete year" />
       </td>
     </tr>
   </ng-template>
