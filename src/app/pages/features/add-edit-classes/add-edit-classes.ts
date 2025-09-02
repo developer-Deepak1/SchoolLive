@@ -64,6 +64,9 @@ interface ExportColumn {
 export class AddEditClasses implements OnInit {
     classForm!: FormGroup;
     classDialog: boolean = false;
+    // View sections for a specific class
+    viewSectionsDialog: boolean = false;
+    selectedClassForView: Classes | null = null;
     classes = signal<Classes[]>([]);
     // Sections
     sections = signal<any[]>([]);
@@ -259,6 +262,23 @@ export class AddEditClasses implements OnInit {
         this.submitted = false;
         this.classForm.reset();
         this.classDialog = true;
+    }
+
+    // Open the sections dialog filtered for a specific class
+    viewSections(class_: Classes) {
+        this.selectedClassForView = class_;
+        // ensure sections are loaded
+        if (!this.sections() || this.sections().length === 0) {
+            this.loadSections();
+        }
+        this.viewSectionsDialog = true;
+    }
+
+    // Returns sections filtered for the selected class
+    filteredSections(): any[] {
+        if (!this.selectedClassForView) return [];
+        const clsId = this.selectedClassForView.ClassID;
+        return (this.sections() || []).filter(s => Number(s.ClassID) === Number(clsId));
     }
 
     editClass(class_: Classes) {

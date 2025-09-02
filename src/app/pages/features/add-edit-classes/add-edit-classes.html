@@ -63,6 +63,8 @@
             <td>
                 <p-button icon="pi pi-pencil" class="mr-2" [rounded]="true" [outlined]="true" 
                     (onClick)="editClass(class)" />
+                <p-button icon="pi pi-eye" class="mr-2" [rounded]="true" [outlined]="true" 
+                    (onClick)="viewSections(class)" tooltip="View Sections" />
                 <p-button icon="pi pi-trash" severity="danger" [rounded]="true" [outlined]="true" 
                     (onClick)="deleteClass(class)" />
             </td>
@@ -121,6 +123,22 @@
         <ng-template pTemplate="footer">
         <p-button label="Cancel" icon="pi pi-times" (onClick)="hideDialog()" styleClass="p-button-text" />
         <p-button label="Save" icon="pi pi-check" severity="success" (onClick)="saveClass()" />
+    </ng-template>
+</p-dialog>
+
+<!-- Dialog to view sections belonging to a class -->
+<p-dialog header="Sections" [(visible)]="viewSectionsDialog" [modal]="true" [style]="{ width: '500px' }" *ngIf="selectedClassForView">
+    <ng-template pTemplate="content">
+    <h3 class="mb-3">Sections for {{ selectedClassForView.ClassName }}</h3>
+        <div *ngIf="filteredSections().length === 0">No sections found for this class.</div>
+        <ul *ngIf="filteredSections().length > 0" class="list-disc pl-6">
+            <li *ngFor="let s of filteredSections()">
+                <strong>{{ s.SectionName }}</strong> - Max Strength: {{ s.MaxStrength || '-' }}
+            </li>
+        </ul>
+    </ng-template>
+    <ng-template pTemplate="footer">
+        <p-button label="Close" icon="pi pi-times" class="p-button-text" (onClick)="viewSectionsDialog=false; selectedClassForView=null"></p-button>
     </ng-template>
 </p-dialog>
 <div>
