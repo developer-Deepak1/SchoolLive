@@ -2,6 +2,11 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, ViewChild, signal } from '@angular/core';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ConfirmationService, MessageService } from 'primeng/api';
+import { StudentsService } from '../services/students.service';
+import { SectionsService } from '../services/sections.service';
+import { UserService } from '@/services/user.service';
+import { HttpClient, HttpClientModule } from '@angular/common/http';
+import { environment } from '../../../../environments/environment';
 import { Table, TableModule } from 'primeng/table';
 import { Classes, StreamType } from '../model/classes.model';
 import { ClassesService } from '../services/classes.service';
@@ -45,9 +50,9 @@ interface ExportColumn {
         RippleModule,
         ToastModule,
         ToolbarModule,
-        InputTextModule,
-        SelectModule,
-        InputNumberModule,
+    InputTextModule,
+    SelectModule,
+    InputNumberModule,
         DialogModule,
         ConfirmDialogModule,
         InputIconModule,
@@ -60,6 +65,11 @@ export class AddEditClasses implements OnInit {
     classForm!: FormGroup;
     classDialog: boolean = false;
     classes = signal<Classes[]>([]);
+    // Sections
+    sections = signal<any[]>([]);
+    sectionForm!: FormGroup;
+    sectionDialog: boolean = false;
+    sectionSubmitted: boolean = false;
     selectedClasses!: Classes[] | null;
     submitted: boolean = false;
 
@@ -83,9 +93,14 @@ export class AddEditClasses implements OnInit {
         private fb: FormBuilder,
         private classesService: ClassesService,
         private messageService: MessageService,
-        private confirmationService: ConfirmationService
+        private confirmationService: ConfirmationService,
+    private studentsService: StudentsService,
+    private sectionsService: SectionsService,
+    private userService: UserService,
+    private http: HttpClient
     ) {
         this.initForm();
+        this.initSectionForm();
     }
 
     private initForm() {
@@ -98,6 +113,104 @@ export class AddEditClasses implements OnInit {
         });
     }
 
+    private initSectionForm() {
+        this.sectionForm = this.fb.group({
+            SectionID: [null],
+            SectionName: ['', [Validators.required]],
+            SectionDisplayName: ['', [Validators.required]],
+            ClassID: [null, [Validators.required]],
+            SchoolID: [null],
+            AcademicYearID: [null]
+        });
+    }
+
+    // Section handlers
+    // Load all sections (no class filter) and attach ClassName when missing
+    loadSections() {
+    // Use SectionsService to fetch sections for current user's school & academic year; attach ClassName when missing
+    const filters: any = {};
+    const schoolId = this.userService.getSchoolId();
+    const ay = this.userService.getAcademicYearId();
+    if (schoolId) filters.school_id = schoolId;
+    if (ay) filters.academic_year_id = ay;
+    this.sectionsService.getSections(filters).subscribe({
+            next: (data) => {
+                const classesMap = new Map<number, string>(this.classes().map(c => [c.ClassID as number, c.ClassName]));
+                const mapped = (data || []).map((s: any) => ({ ...s, ClassName: s.ClassName || classesMap.get(s.ClassID) || '' }));
+                this.sections.set(mapped);
+            },
+            error: () => { this.sections.set([]); this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load sections', life: 3000 }); }
+        });
+    }
+
+    openNewSection() {
+        this.sectionSubmitted = false;
+        this.sectionForm.reset();
+    // default to first class if available
+    const firstClass = this.classes()[0];
+    if (firstClass) this.sectionForm.patchValue({ ClassID: firstClass.ClassID });
+    // set defaults for school and academic year from current user
+    const schoolId = this.userService.getSchoolId();
+    const ay = this.userService.getAcademicYearId();
+    if (schoolId) this.sectionForm.patchValue({ SchoolID: schoolId });
+    if (ay) this.sectionForm.patchValue({ AcademicYearID: ay });
+    this.sectionDialog = true;
+    }
+
+    editSection(section: any) {
+    // ensure form has SchoolID and AcademicYearID set when editing
+    this.sectionForm.patchValue(section);
+    if (section.ClassID) this.sectionForm.patchValue({ ClassID: section.ClassID });
+    if (section.SchoolID) this.sectionForm.patchValue({ SchoolID: section.SchoolID });
+    if (section.AcademicYearID) this.sectionForm.patchValue({ AcademicYearID: section.AcademicYearID });
+    this.sectionDialog = true;
+    }
+
+    saveSection() {
+        this.sectionSubmitted = true;
+        if (this.sectionForm.invalid) {
+            this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Please fill required fields.', life: 3000 });
+            return;
+        }
+        const formValue = this.sectionForm.value;
+        const payload: any = {
+            SectionName: formValue.SectionName,
+            SectionDisplayName: formValue.SectionDisplayName,
+            ClassID: formValue.ClassID
+        };
+    // include AcademicYearID and SchoolID (use user defaults when missing)
+    payload.AcademicYearID = formValue.AcademicYearID || this.userService.getAcademicYearId();
+    payload.SchoolID = formValue.SchoolID || this.userService.getSchoolId();
+        if (formValue.SectionID) {
+            this.sectionsService.updateSection(formValue.SectionID, payload).subscribe({
+                next: () => { this.messageService.add({ severity: 'success', summary: 'Updated', detail: 'Section updated', life: 3000 }); this.loadSections(); },
+                error: () => this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to update section', life: 3000 })
+            });
+        } else {
+            this.sectionsService.createSection(payload).subscribe({
+                next: () => { this.messageService.add({ severity: 'success', summary: 'Created', detail: 'Section created', life: 3000 }); this.loadSections(); },
+                error: () => this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to create section', life: 3000 })
+            });
+        }
+        this.sectionDialog = false;
+        this.sectionForm.reset();
+    }
+
+    deleteSection(section: any) {
+        if (!section || !section.SectionID) return;
+        this.confirmationService.confirm({
+            message: `Are you sure you want to delete ${section.SectionName}?`,
+            header: 'Confirm',
+            icon: 'pi pi-exclamation-triangle',
+            accept: () => {
+                this.sectionsService.deleteSection(section.SectionID).subscribe({
+                    next: () => { this.messageService.add({ severity: 'success', summary: 'Deleted', detail: 'Section deleted', life: 3000 }); this.loadSections(); },
+                    error: () => this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to delete section', life: 3000 })
+                });
+            }
+        });
+    }
+
     ngOnInit() {
         this.loadClasses();
     }
@@ -106,7 +219,7 @@ export class AddEditClasses implements OnInit {
         this.classesService.getClasses().subscribe({
             next: (data) => this.classes.set(data),
             error: (err) => this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load classes', life: 3000 }),
-            complete: () => {}
+            complete: () => { this.loadSections(); }
         });
     }
 

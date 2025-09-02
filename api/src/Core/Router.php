@@ -28,9 +28,9 @@ class Router {
     $this->routes['DELETE']['/api/academic/classes/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'deleteClass'], 'roles' => true];
 
     // Sections routes
-    $this->routes['GET']['/api/academic/sections'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getSections'], 'roles' => null];
+    $this->routes['GET']['/api/academic/sections'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getSections'], 'roles' => true];
     $this->routes['POST']['/api/academic/sections'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createSection'], 'roles' => true];
-    $this->routes['GET']['/api/academic/sections/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getSection'], 'roles' => null];
+    $this->routes['GET']['/api/academic/sections/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getSection'], 'roles' => true];
     $this->routes['PUT']['/api/academic/sections/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'updateSection'], 'roles' => true];
     $this->routes['DELETE']['/api/academic/sections/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'deleteSection'], 'roles' => true];
 

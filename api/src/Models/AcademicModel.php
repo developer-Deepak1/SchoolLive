@@ -275,7 +275,7 @@ class AcademicModel extends Model {
     }
 
     // Sections methods
-    public function getAllSections($academic_year_id = null, $class_id = null) {
+    public function getAllSections($academic_year_id = null, $class_id = null, $school_id = null) {
         $query = "SELECT s.*, ay.AcademicYearName FROM Tx_Sections s
             LEFT JOIN Tm_AcademicYears ay ON s.AcademicYearID = ay.AcademicYearID";
 
@@ -285,6 +285,9 @@ class AcademicModel extends Model {
         }
         if ($class_id) {
             $clauses[] = "s.ClassID = :class_id";
+        }
+        if ($school_id) {
+            $clauses[] = "s.SchoolID = :school_id";
         }
 
         if (!empty($clauses)) {
@@ -299,6 +302,9 @@ class AcademicModel extends Model {
         }
         if ($class_id) {
             $stmt->bindParam(':class_id', $class_id);
+        }
+        if ($school_id) {
+            $stmt->bindParam(':school_id', $school_id);
         }
 
         $stmt->execute();

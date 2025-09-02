@@ -175,24 +175,23 @@ CREATE TABLE Tx_Classes (
 -- Create Sections table
 CREATE TABLE Tx_Sections (
     SectionID BIGINT AUTO_INCREMENT PRIMARY KEY,
-    SectionName VARCHAR(50) NOT NULL, 
-    SectionDisplayName VARCHAR(100) NOT NULL,
+    ClassID BIGINT NOT NULL,              -- Linked to class
+    SectionName VARCHAR(50) NOT NULL,     -- e.g. "A", "B"
+    MaxStrength INT DEFAULT NULL,
+    Status VARCHAR(20) DEFAULT 'Active',
     SchoolID INT NOT NULL,
     AcademicYearID INT NOT NULL,
-    ClassID BIGINT NOT NULL,
-    Status VARCHAR(20) DEFAULT 'Active',
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CreatedBy VARCHAR(100),
     UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UpdatedBy VARCHAR(100),
     
-    FOREIGN KEY (SchoolID) REFERENCES Tm_Schools(SchoolID) ON DELETE CASCADE,
-    FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID) ON DELETE CASCADE,
     FOREIGN KEY (ClassID) REFERENCES Tx_Classes(ClassID) ON DELETE CASCADE,
-    INDEX idx_school_section (SchoolID, SectionName),
-    INDEX idx_section_academicyear (AcademicYearID),
-    INDEX idx_section_class (ClassID)
+    INDEX idx_class_section (ClassID, SectionName),
+    INDEX idx_class_academicyear (AcademicYearID),
+    INDEX idx_status (Status)
 );
+
 
 CREATE TABLE Tx_Employees (
     EmployeeID BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -267,6 +266,7 @@ CREATE TABLE Tx_Students (
     DOB DATE NOT NULL,
     SchoolID INT NOT NULL,  
     SectionID BIGINT,
+    ClassID BIGINT,
     UserID BIGINT NOT NULL,
     AcademicYearID INT NOT NULL,
     FatherName VARCHAR(150),
@@ -283,9 +283,11 @@ CREATE TABLE Tx_Students (
     FOREIGN KEY (UserID) REFERENCES Tx_Users(UserID) ON DELETE CASCADE,
     FOREIGN KEY (SchoolID) REFERENCES Tm_Schools(SchoolID) ON DELETE CASCADE,
     FOREIGN KEY (SectionID) REFERENCES Tx_Sections(SectionID) ON DELETE SET NULL,
+    FOREIGN KEY (ClassID) REFERENCES Tx_Classes(ClassID) ON DELETE SET NULL,
     FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID) ON DELETE CASCADE,
     INDEX idx_student_school (SchoolID),
     INDEX idx_student_section (SectionID),
+    INDEX idx_student_class (ClassID),
     INDEX idx_student_academicyear (AcademicYearID),
     INDEX idx_status (Status)
 );
@@ -320,6 +322,7 @@ CREATE TABLE Tx_Students_Attendance (
     Status ENUM('Present','Absent','Leave','HalfDay') NOT NULL,
     StudentID BIGINT NOT NULL,
     SectionID BIGINT NOT NULL,
+    ClassID BIGINT NOT NULL,
     SchoolID INT NOT NULL,
     AcademicYearID INT NOT NULL,
     Remarks TEXT,
@@ -330,6 +333,7 @@ CREATE TABLE Tx_Students_Attendance (
     
     FOREIGN KEY (StudentID) REFERENCES Tx_Students(StudentID) ON DELETE CASCADE,
     FOREIGN KEY (SectionID) REFERENCES Tx_Sections(SectionID) ON DELETE CASCADE,
+    FOREIGN KEY (ClassID) REFERENCES Tx_Classes(ClassID) ON DELETE CASCADE,
     FOREIGN KEY (SchoolID) REFERENCES Tm_Schools(SchoolID) ON DELETE CASCADE,
     FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID) ON DELETE CASCADE,
     UNIQUE KEY unique_student_date (StudentID, Date),

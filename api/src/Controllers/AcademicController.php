@@ -121,16 +121,23 @@ class AcademicController extends BaseController {
     // Classes Methods
     public function getClasses($params = []) {
     $currentUser = $this->currentUser(); if(!$currentUser) return;
-    $classes = $this->academicModel->getAllClasses($currentUser['AcademicYearID'], $currentUser['school_id']);
+    // Accept AcademicYearID via query param (camelCase or snake_case) or fall back to current user
+    $academicYearId = $_GET['AcademicYearID'] ?? $_GET['academic_year_id'] ?? $currentUser['AcademicYearID'] ?? null;
+    $classes = $this->academicModel->getAllClasses($academicYearId, $currentUser['school_id']);
     $this->ok('Classes retrieved successfully', $classes);
     }
 
     // Sections Methods
     public function getSections($params = []) {
-        $academic_year_id = $_GET['academic_year_id'] ?? null;
-        $class_id = $_GET['class_id'] ?? null;
+    // Accept both snake_case and camelCase query params
+    $academic_year_id = $_GET['academic_year_id'] ?? $_GET['AcademicYearID'] ?? null;
+    $class_id = $_GET['class_id'] ?? $_GET['ClassID'] ?? null;
 
-    $sections = $this->academicModel->getAllSections($academic_year_id, $class_id);
+    // Determine school context: prefer explicit query param but fall back to current user's school when available
+    $currentUser = $this->currentUser(); // may be null if unauthenticated
+    $school_id = $_GET['school_id'] ?? $_GET['SchoolID'] ?? ($currentUser['school_id'] ?? null);
+
+    $sections = $this->academicModel->getAllSections($academic_year_id, $class_id, $school_id);
     $this->ok('Sections retrieved successfully', $sections);
     }
 
@@ -146,6 +153,19 @@ class AcademicController extends BaseController {
     public function createSection($params = []) {
     if (!$this->requireMethod('POST')) return;
     $input = $this->input();
+
+    // Normalize common camelCase keys to snake_case to be flexible for clients
+    if (isset($input['SectionName']) && !isset($input['section_name'])) $input['section_name'] = $input['SectionName'];
+    if (isset($input['SectionDisplayName']) && !isset($input['section_display_name'])) $input['section_display_name'] = $input['SectionDisplayName'];
+    if (isset($input['ClassID']) && !isset($input['class_id'])) $input['class_id'] = $input['ClassID'];
+    if (isset($input['AcademicYearID']) && !isset($input['academic_year_id'])) $input['academic_year_id'] = $input['AcademicYearID'];
+    if (isset($input['SchoolID']) && !isset($input['school_id'])) $input['school_id'] = $input['SchoolID'];
+
+    $currentUser = $this->currentUser(); if(!$currentUser) return;
+    // Default missing school/academic year to current user's context
+    if (!isset($input['school_id'])) $input['school_id'] = $currentUser['school_id'];
+    if (!isset($input['academic_year_id'])) $input['academic_year_id'] = $currentUser['AcademicYearID'];
+
     if (!$this->ensure($input, ['section_name','section_display_name','school_id','academic_year_id','class_id'])) return;
 
         $sectionId = $this->academicModel->createSection($input);
@@ -161,6 +181,13 @@ class AcademicController extends BaseController {
 
         $existing = $this->academicModel->getSectionById($id);
     if (!$existing) { $this->fail('Section not found',404); return; }
+
+    // Normalize camelCase keys
+    if (isset($input['SectionName']) && !isset($input['section_name'])) $input['section_name'] = $input['SectionName'];
+    if (isset($input['SectionDisplayName']) && !isset($input['section_display_name'])) $input['section_display_name'] = $input['SectionDisplayName'];
+    if (isset($input['ClassID']) && !isset($input['class_id'])) $input['class_id'] = $input['ClassID'];
+    if (isset($input['AcademicYearID']) && !isset($input['academic_year_id'])) $input['academic_year_id'] = $input['AcademicYearID'];
+    if (isset($input['SchoolID']) && !isset($input['school_id'])) $input['school_id'] = $input['SchoolID'];
 
     $result = $this->academicModel->updateSection($id, $input);
 
