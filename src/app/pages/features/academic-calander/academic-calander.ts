@@ -146,6 +146,16 @@ export class AcademicCalander implements OnInit {
   rangePreview: string[] = [];
   previewCollapsed: boolean = false;
 
+  // Clear end-date and preview when range mode is toggled off
+  onRangeModeChange(val: boolean) {
+    this.rangeMode = !!val;
+    if (!this.rangeMode) {
+      this.holidayEndDate = null;
+      this.rangePreview = [];
+      this.previewCollapsed = false;
+    }
+  }
+
   // Helper: parse a value (Date, 'YYYY-MM-DD', ISO) into a local Date at midnight
   private parseToLocalDate(v: any): Date | null {
     if (!v && v !== 0) return null;
