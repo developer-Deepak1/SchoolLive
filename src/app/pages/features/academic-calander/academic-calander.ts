@@ -7,9 +7,10 @@ import { SelectModule } from 'primeng/select';
 import { DatePickerModule } from 'primeng/datepicker';
 import { InputTextModule } from 'primeng/inputtext';
 import { ToastModule } from 'primeng/toast';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { FormsModule } from '@angular/forms';
 import { AcademicYearService } from '../services/academic-year.service';
-import { MessageService } from 'primeng/api';
+import { MessageService, ConfirmationService } from 'primeng/api';
 import { toLocalYMDIST } from '@/utils/date-utils';
 import { AcademicCalendarService } from '../services/academic-calendar.service';
 
@@ -24,10 +25,11 @@ import { AcademicCalendarService } from '../services/academic-calendar.service';
     SelectModule,
   DatePickerModule,
   ToastModule,
+  ConfirmDialogModule,
     InputTextModule,
     FormsModule
   ],
-  providers: [MessageService],
+  providers: [MessageService, ConfirmationService],
   templateUrl: './academic-calander.html',
   styleUrls: ['./academic-calander.scss']
 })
@@ -36,7 +38,12 @@ export class AcademicCalander implements OnInit {
   academicYears: any[] = [];
   selectedAcademicYear: any = null;
 
-  constructor(private academicYearService: AcademicYearService, private calendarService: AcademicCalendarService, private msg: MessageService) {}
+  constructor(
+    private academicYearService: AcademicYearService,
+    private calendarService: AcademicCalendarService,
+    private msg: MessageService,
+    private confirmationService: ConfirmationService
+  ) {}
 
   ngOnInit(): void {
     this.loadAcademicYears();
@@ -255,14 +262,24 @@ export class AcademicCalander implements OnInit {
 
   removeHoliday(h: any) {
     const id = h?.id ?? h?.HolidayID ?? null;
-    if (id) {
-      this.calendarService.deleteHoliday(id).subscribe({
-  next: (res) => { this.msg.add({ severity: 'success', summary: 'Deleted', detail: (res && res.message) ? res.message : 'Holiday deleted' }); this.loadHolidays(); },
-  error: (err) => { console.error('Delete holiday failed', err); this.holidays = this.holidays.filter(x => x !== h); const detail = err?.error?.message ?? err?.message ?? 'Server error'; this.msg.add({ severity: 'error', summary: 'Delete failed', detail }); }
-      });
-    } else {
-      this.holidays = this.holidays.filter(x => x !== h);
-    }
+    // ask for confirmation before deleting
+    this.confirmationService.confirm({
+      message: 'Are you sure you want to delete this holiday?.',
+      header: 'Confirm Delete',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Delete',
+      rejectLabel: 'Cancel',
+      accept: () => {
+        if (id) {
+          this.calendarService.deleteHoliday(id).subscribe({
+            next: (res) => { this.msg.add({ severity: 'success', summary: 'Deleted', detail: (res && res.message) ? res.message : 'Holiday deleted' }); this.loadHolidays(); },
+            error: (err) => { console.error('Delete holiday failed', err); this.holidays = this.holidays.filter(x => x !== h); const detail = err?.error?.message ?? err?.message ?? 'Server error'; this.msg.add({ severity: 'error', summary: 'Delete failed', detail }); }
+          });
+        } else {
+          this.holidays = this.holidays.filter(x => x !== h);
+        }
+      }
+    });
   }
 
   // Load weekly offs from server for selected academic year
