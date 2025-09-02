@@ -128,11 +128,6 @@ export class AcademicCalander implements OnInit {
 
   // Holidays
   holidayDate: any;
-  // For multi-day range support
-  holidayEndDate: any;
-  rangeMode: boolean = false;
-  rangePreview: string[] = [];
-  previewCollapsed: boolean = false;
   holidayTitle: string = '';
   holidayType: any;
   holidayTypes = [
@@ -145,6 +140,11 @@ export class AcademicCalander implements OnInit {
   // cached min/max dates for the selected academic year — updated only when selection changes
   minHolidayDate: Date | null = null;
   maxHolidayDate: Date | null = null;
+  // Range preview support (client-side only)
+  holidayEndDate: any = null;
+  rangeMode: boolean = false;
+  rangePreview: string[] = [];
+  previewCollapsed: boolean = false;
 
   startEditHoliday(h: any) {
     this.editingHoliday = { ...h };
@@ -355,6 +355,7 @@ export class AcademicCalander implements OnInit {
     }
   }
 
+  // Build a simple client-side preview of dates between holidayDate and holidayEndDate (inclusive)
   computeRangePreview() {
     this.rangePreview = [];
     if (!this.holidayDate || !this.holidayEndDate) return;
