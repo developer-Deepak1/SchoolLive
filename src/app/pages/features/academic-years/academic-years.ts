@@ -86,16 +86,54 @@ export class AcademicYears implements OnInit {
     const endDateControl = this.yearForm.get('EndDate');
     endDateControl?.disable();
     
-    // Listen for StartDate changes to enable/disable EndDate
+    // Listen for StartDate changes to enable/disable EndDate and auto-set Status when appropriate
     this.yearForm.get('StartDate')?.valueChanges.subscribe(startDateValue => {
       const endDateControl = this.yearForm.get('EndDate');
+      const statusControl = this.yearForm.get('Status');
       if (startDateValue && startDateValue !== '') {
         endDateControl?.enable();
+        // Auto-set status based on start date only if the control is enabled
+        if (statusControl && !statusControl.disabled) {
+          const computed = this.computeStatusFromStart(startDateValue);
+          statusControl.setValue(computed);
+        }
       } else {
         endDateControl?.disable();
         endDateControl?.setValue(''); // Clear EndDate when StartDate is cleared
+        if (statusControl && !statusControl.disabled) {
+          statusControl.setValue('Active');
+        }
       }
     });
+  }
+
+  // Compute status: if startDate is strictly after today => Upcoming, otherwise Active
+  private computeStatusFromStart(startDateValue: any): string {
+    const sd = this.toLocalDateOnly(startDateValue);
+    if (!sd) return 'Active';
+    const today = new Date();
+    const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    return sd.getTime() > todayOnly.getTime() ? 'Upcoming' : 'Active';
+  }
+
+  // Expose predicted status for template display
+  get predictedStatus(): string {
+    const sd = this.yearForm.get('StartDate')?.value;
+    if (!sd) return '';
+    return this.computeStatusFromStart(sd);
+  }
+
+  // Parse various date inputs into a local date-only Date (midnight local)
+  private toLocalDateOnly(v: any): Date | null {
+    if (!v && v !== 0) return null;
+    if (v instanceof Date) return new Date(v.getFullYear(), v.getMonth(), v.getDate());
+    if (typeof v === 'string') {
+      const ymd = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (ymd) return new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
+      const parsed = new Date(v);
+      if (!isNaN(parsed.getTime())) return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+    }
+    return null;
   }
 
   ngOnInit(): void { this.loadYears(); }

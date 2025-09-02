@@ -11,6 +11,11 @@
     <div>
       <label for="StartDate" class="block font-bold mb-2">Start Date *</label>
       <p-datepicker id="StartDate" formControlName="StartDate" dateFormat="yy-mm-dd" [showIcon]="true" [timeOnly]="false" [showTime]="false" class="w-full"></p-datepicker>
+      <div class="mt-1">
+        <div *ngIf="predictedStatus" class="mt-1">
+          <small class="text-sm font-semibold" [ngClass]="{ 'text-blue-600': predictedStatus === 'Upcoming', 'text-green-600': predictedStatus === 'Active' }">Predicted status: {{ predictedStatus }}</small>
+        </div>
+      </div>
       <div class="h-5 mt-1">
         <small class="text-red-500" *ngIf="isFieldInvalid('StartDate')">Required</small>
       </div>
