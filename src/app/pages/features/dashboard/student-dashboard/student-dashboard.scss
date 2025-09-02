@@ -1,0 +1,14 @@
+// Student Dashboard specific styles (kept minimal; relies on Tailwind + PrimeNG)
+
+:host {
+	display: block;
+}
+
+.p-card-header {
+	font-weight: 600;
+}
+
+canvas {
+	// improve crispness on some displays
+	image-rendering: -webkit-optimize-contrast;
+}

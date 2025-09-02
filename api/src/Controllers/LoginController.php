@@ -4,30 +4,22 @@ namespace SchoolLive\Controllers;
 use SchoolLive\Models\UserModel;
 use SchoolLive\Middleware\AuthMiddleware;
 use SchoolLive\Models\AcademicModel;
+use SchoolLive\Core\BaseController;
 
-class LoginController {
+class LoginController extends BaseController {
     private $userModel;
 
     public function __construct() {
-        $this->userModel = new UserModel();
-        header('Content-Type: application/json');
+    parent::__construct();
+    $this->userModel = new UserModel();
     }
 
     public function login($params = []) {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            echo json_encode(['success' => false, 'message' => 'Method not allowed']);
-            return;
-        }
-
-        $input = json_decode(file_get_contents('php://input'), true);
+    if (!$this->requireMethod('POST')) return;
+    $input = $this->input();
 
         // Accept both email/username for login
-        if ((!isset($input['email']) && !isset($input['username'])) || !isset($input['password'])) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Email/Username and password are required']);
-            return;
-        }
+    if ((!isset($input['email']) && !isset($input['username'])) || !isset($input['password'])) { $this->fail('Email/Username and password are required',400); return; }
 
         // Try to find user by email or username
         $user = null;
@@ -37,17 +29,9 @@ class LoginController {
             $user = $this->userModel->findByUsername($input['username']);
         }
 
-        if (!$user || !$this->userModel->verifyPassword($input['password'], $user['PasswordHash'])) {
-            http_response_code(401);
-            echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
-            return;
-        }
+    if (!$user || !$this->userModel->verifyPassword($input['password'], $user['PasswordHash'])) { $this->fail('Invalid credentials',401); return; }
 
-        if ($user['IsActive'] != 1) {
-            http_response_code(403);
-            echo json_encode(['success' => false, 'message' => 'Account is not active']);
-            return;
-        }
+    if ($user['IsActive'] != 1) { $this->fail('Account is not active',403); return; }
 
         // Generate tokens
         $userData = [
@@ -72,64 +56,33 @@ class LoginController {
         $accessToken = AuthMiddleware::generateToken($userData);
         $refreshToken = AuthMiddleware::generateRefreshToken($userData);
 
-        echo json_encode([
-            'success' => true,
-            'message' => 'Login successful',
-            'data' => [
-                'user' => $userData,
-                'access_token' => $accessToken,
-                'refresh_token' => $refreshToken,
-                'token_type' => 'Bearer'
-            ]
+        $this->ok('Login successful', [
+            'user' => $userData,
+            'access_token' => $accessToken,
+            'refresh_token' => $refreshToken,
+            'token_type' => 'Bearer'
         ]);
     }
 
     public function register($params = []) {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            echo json_encode(['success' => false, 'message' => 'Method not allowed']);
-            return;
-        }
-
-        $input = json_decode(file_get_contents('php://input'), true);
+        if (!$this->requireMethod('POST')) return;
+        $input = $this->input();
 
         // Validate required fields
         $requiredFields = ['first_name', 'last_name', 'username', 'password', 'role_id'];
-        foreach ($requiredFields as $field) {
-            if (!isset($input[$field]) || empty($input[$field])) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'message' => ucfirst($field) . ' is required']);
-                return;
-            }
-        }
+    foreach ($requiredFields as $field) { if (!isset($input[$field]) || empty($input[$field])) { $this->fail(ucfirst($field).' is required',400); return; } }
 
         // Validate email format if provided
-        if (isset($input['email']) && !filter_var($input['email'], FILTER_VALIDATE_EMAIL)) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Invalid email format']);
-            return;
-        }
+    if (isset($input['email']) && !filter_var($input['email'], FILTER_VALIDATE_EMAIL)) { $this->fail('Invalid email format',400); return; }
 
         // Check if user already exists
-        if ($this->userModel->findByUsername($input['username'])) {
-            http_response_code(409);
-            echo json_encode(['success' => false, 'message' => 'User already exists with this username']);
-            return;
-        }
+    if ($this->userModel->findByUsername($input['username'])) { $this->fail('User already exists with this username',409); return; }
 
-        if (isset($input['email']) && $this->userModel->findByEmail($input['email'])) {
-            http_response_code(409);
-            echo json_encode(['success' => false, 'message' => 'User already exists with this email']);
-            return;
-        }
+    if (isset($input['email']) && $this->userModel->findByEmail($input['email'])) { $this->fail('User already exists with this email',409); return; }
 
         // Validate role_id (should be valid role ID from Tm_Roles)
         $allowedRoleIds = [1, 2, 3, 4]; // super_admin, client_admin, teacher, student
-        if (!in_array($input['role_id'], $allowedRoleIds)) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Invalid role ID']);
-            return;
-        }
+    if (!in_array($input['role_id'], $allowedRoleIds)) { $this->fail('Invalid role ID',400); return; }
 
         // Set default values
         $input['created_by'] = 'System';
@@ -137,55 +90,24 @@ class LoginController {
         $result = $this->userModel->createUser($input);
 
         if ($result) {
-            // Get the created user (need to get the last insert ID)
             $user = $this->userModel->findByUsername($input['username']);
-            
-            // Remove sensitive data
             unset($user['PasswordHash']);
-            
-            echo json_encode([
-                'success' => true,
-                'message' => 'User registered successfully',
-                'data' => [
-                    'user' => $user
-                ]
-            ]);
-        } else {
-            http_response_code(500);
-            echo json_encode(['success' => false, 'message' => 'Failed to register user']);
-        }
+            $this->ok('User registered successfully', ['user'=>$user]);
+        } else { $this->fail('Failed to register user',500); }
     }
 
     public function refresh($params = []) {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            echo json_encode(['success' => false, 'message' => 'Method not allowed']);
-            return;
-        }
-
-        $input = json_decode(file_get_contents('php://input'), true);
-
-        if (!isset($input['refresh_token'])) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Refresh token is required']);
-            return;
-        }
+        if (!$this->requireMethod('POST')) return;
+        $input = $this->input();
+        if (!isset($input['refresh_token'])) { $this->fail('Refresh token is required',400); return; }
 
         $userData = AuthMiddleware::validateRefreshToken($input['refresh_token']);
 
-        if (!$userData) {
-            http_response_code(401);
-            echo json_encode(['success' => false, 'message' => 'Invalid or expired refresh token']);
-            return;
-        }
+    if (!$userData) { $this->fail('Invalid or expired refresh token',401); return; }
 
         // Verify user still exists and is active
         $user = $this->userModel->findById($userData['id']);
-        if (!$user || $user['IsActive'] != 1) {
-            http_response_code(401);
-            echo json_encode(['success' => false, 'message' => 'User account is no longer valid']);
-            return;
-        }
+    if (!$user || $user['IsActive'] != 1) { $this->fail('User account is no longer valid',401); return; }
 
     // Ensure current academic id is present and up-to-date in the token payload
     $academicModel = new AcademicModel();
@@ -196,14 +118,10 @@ class LoginController {
     $newAccessToken = AuthMiddleware::generateToken($userData);
     $newRefreshToken = AuthMiddleware::generateRefreshToken($userData);
 
-        echo json_encode([
-            'success' => true,
-            'message' => 'Token refreshed successfully',
-            'data' => [
-                'access_token' => $newAccessToken,
-                'refresh_token' => $newRefreshToken,
-                'token_type' => 'Bearer'
-            ]
+        $this->ok('Token refreshed successfully', [
+            'access_token' => $newAccessToken,
+            'refresh_token' => $newRefreshToken,
+            'token_type' => 'Bearer'
         ]);
     }
 }

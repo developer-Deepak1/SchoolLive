@@ -25,11 +25,110 @@ class UserModel extends Model {
         if (isset($data['school_id'])) $mappedData['SchoolID'] = $data['school_id'];
         if (isset($data['PasswordHash'])) $mappedData['PasswordHash'] = $data['PasswordHash'];
         
+        // Ensure Username exists (DB requires it)
+        if (empty($mappedData['Username'])) {
+            // create a provisional username to avoid DB NOT NULL constraint failures
+            $mappedData['Username'] = 'usr_' . uniqid();
+        }
+
         $mappedData['CreatedAt'] = date('Y-m-d H:i:s');
         $mappedData['CreatedBy'] = $data['created_by'] ?? 'System';
         
-        return $this->create($mappedData);
+        return $this->insertTxUser($mappedData);
     }
+
+    /**
+     * Insert a user directly into Tx_Users with explicit fields.
+     * Accepts keys: username, first_name, middle_name, last_name, role_id, school_id, password, email, contact, created_by
+     * Returns inserted UserID or false on failure.
+     */
+    public function insertTxUser(array $data) {
+        // Accept input where keys may already be DB column names (e.g. Username, FirstName, PasswordHash)
+        // Build the fields list in a deterministic order and fill params accordingly so placeholders match columns.
+        $fields = [];
+        $params = [];
+
+        // Helper to check either camel-case DB key or snake-case input
+        $get = function($dbKey, $altKey = null) use ($data) {
+            if (array_key_exists($dbKey, $data)) return $data[$dbKey];
+            if ($altKey && array_key_exists($altKey, $data)) return $data[$altKey];
+            return null;
+        };
+
+        // Desired column order
+        $candidates = [
+            ['Username','username'],
+            ['FirstName','first_name'],
+            ['MiddleName','middle_name'],
+            ['LastName','last_name'],
+            ['RoleID','role_id'],
+            ['SchoolID','school_id'],
+            ['PasswordHash','password'], // if password provided in 'password' we hash it and store as PasswordHash
+            ['EmailID','email'],
+            ['ContactNumber','contact'],
+            ['CreatedAt', null],
+            ['CreatedBy','created_by']
+        ];
+
+        foreach ($candidates as [$col, $alt]) {
+            $val = $get($col, $alt);
+            if ($col === 'PasswordHash') {
+                // if caller provided PasswordHash already, use it; otherwise check for 'password'
+                if (array_key_exists('PasswordHash', $data) && $data['PasswordHash']) {
+                    $val = $data['PasswordHash'];
+                } elseif (!empty($data['password'])) {
+                    $val = password_hash($data['password'], PASSWORD_DEFAULT);
+                } else {
+                    $val = null;
+                }
+            }
+
+            if ($col === 'CreatedAt') {
+                $val = $val ?? date('Y-m-d H:i:s');
+            }
+
+            if ($val !== null && $val !== '') {
+                $fields[] = $col;
+                // cast ints where appropriate
+                if (in_array($col, ['RoleID','SchoolID'])) {
+                    $params[':' . $col] = (int)$val;
+                } else {
+                    $params[':' . $col] = $val;
+                }
+            }
+        }
+
+        // Ensure Username present
+        if (!in_array('Username', $fields, true)) {
+            array_unshift($fields, 'Username');
+            $params[':Username'] = 'usr_' . uniqid();
+        }
+
+        if (empty($fields)) return false;
+
+        $cols = implode(', ', $fields);
+        $placeholders = implode(', ', array_map(fn($f) => ':' . $f, $fields));
+
+        $query = "INSERT INTO Tx_Users ({$cols}) VALUES ({$placeholders})";
+        $stmt = $this->conn->prepare($query);
+
+        foreach ($fields as $f) {
+            $p = ':' . $f;
+            $v = $params[$p] ?? null;
+            if (in_array($f, ['RoleID','SchoolID'])) {
+                $stmt->bindValue($p, $v, PDO::PARAM_INT);
+            } else {
+                $stmt->bindValue($p, $v, PDO::PARAM_STR);
+            }
+        }
+
+        if ($stmt->execute()) {
+            return (int)$this->conn->lastInsertId();
+        }
+        return false;
+    }
+
+    
 
     public function updateUser($id, $data) {
         // Hash password if it's being updated

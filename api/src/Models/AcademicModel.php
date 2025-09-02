@@ -8,22 +8,86 @@ class AcademicModel extends Model {
 
     // Academic Years Methods
     public function createAcademicYear($data) {
-        $data['created_at'] = date('Y-m-d H:i:s');
-        $data['updated_at'] = date('Y-m-d H:i:s');
+        $data['CreatedAt'] = date('Y-m-d H:i:s');
         
-        return $this->create($data);
+        // Extract fields supporting both PascalCase and snake_case
+        $academicYearName = $data['AcademicYearName'];
+        $startDate = $data['StartDate'] ;
+        $endDate = $data['EndDate'];
+        $schoolId = $data['SchoolID'] ;
+        $status = $data['Status'];
+        $createdBy = $data['CreatedBy'];
+
+        $query = "INSERT INTO Tm_AcademicYears (AcademicYearName, StartDate, EndDate, SchoolID, Status, CreatedAt, CreatedBy)
+                  VALUES (:academic_year_name, :start_date, :end_date, :school_id, :status, :created_at, :created_by)";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':academic_year_name', $academicYearName);
+        $stmt->bindParam(':start_date', $startDate);
+        $stmt->bindParam(':end_date', $endDate);
+        $stmt->bindParam(':school_id', $schoolId);
+        $stmt->bindParam(':status', $status);
+        $stmt->bindParam(':created_at', $data['CreatedAt']);
+        $stmt->bindParam(':created_by', $createdBy);
+        
+        if ($stmt->execute()) {
+            return $this->conn->lastInsertId();
+        }
+        return false;
     }
 
     public function updateAcademicYear($id, $data) {
-        $data['updated_at'] = date('Y-m-d H:i:s');
-        return $this->update($id, $data);
+        $data['UpdatedAt'] = date('Y-m-d H:i:s');
+        
+        // Build the SET clause dynamically based on provided data
+        $allowedFields = ['AcademicYearName', 'StartDate', 'EndDate', 'Status', 'UpdatedAt', 'UpdatedBy'];
+        $setFields = [];
+        $params = [':id' => $id];
+        
+        foreach ($allowedFields as $field) {
+            if (isset($data[$field])) {
+                $setFields[] = $field . ' = :' . $field;
+                $params[':' . $field] = $data[$field];
+            }
+        }
+        
+        if (empty($setFields)) {
+            return false; // No fields to update
+        }
+        
+        $query = "UPDATE " . $this->table . " SET " . implode(', ', $setFields) . " WHERE AcademicYearID = :id";
+        
+        $stmt = $this->conn->prepare($query);
+        return $stmt->execute($params);
+    }
+
+    public function getAcademicYearById($id) {
+        $query = "SELECT AcademicYearID, AcademicYearName, StartDate, EndDate
+                  FROM " . $this->table . " 
+                  WHERE AcademicYearID = :id LIMIT 1";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+        return $stmt->fetch();
+    }
+
+    public function getAcademicYearsBySchoolId($schoolId) {
+        $query = "SELECT AcademicYearID, AcademicYearName, StartDate, EndDate,Status FROM " . $this->table . " 
+                  WHERE SchoolID = :school_id
+                  ORDER BY StartDate";
+        
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':school_id', $schoolId);
+        $stmt->execute();
+        return $stmt->fetchAll();
     }
 
     public function getCurrentAcademicYear($schoolId) {
         // Prefer explicitly marked current academic year if present
-        $row = false;
+        $row = [];
         try {
-            $query = "SELECT * FROM " . $this->table . " WHERE SchoolID = :schoolId LIMIT 1";
+            $query = "SELECT AcademicYearID,AcademicYearName,StartDate,EndDate,Status FROM " . $this->table . " WHERE SchoolID = :schoolId and Status = 'active'";
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(':schoolId', $schoolId);   
             $stmt->execute();
@@ -39,7 +103,7 @@ class AcademicModel extends Model {
                 throw $e;
             }
         }
-
+        
         // Fallback: find academic year covering today's date
         $query2 = "SELECT * FROM " . $this->table . " WHERE StartDate <= CURDATE() AND EndDate >= CURDATE() LIMIT 1";
         $stmt2 = $this->conn->prepare($query2);
@@ -56,36 +120,34 @@ class AcademicModel extends Model {
         return $stmt3->fetch();
     }
 
-    public function setCurrentAcademicYear($id) {
-        // Mark the given academic year as current using the IsCurrent flag.
-        // First unset any existing flag (if column exists)
-        $unsetOk = true;
-        try {
-            $query1 = "UPDATE " . $this->table . " SET IsCurrent = 0";
-            $stmt1 = $this->conn->prepare($query1);
-            $stmt1->execute();
-        } catch (\PDOException $e) {
-            // Missing column -> treat as non-fatal and continue
-            if ($e->getCode() === '42S22') {
-                $unsetOk = false;
-            } else {
-                return false;
-            }
+    public function deleteAcademicYear($id, $schoolId) {
+        // First check if the academic year exists and get its status
+        $query = "SELECT AcademicYearID, Status FROM " . $this->table . " WHERE AcademicYearID = :id LIMIT 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+        $academicYear = $stmt->fetch();
+
+        if (!$academicYear) {
+            return ['success' => false, 'message' => 'Academic year not found'];
         }
 
-        // Then set the specified year as current
-        try {
-            $query2 = "UPDATE " . $this->table . " SET IsCurrent = 1, UpdatedAt = NOW() WHERE AcademicYearID = :id";
-            $stmt2 = $this->conn->prepare($query2);
-            $stmt2->bindParam(':id', $id);
-            return $stmt2->execute();
-        } catch (\PDOException $e) {
-            // If the column is missing, treat as success (no-op) because the
-            // application can still use date-based fallback logic elsewhere.
-            if ($e->getCode() === '42S22') {
-                return true;
-            }
-            return false;
+        $currentacademicYear = $this->getCurrentAcademicYear($schoolId);
+        
+        // Check if the academic year is active - prevent deletion
+        if (strtolower($academicYear['Status']) === 'active' && $academicYear['AcademicYearID'] == $currentacademicYear['AcademicYearID']) {
+            return ['success' => false, 'message' => 'Cannot delete active academic year. Please change status first.'];
+        }
+
+        // Proceed with deletion if not active
+        $deleteQuery = "DELETE FROM " . $this->table . " WHERE AcademicYearID = :id";
+        $deleteStmt = $this->conn->prepare($deleteQuery);
+        $deleteStmt->bindParam(':id', $id);
+        
+        if ($deleteStmt->execute()) {
+            return ['success' => true, 'message' => 'Academic year deleted successfully'];
+        } else {
+            return ['success' => false, 'message' => 'Failed to delete academic year'];
         }
     }
 
@@ -213,7 +275,7 @@ class AcademicModel extends Model {
     }
 
     // Sections methods
-    public function getAllSections($academic_year_id = null, $class_id = null) {
+    public function getAllSections($academic_year_id = null, $class_id = null, $school_id = null) {
         $query = "SELECT s.*, ay.AcademicYearName FROM Tx_Sections s
             LEFT JOIN Tm_AcademicYears ay ON s.AcademicYearID = ay.AcademicYearID";
 
@@ -223,6 +285,9 @@ class AcademicModel extends Model {
         }
         if ($class_id) {
             $clauses[] = "s.ClassID = :class_id";
+        }
+        if ($school_id) {
+            $clauses[] = "s.SchoolID = :school_id";
         }
 
         if (!empty($clauses)) {
@@ -238,9 +303,187 @@ class AcademicModel extends Model {
         if ($class_id) {
             $stmt->bindParam(':class_id', $class_id);
         }
+        if ($school_id) {
+            $stmt->bindParam(':school_id', $school_id);
+        }
 
         $stmt->execute();
         return $stmt->fetchAll();
+    }
+
+    // Weekly Offs and Holidays
+    public function getWeeklyOffsByAcademicYear($schoolId, $academicYearId = null) {
+        $query = "SELECT WeeklyOffID, AcademicYearID, DayOfWeek FROM Tx_WeeklyOffs WHERE SchoolID = :school_id";
+        if ($academicYearId) $query .= " AND AcademicYearID = :academic_year_id";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':school_id', $schoolId);
+        if ($academicYearId) $stmt->bindParam(':academic_year_id', $academicYearId);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    public function setWeeklyOffs($schoolId, $academicYearId, $daysArray, $username = null) {
+        // daysArray expected as array of integers (1-7)
+        try {
+            $this->conn->beginTransaction();
+            // delete existing for this academic year
+            $del = $this->conn->prepare("DELETE FROM Tx_WeeklyOffs WHERE SchoolID = :school_id AND AcademicYearID = :academic_year_id");
+            $del->execute([':school_id' => $schoolId, ':academic_year_id' => $academicYearId]);
+
+            $ins = $this->conn->prepare("INSERT INTO Tx_WeeklyOffs (AcademicYearID, SchoolID, DayOfWeek, CreatedBy, CreatedAt) VALUES (:ay, :school, :dow, :user, :created)");
+            $created = date('Y-m-d H:i:s');
+            foreach ($daysArray as $d) {
+                $dow = (int)$d;
+                $ok = $ins->execute([':ay' => $academicYearId, ':school' => $schoolId, ':dow' => $dow, ':user' => $username, ':created' => $created]);
+                if ($ok === false) {
+                    $err = $ins->errorInfo();
+                    throw new \Exception('Insert weekly off failed: ' . ($err[2] ?? json_encode($err)));
+                }
+            }
+            $this->conn->commit();
+            return true;
+        } catch (\Throwable $e) {
+            try { $this->conn->rollBack(); } catch (\Throwable $ee) {}
+            // Log the database error for debugging (do not expose sensitive info to clients)
+            error_log('[AcademicModel::setWeeklyOffs] ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function getHolidaysByAcademicYear($schoolId, $academicYearId = null) {
+        $query = "SELECT HolidayID, AcademicYearID, Date, Title, Type FROM Tx_Holidays WHERE SchoolID = :school_id";
+        if ($academicYearId) $query .= " AND AcademicYearID = :academic_year_id";
+        $query .= " ORDER BY Date";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':school_id', $schoolId);
+        if ($academicYearId) $stmt->bindParam(':academic_year_id', $academicYearId);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    public function createHoliday($data) {
+        $query = "INSERT INTO Tx_Holidays (AcademicYearID, SchoolID, Date, Title, Type, CreatedBy, CreatedAt) VALUES (:ay, :school, :date, :title, :type, :user, :created)";
+        $stmt = $this->conn->prepare($query);
+        $created = date('Y-m-d H:i:s');
+        $stmt->bindParam(':ay', $data['AcademicYearID']);
+        $stmt->bindParam(':school', $data['SchoolID']);
+        $stmt->bindParam(':date', $data['Date']);
+        $stmt->bindParam(':title', $data['Title']);
+        $stmt->bindParam(':type', $data['Type']);
+        $stmt->bindParam(':user', $data['CreatedBy']);
+        $stmt->bindParam(':created', $created);
+        if ($stmt->execute()) return $this->conn->lastInsertId();
+        return false;
+    }
+
+    public function getHolidayById($id) {
+        $query = "SELECT HolidayID, AcademicYearID, SchoolID, Date, Title, Type FROM Tx_Holidays WHERE HolidayID = :id LIMIT 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+        return $stmt->fetch();
+    }
+
+    public function deleteHoliday($id, $schoolId) {
+        $query = "DELETE FROM Tx_Holidays WHERE HolidayID = :id AND SchoolID = :school_id";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':id', $id);
+        $stmt->bindParam(':school_id', $schoolId);
+        return $stmt->execute();
+    }
+
+    public function updateHoliday($id, $data, $schoolId) {
+        // Only allow updating certain fields
+        $allowed = ['Date', 'Title', 'Type', 'AcademicYearID', 'UpdatedBy'];
+        $set = [];
+        $params = [':id' => $id, ':school_id' => $schoolId];
+        foreach ($allowed as $f) {
+            if (isset($data[$f])) {
+                $set[] = "$f = :$f";
+                $params[':' . $f] = $data[$f];
+            }
+        }
+        if (empty($set)) return false;
+        // Always set UpdatedAt
+        $set[] = "UpdatedAt = :UpdatedAt";
+        $params[':UpdatedAt'] = date('Y-m-d H:i:s');
+
+        $query = "UPDATE Tx_Holidays SET " . implode(', ', $set) . " WHERE HolidayID = :id AND SchoolID = :school_id";
+        $stmt = $this->conn->prepare($query);
+        return $stmt->execute($params);
+    }
+
+    public function getWeeklyReport($schoolId, $academicYearId, $start, $end) {
+        // Build a list of dates between start and end and mark weekly offs and holidays
+        $report = [];
+        $period = new \DatePeriod(new \DateTime($start), new \DateInterval('P1D'), (new \DateTime($end))->modify('+1 day'));
+
+        // Load weekly offs and holidays to minimize queries
+        $offs = $this->getWeeklyOffsByAcademicYear($schoolId, $academicYearId);
+        $offDays = array_map(function($r){ return (int)$r['DayOfWeek']; }, $offs);
+        $holidays = $this->getHolidaysByAcademicYear($schoolId, $academicYearId);
+        $holidayMap = [];
+        foreach ($holidays as $h) { $holidayMap[$h['Date']] = $h; }
+
+        foreach ($period as $dt) {
+            $ymd = $dt->format('Y-m-d');
+            $dow = (int)$dt->format('N'); // 1 (Mon) to 7 (Sun)
+            $isOff = in_array($dow, $offDays, true);
+            $isHoliday = isset($holidayMap[$ymd]);
+            $report[] = [ 'date' => $ymd, 'dayOfWeek' => $dow, 'weeklyOff' => $isOff, 'holiday' => $isHoliday ? $holidayMap[$ymd] : null ];
+        }
+        return $report;
+    }
+
+    /**
+     * Insert holidays for every date in the inclusive range StartDate..EndDate.
+     * Skips dates that already exist (same SchoolID, AcademicYearID, Date).
+     * Returns an array: ['createdDates'=>[], 'skippedDates'=>[]] or false on error.
+     */
+    public function createHolidayRange($input) {
+        $schoolId = $input['SchoolID'];
+        $ay = $input['AcademicYearID'];
+        $title = $input['Title'];
+        $type = $input['Type'];
+        $start = $input['StartDate'];
+        $end = $input['EndDate'];
+        $createdBy = $input['CreatedBy'] ?? null;
+
+        try {
+            $this->conn->beginTransaction();
+
+            // Prepare check and insert statements
+            $check = $this->conn->prepare("SELECT COUNT(*) as cnt FROM Tx_Holidays WHERE SchoolID = :school AND AcademicYearID = :ay AND Date = :date");
+            $ins = $this->conn->prepare("INSERT INTO Tx_Holidays (AcademicYearID, SchoolID, Date, Title, Type, CreatedBy, CreatedAt) VALUES (:ay, :school, :date, :title, :type, :user, :created)");
+            $createdAt = date('Y-m-d H:i:s');
+
+            $period = new \DatePeriod(new \DateTime($start), new \DateInterval('P1D'), (new \DateTime($end))->modify('+1 day'));
+            $createdDates = [];
+            $skippedDates = [];
+
+            foreach ($period as $dt) {
+                $ymd = $dt->format('Y-m-d');
+                $check->execute([':school' => $schoolId, ':ay' => $ay, ':date' => $ymd]);
+                $row = $check->fetch();
+                if ($row && isset($row['cnt']) && intval($row['cnt']) > 0) {
+                    $skippedDates[] = $ymd;
+                    continue;
+                }
+                $ok = $ins->execute([':ay' => $ay, ':school' => $schoolId, ':date' => $ymd, ':title' => $title, ':type' => $type, ':user' => $createdBy, ':created' => $createdAt]);
+                if ($ok === false) {
+                    $err = $ins->errorInfo();
+                    throw new \Exception('Insert failed: ' . ($err[2] ?? json_encode($err)));
+                }
+                $createdDates[] = $ymd;
+            }
+
+            $this->conn->commit();
+            return ['createdDates' => $createdDates, 'skippedDates' => $skippedDates];
+        } catch (\Throwable $e) {
+            try { $this->conn->rollBack(); } catch (\Throwable $ee) {}
+            error_log('[AcademicModel::createHolidayRange] ' . $e->getMessage());
+            return false;
+        }
     }
 
     public function getSectionById($id) {

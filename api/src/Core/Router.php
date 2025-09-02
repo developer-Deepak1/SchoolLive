@@ -16,9 +16,11 @@ class Router {
     $this->routes['POST']['/api/auth/login'] = ['handler' => ['SchoolLive\Controllers\LoginController', 'login'], 'roles' => null];
     $this->routes['POST']['/api/auth/refresh'] = ['handler' => ['SchoolLive\Controllers\LoginController', 'refresh'], 'roles' => null];
 
-    $this->routes['GET']['/api/academic/years'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getAcademicYears'], 'roles' => true];
-    $this->routes['POST']['/api/academic/years'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createAcademicYear'], 'roles' => true];
- 
+    $this->routes['GET']['/api/academic/getAcademicYears'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getAcademicYears'], 'roles' => true];
+    $this->routes['POST']['/api/academic/CreateAcademicYears'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createAcademicYear'], 'roles' => true];
+    $this->routes['PUT']['/api/academic/UpdateAcademicYears/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'updateAcademicYear'], 'roles' => true];
+    $this->routes['DELETE']['/api/academic/DeleteAcademicYears/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'deleteAcademicYear'], 'roles' => true];
+
     $this->routes['GET']['/api/academic/getClasses'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getClasses'], 'roles' => true];
     $this->routes['POST']['/api/academic/CreateClasses'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createClass'], 'roles' => true];
     $this->routes['GET']['/api/academic/classes/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getClass'], 'roles' => null];
@@ -26,11 +28,58 @@ class Router {
     $this->routes['DELETE']['/api/academic/classes/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'deleteClass'], 'roles' => true];
 
     // Sections routes
-    $this->routes['GET']['/api/academic/sections'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getSections'], 'roles' => null];
+    $this->routes['GET']['/api/academic/sections'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getSections'], 'roles' => true];
     $this->routes['POST']['/api/academic/sections'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createSection'], 'roles' => true];
-    $this->routes['GET']['/api/academic/sections/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getSection'], 'roles' => null];
+    $this->routes['GET']['/api/academic/sections/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getSection'], 'roles' => true];
     $this->routes['PUT']['/api/academic/sections/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'updateSection'], 'roles' => true];
     $this->routes['DELETE']['/api/academic/sections/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'deleteSection'], 'roles' => true];
+
+    // Dashboard summary (authenticated)
+    $this->routes['GET']['/api/dashboard/summary'] = ['handler' => ['SchoolLive\Controllers\DashboardController', 'summary'], 'roles' => true];
+    // Student specific dashboard
+    $this->routes['GET']['/api/dashboard/student'] = ['handler' => ['SchoolLive\Controllers\StudentDashboardController', 'summary'], 'roles' => true];
+
+    // Academic calendar: weekly offs, holidays, reports
+    $this->routes['GET']['/api/academic/getWeeklyOffs'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getWeeklyOffs'], 'roles' => true];
+    $this->routes['POST']['/api/academic/setWeeklyOffs'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'setWeeklyOffs'], 'roles' => true];
+    $this->routes['GET']['/api/academic/getHolidays'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getHolidays'], 'roles' => true];
+    $this->routes['POST']['/api/academic/createHoliday'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createHoliday'], 'roles' => true];
+    $this->routes['POST']['/api/academic/createHolidayRange'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createHolidayRange'], 'roles' => true];
+    $this->routes['DELETE']['/api/academic/deleteHoliday/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'deleteHoliday'], 'roles' => true];
+    $this->routes['PUT']['/api/academic/updateHoliday/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'updateHoliday'], 'roles' => true];
+    $this->routes['GET']['/api/academic/getWeeklyReport'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getWeeklyReport'], 'roles' => true];
+
+    // Students routes
+    $this->routes['GET']['/api/students'] = ['handler' => ['SchoolLive\Controllers\StudentController', 'list'], 'roles' => true];
+    $this->routes['POST']['/api/students'] = ['handler' => ['SchoolLive\Controllers\StudentController', 'create'], 'roles' => true];
+    $this->routes['POST']['/api/students/admission'] = ['handler' => ['SchoolLive\Controllers\StudentController', 'admission'], 'roles' => true];
+    $this->routes['GET']['/api/students/{id}'] = ['handler' => ['SchoolLive\Controllers\StudentController', 'get'], 'roles' => true];
+    $this->routes['PUT']['/api/students/{id}'] = ['handler' => ['SchoolLive\Controllers\StudentController', 'update'], 'roles' => true];
+    $this->routes['DELETE']['/api/students/{id}'] = ['handler' => ['SchoolLive\Controllers\StudentController', 'delete'], 'roles' => true];
+    $this->routes['POST']['/api/students/{id}/reset-password'] = ['handler' => ['SchoolLive\\Controllers\\StudentController', 'resetPassword'], 'roles' => true];
+
+    // Employees routes
+    $this->routes['GET']['/api/employees'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'list'], 'roles' => true];
+    $this->routes['POST']['/api/employees'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'create'], 'roles' => true];
+    $this->routes['GET']['/api/employees/{id}'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'get'], 'roles' => true];
+    $this->routes['PUT']['/api/employees/{id}'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'update'], 'roles' => true];
+    $this->routes['DELETE']['/api/employees/{id}'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'delete'], 'roles' => true];
+
+    // Roles helper endpoint - lightweight implementation using UserModel's PDO to avoid creating a separate RolesController
+    $this->routes['GET']['/api/roles'] = ['handler' => function($params = []) {
+        // Lazy-load model and fetch roles
+        $um = new \SchoolLive\Models\UserModel();
+        $pdo = $um->getPdo();
+    // Some databases may not have an IsActive column on Tm_Roles; avoid filtering by it to be compatible.
+    $stmt = $pdo->prepare("SELECT RoleID, RoleName, RoleDisplayName FROM Tm_Roles ORDER BY RoleDisplayName");
+        $stmt->execute();
+    $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'data' => $rows]);
+    }, 'roles' => true];
+
+    // Attendance routes (daily mark & list)
+    $this->routes['GET']['/api/attendance'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'list'], 'roles' => true];
+    $this->routes['POST']['/api/attendance'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'save'], 'roles' => true];
     }
 
     public function dispatch() {

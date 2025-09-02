@@ -1,1 +1,80 @@
-<p>all-employees works!</p>
+<p-table #dt [value]="employees()" dataKey="EmployeeID" [rows]="10" [paginator]="true" [rowsPerPageOptions]="[10,20,30]" [globalFilterFields]="['EmployeeName','RoleName','Gender','JoiningDate']" [tableStyle]="{'min-width':'90rem'}" [rowHover]="true" [showCurrentPageReport]="true" currentPageReportTemplate="Showing {first} to {last} of {totalRecords}">
+  <ng-template pTemplate="caption">
+        <h3 class="m-0">All Employees</h3>
+        <div class="flex items-center justify-between">
+                <p-button label="Clear All Filters" icon="pi pi-filter-slash" styleClass="p-button-outlined" (onClick)="dt.clear()" />
+                 <p-iconfield>
+                    <p-inputicon styleClass="pi pi-search" />
+                    <input pInputText type="text" (input)="onGlobalFilter(dt, $event)" placeholder="Search..." />
+                </p-iconfield>
+        </div>
+  </ng-template>
+  <ng-template pTemplate="header">
+    <tr>
+      <th pSortableColumn="EmployeeName">
+        Name
+      </th>
+      <th pSortableColumn="Gender">
+        Gender
+        <p-columnFilter field="Gender" display="menu" showMatchModes="false" showOperator="false" [showAddButton]="false" type="text">
+          <ng-template pTemplate="filter" let-value let-filter="filterCallback">
+            <p-select appendTo="body" [options]="genders" optionLabel="label" optionValue="value" [ngModel]="value" (onChange)="filter($event.value)" placeholder="Any" styleClass="w-full" />
+          </ng-template>
+        </p-columnFilter>
+      </th>
+      <th pSortableColumn="RoleName">Role</th>
+      <th pSortableColumn="JoiningDate">Joining Date <p-sortIcon field="JoiningDate"/></th>
+      <th>Actions</th>
+    </tr>
+  </ng-template>
+  <ng-template pTemplate="body" let-e>
+    <tr>
+      <td>{{e.EmployeeName}}</td>
+      <td>{{e.Gender}}</td>
+      <td>{{e.RoleName || '-'}}</td>
+      <td>{{e.JoiningDate | date:'dd-MMM-yyyy'}}</td>
+      <td>
+        <p-button icon="pi pi-eye" [rounded]="true" [outlined]="true" class="mr-2" (onClick)="viewProfile(e)" />
+        <p-button icon="pi pi-pencil" [rounded]="true" [outlined]="true" class="mr-2" (onClick)="edit(e)" />
+        <p-button icon="pi pi-trash" severity="danger" [rounded]="true" [outlined]="true" (onClick)="delete(e)" />
+      </td>
+    </tr>
+  </ng-template>
+</p-table>
+
+<p-dialog [(visible)]="employeeDialog" [modal]="true" [style]="{width:'450px'}" header="Employee Details">
+  <form [formGroup]="form" class="flex flex-col gap-5">
+    <div>
+      <label class="block font-bold mb-2">Name *</label>
+      <input pInputText formControlName="EmployeeName" />
+      <small class="text-red-500" *ngIf="isInvalid('EmployeeName')">Required</small>
+    </div>
+    <div>
+      <label class="block font-bold mb-2">Gender *</label>
+      <p-select formControlName="Gender" [options]="genders" optionLabel="label" optionValue="value" appendTo="body" />
+      <small class="text-red-500" *ngIf="isInvalid('Gender')">Required</small>
+    </div>
+    <div>
+      <label class="block font-bold mb-2">Date of Birth *</label>
+      <input pInputText type="date" formControlName="DOB" />
+      <small class="text-red-500" *ngIf="isInvalid('DOB')">Required</small>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block font-bold mb-2">Role</label>
+        <p-select formControlName="RoleID" [options]="roleOptions" optionLabel="label" optionValue="value" appendTo="body" placeholder="Select Role" />
+      </div>
+      <div>
+        <label class="block font-bold mb-2">Joining Date</label>
+        <input pInputText type="date" formControlName="JoiningDate" />
+      </div>
+    </div>
+  </form>
+  <ng-template pTemplate="footer">
+    <p-button label="Cancel" icon="pi pi-times" styleClass="p-button-text" (onClick)="hideDialog()" />
+    <p-button label="Save" icon="pi pi-check" (onClick)="save()" />
+  </ng-template>
+</p-dialog>
+
+<p-confirmDialog />
+<p-toast />

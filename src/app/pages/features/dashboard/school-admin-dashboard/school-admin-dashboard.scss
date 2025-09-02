@@ -1,0 +1,49 @@
+/* School Admin Dashboard - Using PrimeNG & TailwindCSS classes only */
+
+/* Minimal custom styles - most styling is handled by PrimeNG */
+.space-y-3 > * + * {
+  margin-top: 0.75rem;
+}
+
+.space-y-1 > * + * {
+  margin-top: 0.25rem;
+}
+
+/* Responsive table adjustments */
+@media (max-width: 768px) {
+  .hidden {
+    display: none !important;
+  }
+  
+  .sm\:hidden {
+    display: none !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .md\:table-cell {
+    display: table-cell !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .lg\:table-cell {
+    display: table-cell !important;
+  }
+}
+
+@media (min-width: 640px) {
+  .sm\:inline {
+    display: inline !important;
+  }
+  
+  .sm\:hidden {
+    display: inline !important;
+  }
+}
+
+/* Chart container responsiveness */
+canvas {
+  max-width: 100% !important;
+  height: auto !important;
+}

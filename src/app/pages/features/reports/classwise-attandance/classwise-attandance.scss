@@ -1,0 +1,96 @@
+:host {
+  display: block;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  color: #111827;
+}
+
+.mb-6.p-4 {
+  background: linear-gradient(180deg,#ffffff, #fbfbfd);
+  border: 1px solid rgba(16,24,40,0.04);
+  box-shadow: 0 6px 18px rgba(15,23,42,0.04);
+}
+
+h5.mt-0 {
+  font-size: 1.125rem;
+  letter-spacing: -0.01em;
+}
+
+.grid .p-select, .grid .p-datepicker, .grid .p-inputtext {
+  width: 100%;
+}
+
+/* Table styling */
+::ng-deep .p-datatable-table {
+  font-size: 0.9rem;
+}
+
+::ng-deep .p-datatable-table thead th {
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 600;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid rgba(15,23,42,0.06);
+}
+
+::ng-deep .p-datatable-table tbody td {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid rgba(15,23,42,0.03);
+}
+
+/* Sticky student column shadow */
+::ng-deep th[style*="position:sticky"],
+::ng-deep td[style*="position:sticky"] {
+  box-shadow: 3px 0 6px rgba(2,6,23,0.04);
+}
+
+/* Tag sizes and custom badge colors based on value */
+::ng-deep .p-tag {
+  padding: 0.25rem 0.5rem;
+  font-weight: 600;
+  font-size: 0.75rem;
+  border-radius: 0.375rem;
+}
+
+::ng-deep .p-tag[value="P"], ::ng-deep .p-tag[value="p"] {
+  background: #ecfdf5; color: #065f46; border: none;
+}
+::ng-deep .p-tag[value="L"], ::ng-deep .p-tag[value="l"] {
+  background: #fffbeb; color: #92400e; border: none;
+}
+::ng-deep .p-tag[value="H"], ::ng-deep .p-tag[value="h"] {
+  background: #eef2ff; color: #3730a3; border: none;
+}
+::ng-deep .p-tag[value="A"], ::ng-deep .p-tag[value="a"] {
+  background: #fff1f2; color: #9f1239; border: none;
+}
+
+/* Mobile card styles */
+.mobile-list .p-card {
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(2,6,23,0.04);
+}
+
+.mobile-list .font-semibold {
+  font-size: 1rem;
+}
+
+/* Dialog table for details */
+::ng-deep .p-dialog .min-w-full {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+::ng-deep .p-dialog thead th {
+  padding: 0.35rem 0.5rem;
+  font-weight: 600;
+}
+
+::ng-deep .p-dialog td {
+  padding: 0.35rem 0.5rem;
+}
+
+/* Make Export and Refresh buttons consistent */
+::ng-deep .p-button {
+  border-radius: 0.375rem;
+}

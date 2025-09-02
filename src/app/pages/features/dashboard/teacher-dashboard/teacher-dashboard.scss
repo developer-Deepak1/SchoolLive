@@ -1,0 +1,10 @@
+/* Teacher Dashboard - minimal custom styles leveraging Tailwind & PrimeNG */
+
+.space-y-3 > * + * { margin-top: 0.75rem; }
+.space-y-1 > * + * { margin-top: 0.25rem; }
+
+canvas { max-width: 100% !important; height: auto !important; }
+
+@media (max-width: 768px) {
+	.hidden { display: none !important; }
+}

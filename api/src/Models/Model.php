@@ -127,4 +127,9 @@ abstract class Model {
             $this->db->closeConnection();
         }
     }
+
+    // Expose raw PDO connection for advanced queries (read-only use recommended)
+    public function getPdo() {
+        return $this->conn;
+    }
 }

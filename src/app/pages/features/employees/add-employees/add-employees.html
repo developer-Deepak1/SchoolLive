@@ -1,1 +1,72 @@
-<p>add-employees works!</p>
+<p-toast />
+<div class="grid gap-4 md:grid-cols-2">
+	<p-card header="Employee Admission" class="col-span-2">
+		<form [formGroup]="form" class="grid gap-4 md:grid-cols-3 pt-4" (ngSubmit)="submit()">
+			<div class="field col-span-3 md:col-span-1">
+				<label class="block mb-2 font-medium">Full Name <span class="text-red-500 ml-1">*</span></label>
+				<input pInputText formControlName="EmployeeName" placeholder="Full name" />
+				<small class="text-red-500" [class.invisible]="!fieldInvalid('EmployeeName')" style="min-height:1rem;display:block">Required (min 2 chars)</small>
+			</div>
+
+			<div class="field col-span-3 md:col-span-1">
+				<label class="block mb-2 font-medium">Contact Number</label>
+				<input pInputText formControlName="ContactNumber" placeholder="Contact number" />
+			</div>
+
+			<div class="field col-span-3 md:col-span-1">
+				<label class="block mb-2 font-medium">Email</label>
+				<input pInputText formControlName="EmailID" placeholder="Email" />
+				<small class="text-red-500" [class.invisible]="!fieldInvalid('EmailID')" style="min-height:1rem;display:block">Invalid email</small>
+			</div>
+
+					<div class="field col-span-3 md:col-span-1">
+						<label class="block mb-2 font-medium">Gender <span class="text-red-500 ml-1">*</span></label>
+						<p-select class="w-full" formControlName="Gender" [options]="genders" optionLabel="label" optionValue="value" appendTo="body" />
+					</div>
+
+			<div class="field col-span-3 md:col-span-1">
+				<label class="block mb-2 font-medium">Date of Birth <span class="text-red-500 ml-1">*</span></label>
+				<p-datepicker formControlName="DOB" dateFormat="yy-mm-dd" [showIcon]="true" class="w-full"></p-datepicker>
+				<small class="text-red-500" [class.invisible]="!fieldInvalid('DOB')" style="min-height:1rem;display:block">Required</small>
+			</div>
+
+					<div class="field col-span-3 md:col-span-1">
+						<label class="block mb-2 font-medium">Role</label>
+						<p-select class="w-full" formControlName="RoleID" [options]="roleOptions" optionLabel="label" optionValue="value" appendTo="body" placeholder="Select Role" />
+					</div>
+
+			<div class="field col-span-3 md:col-span-1">
+				<label class="block mb-2 font-medium">Joining Date</label>
+				<p-datepicker formControlName="JoiningDate" dateFormat="yy-mm-dd" [showIcon]="true" class="w-full"></p-datepicker>
+			</div>
+
+					<div class="field col-span-3 md:col-span-1">
+						<label class="block mb-2 font-medium">Salary</label>
+						<input pInputText formControlName="Salary" />
+					</div>
+
+			<div class="col-span-3 flex gap-3 pt-2">
+				<p-button [label]="editingId ? 'Update' : 'Submit'" icon="pi pi-check" [loading]="loading" type="submit" />
+				<p-button [label]="editingId ? 'Reset to Loaded' : 'Reset'" icon="pi pi-refresh" severity="secondary" type="button" (onClick)="editingId ? restoreLoaded() : resetForm()" />
+				<p-button *ngIf="editingId" label="View Profile" icon="pi pi-user" (onClick)="viewProfile()" />
+				<!-- Reset Password moved to Existing Credentials card to avoid duplicate controls -->
+			</div>
+		</form>
+	</p-card>
+
+	<p-card header="Existing Credentials" *ngIf="editingId && employeeUsername" class="col-span-2">
+		<div class="space-y-2">
+			<p><strong>Username:</strong> {{employeeUsername}}</p>
+			<p class="text-xs text-gray-500">Password is hidden. Use Reset Password to issue a new one.</p>
+			<p-button label="Reset Password" icon="pi pi-refresh" severity="warn" (onClick)="resetPassword()" [loading]="loading" [attr.type]="'button'" />
+		</div>
+	</p-card>
+
+	<p-card header="Issued Credentials" *ngIf="issuedCredentials as creds" class="col-span-2">
+		<div class="space-y-2">
+			<p><strong>Username:</strong> {{creds.username}}</p>
+			<p><strong>Password:</strong> {{creds.password}}</p>
+			<p class="text-xs text-gray-500">Provide these to the employee. They should change password at first login.</p>
+		</div>
+	</p-card>
+</div>

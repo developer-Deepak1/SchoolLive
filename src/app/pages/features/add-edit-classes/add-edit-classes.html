@@ -4,11 +4,11 @@
     [rows]="10"
     [columns]="cols"
     [paginator]="true"
-    [globalFilterFields]="['ClassName', 'ClassCode', 'academicYear', 'Stream']"
+    [globalFilterFields]="['ClassName', 'ClassCode', 'Stream']"
     [tableStyle]="{ 'min-width': '75rem' }"
     [(selection)]="selectedClasses"
     [rowHover]="true"
-    dataKey="classId"
+    dataKey="ClassID"
     currentPageReportTemplate="Showing {first} to {last} of {totalRecords} classes"
     [showCurrentPageReport]="true"
     [rowsPerPageOptions]="[10, 20, 30]"
@@ -119,6 +119,87 @@
         <p-button label="Save" icon="pi pi-check" (onClick)="saveClass()" />
     </ng-template>
 </p-dialog>
+<div>
+   <h1></h1> 
+   <h1></h1>
+</div>
 
 <p-confirmDialog [style]="{ width: '450px' }" />
+    <!-- Manage Sections -->
+    <section class="p-mt-8">
+            <p-table #dtSections
+                     [value]="sections()"
+                     [rows]="10"
+                     [paginator]="true"
+                     [globalFilterFields]="['ClassName','SectionName','SectionDisplayName']"
+                     [tableStyle]="{ 'min-width': '50rem' }"
+                     dataKey="SectionID"
+                     [rowsPerPageOptions]="[5,10,20]">
+                <ng-template pTemplate="caption">
+                    <h5 class="m-0">Manage Sections</h5>
+                    <div class="flex items-center justify-between">
+                        <div></div>
+                        <div class="flex items-center">
+                            <p-button label="New Section" icon="pi pi-plus" severity="secondary" class="mr-2" (onClick)="openNewSection()"></p-button>
+                            <p-iconfield>
+                                <p-inputicon styleClass="pi pi-search" />
+                                <input pInputText type="text" (input)="onGlobalFilter(dtSections, $event)" placeholder="Search sections..." />
+                            </p-iconfield>
+                        </div>
+                    </div>
+                </ng-template>
+                <ng-template pTemplate="header">
+                    <tr>
+                        <th>Class Name</th>
+                        <th>Section Name</th>
+                        <th>Display Name</th>
+                        <th>Actions</th>
+                    </tr>
+                </ng-template>
+                <ng-template pTemplate="body" let-section>
+                    <tr>
+                        <td>{{ section.ClassName }}</td>
+                        <td>{{ section.SectionName }}</td>
+                        <td>{{ section.SectionDisplayName }}</td>
+                        <td>
+                            <p-button icon="pi pi-pencil" class="mr-2" [rounded]="true" [outlined]="true" (onClick)="editSection(section)"></p-button>
+                            <p-button icon="pi pi-trash" severity="danger" [rounded]="true" [outlined]="true" (onClick)="deleteSection(section)"></p-button>
+                        </td>
+                    </tr>
+                </ng-template>
+            </p-table>
+
+            <p-dialog header="Section" [(visible)]="sectionDialog" [modal]="true" [style]="{ width: '400px' }" (onHide)="sectionForm.reset(); sectionSubmitted=false;">
+                <form [formGroup]="sectionForm" class="flex flex-col gap-4">
+                    <div>
+                        <label for="ClassID" class="block font-bold mb-2">Class *</label>
+                        <p-select id="ClassID" formControlName="ClassID" [options]="classes()" optionLabel="ClassName" optionValue="ClassID" placeholder="Select Class"></p-select>
+                        <small class="text-red-500" *ngIf="sectionSubmitted && sectionForm.controls['ClassID'].invalid">Class is required.</small>
+                    </div>
+
+                    <div>
+                        <label for="SectionName" class="block font-bold mb-2">Section Name *</label>
+                        <input pInputText id="SectionName" formControlName="SectionName" style="width:100%" />
+                        <small class="text-red-500" *ngIf="sectionSubmitted && sectionForm.controls['SectionName'].invalid">Section Name is required.</small>
+                    </div>
+
+                    <div>
+                        <label for="SectionDisplayName" class="block font-bold mb-2">Display Name *</label>
+                        <input pInputText id="SectionDisplayName" formControlName="SectionDisplayName" style="width:100%" />
+                        <small class="text-red-500" *ngIf="sectionSubmitted && sectionForm.controls['SectionDisplayName'].invalid">Display Name is required.</small>
+                    </div>
+
+                    <!-- hidden fields for context (school and academic year) -->
+                    <input type="hidden" formControlName="SchoolID" />
+                    <input type="hidden" formControlName="AcademicYearID" />
+
+                    <ng-template pTemplate="footer">
+                        <p-button label="Cancel" icon="pi pi-times" class="p-button-text" (onClick)="sectionDialog=false"></p-button>
+                        <p-button label="Save" icon="pi pi-check" (onClick)="saveSection()"></p-button>
+                    </ng-template>
+                </form>
+            </p-dialog>
+
+        </section>
+
 <p-toast />
