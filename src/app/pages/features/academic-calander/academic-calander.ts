@@ -146,10 +146,26 @@ export class AcademicCalander implements OnInit {
     // populate top form fields for editing
     const rawDate = this.editingHoliday.date;
     if (rawDate) {
-      try {
-        this.holidayDate = new Date(rawDate);
-      } catch (e) {
+      // support several date formats: Date object, YYYY-MM-DD, ISO datetime, or timestamp
+      if (rawDate instanceof Date) {
         this.holidayDate = rawDate;
+      } else if (typeof rawDate === 'string') {
+        // handle plain YYYY-MM-DD reliably
+        const ymd = rawDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (ymd) {
+          const y = Number(ymd[1]);
+          const m = Number(ymd[2]) - 1;
+          const d = Number(ymd[3]);
+          this.holidayDate = new Date(y, m, d);
+        } else {
+          // fallback to Date parsing for ISO strings
+          const parsed = new Date(rawDate);
+          this.holidayDate = isNaN(parsed.getTime()) ? null : parsed;
+        }
+      } else if (typeof rawDate === 'number') {
+        this.holidayDate = new Date(rawDate);
+      } else {
+        this.holidayDate = null;
       }
     } else {
       this.holidayDate = null;
