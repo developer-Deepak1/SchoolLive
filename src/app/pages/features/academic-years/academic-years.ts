@@ -49,7 +49,6 @@ export class AcademicYears implements OnInit {
 
   statusOptions = [
     { label: 'Active', value: 'Active' },
-    { label: 'Inactive', value: 'Inactive' },
     { label: 'Upcoming', value: 'Upcoming' },
     { label: 'End', value: 'End' }
   ];
@@ -211,8 +210,8 @@ export class AcademicYears implements OnInit {
       return;
     }
     
-    // Get form values and format dates properly
-    const formValue = this.yearForm.value;
+  // Get form values and format dates properly. Use getRawValue() to include disabled controls (e.g. Status)
+  const formValue = this.yearForm.getRawValue();
     const val: AcademicYear = {
       ...formValue,
       StartDate: this.formatDateOnly(formValue.StartDate),
