@@ -305,6 +305,130 @@ class AcademicModel extends Model {
         return $stmt->fetchAll();
     }
 
+    // Weekly Offs and Holidays
+    public function getWeeklyOffsByAcademicYear($schoolId, $academicYearId = null) {
+        $query = "SELECT WeeklyOffID, AcademicYearID, DayOfWeek FROM Tx_WeeklyOffs WHERE SchoolID = :school_id";
+        if ($academicYearId) $query .= " AND AcademicYearID = :academic_year_id";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':school_id', $schoolId);
+        if ($academicYearId) $stmt->bindParam(':academic_year_id', $academicYearId);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    public function setWeeklyOffs($schoolId, $academicYearId, $daysArray, $username = null) {
+        // daysArray expected as array of integers (1-7)
+        try {
+            $this->conn->beginTransaction();
+            // delete existing for this academic year
+            $del = $this->conn->prepare("DELETE FROM Tx_WeeklyOffs WHERE SchoolID = :school_id AND AcademicYearID = :academic_year_id");
+            $del->execute([':school_id' => $schoolId, ':academic_year_id' => $academicYearId]);
+
+            $ins = $this->conn->prepare("INSERT INTO Tx_WeeklyOffs (AcademicYearID, SchoolID, DayOfWeek, CreatedBy, CreatedAt) VALUES (:ay, :school, :dow, :user, :created)");
+            $created = date('Y-m-d H:i:s');
+            foreach ($daysArray as $d) {
+                $dow = (int)$d;
+                $ok = $ins->execute([':ay' => $academicYearId, ':school' => $schoolId, ':dow' => $dow, ':user' => $username, ':created' => $created]);
+                if ($ok === false) {
+                    $err = $ins->errorInfo();
+                    throw new \Exception('Insert weekly off failed: ' . ($err[2] ?? json_encode($err)));
+                }
+            }
+            $this->conn->commit();
+            return true;
+        } catch (\Throwable $e) {
+            try { $this->conn->rollBack(); } catch (\Throwable $ee) {}
+            // Log the database error for debugging (do not expose sensitive info to clients)
+            error_log('[AcademicModel::setWeeklyOffs] ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function getHolidaysByAcademicYear($schoolId, $academicYearId = null) {
+        $query = "SELECT HolidayID, AcademicYearID, Date, Title, Type FROM Tx_Holidays WHERE SchoolID = :school_id";
+        if ($academicYearId) $query .= " AND AcademicYearID = :academic_year_id";
+        $query .= " ORDER BY Date";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':school_id', $schoolId);
+        if ($academicYearId) $stmt->bindParam(':academic_year_id', $academicYearId);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+
+    public function createHoliday($data) {
+        $query = "INSERT INTO Tx_Holidays (AcademicYearID, SchoolID, Date, Title, Type, CreatedBy, CreatedAt) VALUES (:ay, :school, :date, :title, :type, :user, :created)";
+        $stmt = $this->conn->prepare($query);
+        $created = date('Y-m-d H:i:s');
+        $stmt->bindParam(':ay', $data['AcademicYearID']);
+        $stmt->bindParam(':school', $data['SchoolID']);
+        $stmt->bindParam(':date', $data['Date']);
+        $stmt->bindParam(':title', $data['Title']);
+        $stmt->bindParam(':type', $data['Type']);
+        $stmt->bindParam(':user', $data['CreatedBy']);
+        $stmt->bindParam(':created', $created);
+        if ($stmt->execute()) return $this->conn->lastInsertId();
+        return false;
+    }
+
+    public function getHolidayById($id) {
+        $query = "SELECT HolidayID, AcademicYearID, SchoolID, Date, Title, Type FROM Tx_Holidays WHERE HolidayID = :id LIMIT 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+        return $stmt->fetch();
+    }
+
+    public function deleteHoliday($id, $schoolId) {
+        $query = "DELETE FROM Tx_Holidays WHERE HolidayID = :id AND SchoolID = :school_id";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':id', $id);
+        $stmt->bindParam(':school_id', $schoolId);
+        return $stmt->execute();
+    }
+
+    public function updateHoliday($id, $data, $schoolId) {
+        // Only allow updating certain fields
+        $allowed = ['Date', 'Title', 'Type', 'AcademicYearID', 'UpdatedBy'];
+        $set = [];
+        $params = [':id' => $id, ':school_id' => $schoolId];
+        foreach ($allowed as $f) {
+            if (isset($data[$f])) {
+                $set[] = "$f = :$f";
+                $params[':' . $f] = $data[$f];
+            }
+        }
+        if (empty($set)) return false;
+        // Always set UpdatedAt
+        $set[] = "UpdatedAt = :UpdatedAt";
+        $params[':UpdatedAt'] = date('Y-m-d H:i:s');
+
+        $query = "UPDATE Tx_Holidays SET " . implode(', ', $set) . " WHERE HolidayID = :id AND SchoolID = :school_id";
+        $stmt = $this->conn->prepare($query);
+        return $stmt->execute($params);
+    }
+
+    public function getWeeklyReport($schoolId, $academicYearId, $start, $end) {
+        // Build a list of dates between start and end and mark weekly offs and holidays
+        $report = [];
+        $period = new \DatePeriod(new \DateTime($start), new \DateInterval('P1D'), (new \DateTime($end))->modify('+1 day'));
+
+        // Load weekly offs and holidays to minimize queries
+        $offs = $this->getWeeklyOffsByAcademicYear($schoolId, $academicYearId);
+        $offDays = array_map(function($r){ return (int)$r['DayOfWeek']; }, $offs);
+        $holidays = $this->getHolidaysByAcademicYear($schoolId, $academicYearId);
+        $holidayMap = [];
+        foreach ($holidays as $h) { $holidayMap[$h['Date']] = $h; }
+
+        foreach ($period as $dt) {
+            $ymd = $dt->format('Y-m-d');
+            $dow = (int)$dt->format('N'); // 1 (Mon) to 7 (Sun)
+            $isOff = in_array($dow, $offDays, true);
+            $isHoliday = isset($holidayMap[$ymd]);
+            $report[] = [ 'date' => $ymd, 'dayOfWeek' => $dow, 'weeklyOff' => $isOff, 'holiday' => $isHoliday ? $holidayMap[$ymd] : null ];
+        }
+        return $report;
+    }
+
     public function getSectionById($id) {
         $query = "SELECT s.*, ay.AcademicYearName FROM Tx_Sections s
             LEFT JOIN Tm_AcademicYears ay ON s.AcademicYearID = ay.AcademicYearID

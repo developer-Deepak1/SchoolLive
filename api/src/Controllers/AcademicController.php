@@ -265,4 +265,97 @@ class AcademicController extends BaseController {
     if (!$currentYear) { $this->fail('No current academic year set',404); return; }
     $this->ok('Current academic year retrieved successfully', $currentYear);
     }
+
+    // Weekly Offs
+    public function getWeeklyOffs($params = []) {
+    $currentUser = $this->currentUser(); if(!$currentUser) return;
+        $academicYearId = $_GET['academic_year_id'] ?? $currentUser['AcademicYearID'] ?? null;
+        $offs = $this->academicModel->getWeeklyOffsByAcademicYear($currentUser['school_id'], $academicYearId);
+        $this->ok('Weekly offs retrieved successfully', $offs);
+    }
+
+    public function setWeeklyOffs($params = []) {
+    if (!$this->requireMethod('POST')) return;
+    $input = $this->input();
+    $currentUser = $this->currentUser(); if(!$currentUser) return;
+        if (!isset($input['AcademicYearID'])) { $this->fail('AcademicYearID is required',400); return; }
+        if (!isset($input['Days']) || !is_array($input['Days'])) { $this->fail('Days array is required',400); return; }
+
+        // Validate day numbers
+        $days = array_values(array_unique(array_map('intval', $input['Days'])));
+        foreach ($days as $d) {
+            if ($d < 1 || $d > 7) { $this->fail('Day values must be integers between 1 and 7',400); return; }
+        }
+
+        $ok = $this->academicModel->setWeeklyOffs($currentUser['school_id'], $input['AcademicYearID'], $days, $currentUser['username']);
+        if ($ok) $this->ok('Weekly offs updated'); else $this->fail('Failed to update weekly offs',500);
+    }
+
+    // Holidays
+    public function getHolidays($params = []) {
+    $currentUser = $this->currentUser(); if(!$currentUser) return;
+        $academicYearId = $_GET['academic_year_id'] ?? $currentUser['AcademicYearID'] ?? null;
+        $holidays = $this->academicModel->getHolidaysByAcademicYear($currentUser['school_id'], $academicYearId);
+        $this->ok('Holidays retrieved successfully', $holidays);
+    }
+
+    public function createHoliday($params = []) {
+    if (!$this->requireMethod('POST')) return;
+    $input = $this->input();
+    $currentUser = $this->currentUser(); if(!$currentUser) return;
+
+        if (!$this->ensure($input, ['AcademicYearID','Date','Title','Type'])) return;
+
+        $input['SchoolID'] = $input['SchoolID'] ?? $currentUser['school_id'];
+        $input['CreatedBy'] = $input['CreatedBy'] ?? $currentUser['username'];
+
+        $res = $this->academicModel->createHoliday($input);
+        if ($res) { $holiday = $this->academicModel->getHolidayById($res); $this->ok('Holiday created successfully', $holiday); }
+        else { $this->fail('Failed to create holiday',500); }
+    }
+
+    public function deleteHoliday($params = []) {
+    if (!$this->requireMethod('DELETE')) return;
+    $id = $this->requireKey($params,'id','Holiday ID'); if($id===null) return;
+    $currentUser = $this->currentUser(); if(!$currentUser) return;
+
+        $result = $this->academicModel->deleteHoliday($id,$currentUser['school_id']);
+        if ($result) { $this->ok('Holiday deleted successfully'); }
+        else { $this->fail('Failed to delete holiday',500); }
+    }
+
+    public function updateHoliday($params = []) {
+    if (!$this->requireMethod('PUT')) return;
+    $id = $this->requireKey($params,'id','Holiday ID'); if($id===null) return;
+    $input = $this->input();
+    $currentUser = $this->currentUser(); if(!$currentUser) return;
+
+        // allowed fields: Date, Title, Type, AcademicYearID
+        $updatePayload = [];
+        if (isset($input['Date'])) $updatePayload['Date'] = $input['Date'];
+        if (isset($input['Title'])) $updatePayload['Title'] = $input['Title'];
+        if (isset($input['Type'])) $updatePayload['Type'] = $input['Type'];
+        if (isset($input['AcademicYearID'])) $updatePayload['AcademicYearID'] = $input['AcademicYearID'];
+
+        if (empty($updatePayload)) { $this->fail('No updatable fields provided',400); return; }
+
+        $updatePayload['UpdatedBy'] = $currentUser['username'];
+
+        $ok = $this->academicModel->updateHoliday($id, $updatePayload, $currentUser['school_id']);
+        if ($ok) { $holiday = $this->academicModel->getHolidayById($id); $this->ok('Holiday updated successfully', $holiday); }
+        else { $this->fail('Failed to update holiday',500); }
+    }
+
+    // Weekly Report (returns weekly off dates and holidays between start and end)
+    public function getWeeklyReport($params = []) {
+    $currentUser = $this->currentUser(); if(!$currentUser) return;
+        $start = $_GET['start'] ?? null;
+        $end = $_GET['end'] ?? null;
+        $academicYearId = $_GET['academic_year_id'] ?? $currentUser['AcademicYearID'] ?? null;
+
+        if (!$start || !$end) { $this->fail('start and end query parameters are required (YYYY-MM-DD)',400); return; }
+
+        $report = $this->academicModel->getWeeklyReport($currentUser['school_id'], $academicYearId, $start, $end);
+        $this->ok('Weekly report generated', $report);
+    }
 }

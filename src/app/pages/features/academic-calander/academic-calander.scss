@@ -1,0 +1,10 @@
+/* Add spacing between cards and tighten card content spacing */
+:host ::ng-deep p-card {
+	margin-bottom: 1.5rem; /* vertical gap between cards */
+}
+
+:host ::ng-deep p-card .p-card-body {
+	padding-top: 0.75rem;
+	padding-bottom: 0.75rem;
+}
+

@@ -62,10 +62,17 @@ CREATE TABLE Tx_WeeklyOffs (
     WeeklyOffID INT AUTO_INCREMENT PRIMARY KEY,
     AcademicYearID INT NOT NULL,
     DayOfWeek TINYINT NOT NULL, -- 1=Monday, 2=Tuesday, ... 7=Sunday
+    SchoolID INT NOT NULL,
     FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID),
+    FOREIGN KEY (SchoolID) REFERENCES Tm_Schools(SchoolID),
     CONSTRAINT chk_weekday CHECK (DayOfWeek BETWEEN 1 AND 7),
     UNIQUE KEY ux_weeklyoff_ay_day (AcademicYearID, DayOfWeek),
-    INDEX idx_weeklyoff_ay_day (AcademicYearID, DayOfWeek)
+    INDEX idx_weeklyoff_ay_day (AcademicYearID, DayOfWeek),
+    -- Audit fields (created/updated) expected by application
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CreatedBy VARCHAR(100),
+    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UpdatedBy VARCHAR(100)
 );
 
 CREATE TABLE Tx_Holidays (
@@ -73,8 +80,15 @@ CREATE TABLE Tx_Holidays (
     AcademicYearID INT NOT NULL,
     Date DATE NOT NULL,
     Title VARCHAR(100),
-    HolidayType ENUM('Holiday', 'WorkingDay') DEFAULT 'Holiday',
+    SchoolID INT NOT NULL,
+    Type ENUM('Holiday', 'WorkingDay') DEFAULT 'Holiday',
     FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID),
+    FOREIGN KEY (SchoolID) REFERENCES Tm_Schools(SchoolID),
+    -- Audit fields (created/updated) expected by application
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CreatedBy VARCHAR(100),
+    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UpdatedBy VARCHAR(100),
     UNIQUE KEY ux_holidays_ay_date (AcademicYearID, Date),
     INDEX idx_holidays_ay_date (AcademicYearID, Date)
 );
