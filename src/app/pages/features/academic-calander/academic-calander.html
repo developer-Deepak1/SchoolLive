@@ -69,7 +69,14 @@
       </div>
     </div>
 
-    <p-table [value]="holidays" dataKey="id" class="mt-4">
+    <p-table [value]="holidays"
+    [rows]="10"
+  [paginator]="true" 
+  dataKey="id" class="mt-4"  stripedRows   [tableStyle]="{ 'min-width': '60rem' }"
+  currentPageReportTemplate="Showing {first} to {last} of {totalRecords} academic years"
+  [showCurrentPageReport]="true"
+  [rowsPerPageOptions]="[10,20,30]"
+    >
       <ng-template pTemplate="header">
         <tr>
           <th>Date</th>
@@ -84,8 +91,8 @@
           <td>{{ h.title }}</td>
           <td>{{ h.type }}</td>
           <td class="flex gap-2">
-            <button pButton icon="pi pi-pencil" class="p-button-secondary" (click)="startEditHoliday(h)"></button>
-            <button pButton icon="pi pi-trash" severity="danger" (click)="removeHoliday(h)"></button>
+            <button pButton icon="pi pi-pencil" [rounded]="true" [outlined]="true" class="p-button-secondary" (click)="startEditHoliday(h)"></button>
+            <button pButton icon="pi pi-trash" severity="danger" [rounded]="true" [outlined]="true" (click)="removeHoliday(h)"></button>
           </td>
         </tr>
       </ng-template>
