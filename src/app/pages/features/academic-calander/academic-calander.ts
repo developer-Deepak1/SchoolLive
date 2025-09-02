@@ -56,12 +56,19 @@ export class AcademicCalander implements OnInit {
         const active = data.find(y => y.Status && String(y.Status).toLowerCase() === 'active');
         if (active) {
           this.selectedAcademicYear = { label: active.AcademicYearName, value: active };
+          // compute bounds for the active academic year
+          this.setAcademicYearBounds(active);
+          // reset holiday form when switching years
+          this.cancelEditHoliday();
           // load data for the active year
           this.loadWeeklyOffs();
           this.loadHolidays();
         } else if (this.academicYears.length > 0) {
           // default to first year and load
           this.selectedAcademicYear = this.academicYears[0];
+          this.setAcademicYearBounds(this.selectedAcademicYear.value);
+          // reset holiday form when switching years
+          this.cancelEditHoliday();
           this.loadWeeklyOffs();
           this.loadHolidays();
         }
@@ -74,6 +81,10 @@ export class AcademicCalander implements OnInit {
 
   onAcademicYearChange(e: any) {
   this.selectedAcademicYear = e;
+  // update cached bounds for datepicker
+  this.setAcademicYearBounds(e?.value || e);
+  // Reset holiday add/edit form when user switches academic year
+  this.cancelEditHoliday();
   // Reload year-specific data
   this.loadWeeklyOffs();
   this.loadHolidays();
@@ -126,6 +137,9 @@ export class AcademicCalander implements OnInit {
   holidays: any[] = [];
   // edit state
   editingHoliday: any = null;
+  // cached min/max dates for the selected academic year — updated only when selection changes
+  minHolidayDate: Date | null = null;
+  maxHolidayDate: Date | null = null;
 
   startEditHoliday(h: any) {
     this.editingHoliday = { ...h };
@@ -196,6 +210,19 @@ export class AcademicCalander implements OnInit {
 
   addHoliday() {
     if (this.holidayDate && this.holidayType) {
+      // Ensure selected date is within academic year bounds
+      const pickedDate = (this.holidayDate instanceof Date) ? this.holidayDate : new Date(this.holidayDate);
+      const min = this.minHolidayDate;
+      const max = this.maxHolidayDate;
+      if (min && pickedDate < min) {
+        this.msg.add({ severity: 'warn', summary: 'Invalid Date', detail: `Holiday must be on or after ${min.toISOString().split('T')[0]}` });
+        return;
+      }
+      if (max && pickedDate > max) {
+        this.msg.add({ severity: 'warn', summary: 'Invalid Date', detail: `Holiday must be on or before ${max.toISOString().split('T')[0]}` });
+        return;
+      }
+
       const formattedDate = toLocalYMDIST(this.holidayDate) || (typeof this.holidayDate === 'string' ? this.holidayDate.split('T')[0] : null);
       const payload = {
         AcademicYearID: this.selectedAcademicYear?.value?.AcademicYearID || null,
@@ -347,6 +374,26 @@ export class AcademicCalander implements OnInit {
     } catch (e) {
       // Fallback log if MessageService is not available for some reason
       console.error('showToast failed', e, { severity, summary, detail, life });
+    }
+  }
+  // Compute and cache min/max date bounds for the currently selected academic year
+  private setAcademicYearBounds(yearObj: any) {
+    if (!yearObj) {
+      this.minHolidayDate = null;
+      this.maxHolidayDate = null;
+      return;
+    }
+    const s = yearObj.StartDate || yearObj.start_date || yearObj.from || yearObj.start || null;
+    const e = yearObj.EndDate || yearObj.end_date || yearObj.to || yearObj.end || null;
+    try {
+      this.minHolidayDate = s ? new Date(s) : null;
+    } catch (err) {
+      this.minHolidayDate = null;
+    }
+    try {
+      this.maxHolidayDate = e ? new Date(e) : null;
+    } catch (err) {
+      this.maxHolidayDate = null;
     }
   }
 }

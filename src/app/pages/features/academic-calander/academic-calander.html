@@ -37,10 +37,18 @@
   <p-card header="Holidays/Exception working">
     <div class="border-t border-gray-200 my-3"></div>
 
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
       <div>
         <label for="holiday-date" class="block font-bold mb-2">Holiday Date</label>
-        <p-datepicker inputId="holiday-date" [(ngModel)]="holidayDate" dateFormat="yy-mm-dd" [style]="{'width':'100%'}" styleClass="w-full"></p-datepicker>
+        <p-datepicker inputId="holiday-date" [(ngModel)]="holidayDate" dateFormat="yy-mm-dd" [style]="{'width':'100%'}" styleClass="w-full"
+          [minDate]="minHolidayDate" [maxDate]="maxHolidayDate">
+        </p-datepicker>
+        <small class="text-xs text-gray-500 mt-1 block">
+          <div *ngIf="minHolidayDate || maxHolidayDate" class="flex flex-wrap items-center gap-2">
+            <span *ngIf="minHolidayDate">From: {{ minHolidayDate | date:'yyyy-MM-dd' }}</span>
+            <span *ngIf="maxHolidayDate">To: {{ maxHolidayDate | date:'yyyy-MM-dd' }}</span>
+          </div>
+        </small>
       </div>
 
       <div>
@@ -59,13 +67,13 @@
           styleClass="w-full">
         </p-select>
       </div>
-
-      <div class="flex items-end gap-2">
-        <button *ngIf="!editingHoliday" pButton label="Add Holiday" icon="pi pi-plus" (click)="addHoliday()" aria-label="Add Holiday"></button>
-        <div *ngIf="editingHoliday" class="flex gap-2">
-          <button pButton label="Update Holiday" icon="pi pi-check" (click)="addHoliday()"></button>
-          <button pButton label="Cancel" class="p-button-outlined" (click)="cancelEditHoliday()"></button>
-        </div>
+      
+    </div>
+  <div class="flex justify-start gap-2 mb-4">
+      <button *ngIf="!editingHoliday" pButton label="Add Holiday" icon="pi pi-plus" (click)="addHoliday()" aria-label="Add Holiday"></button>
+      <div *ngIf="editingHoliday" class="flex gap-2">
+        <button pButton label="Update Holiday" icon="pi pi-check" (click)="addHoliday()"></button>
+        <button pButton label="Cancel" class="p-button-outlined" (click)="cancelEditHoliday()"></button>
       </div>
     </div>
   </p-card>
