@@ -27,6 +27,11 @@ export class AcademicCalendarService {
     return this.http.post<any>(`${this.baseUrl}/createHoliday`, payload).pipe(map(res => res));
   }
 
+  // Create a range of holidays (one row per date between StartDate and EndDate)
+  createHolidayRange(payload: any): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/createHolidayRange`, payload).pipe(map(res => res));
+  }
+
   deleteHoliday(id: any): Observable<any> {
     return this.http.delete<any>(`${this.baseUrl}/deleteHoliday/${id}`).pipe(map(res => res));
   }

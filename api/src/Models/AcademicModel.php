@@ -429,6 +429,57 @@ class AcademicModel extends Model {
         return $report;
     }
 
+    /**
+     * Insert holidays for every date in the inclusive range StartDate..EndDate.
+     * Skips dates that already exist (same SchoolID, AcademicYearID, Date).
+     * Returns an array: ['createdDates'=>[], 'skippedDates'=>[]] or false on error.
+     */
+    public function createHolidayRange($input) {
+        $schoolId = $input['SchoolID'];
+        $ay = $input['AcademicYearID'];
+        $title = $input['Title'];
+        $type = $input['Type'];
+        $start = $input['StartDate'];
+        $end = $input['EndDate'];
+        $createdBy = $input['CreatedBy'] ?? null;
+
+        try {
+            $this->conn->beginTransaction();
+
+            // Prepare check and insert statements
+            $check = $this->conn->prepare("SELECT COUNT(*) as cnt FROM Tx_Holidays WHERE SchoolID = :school AND AcademicYearID = :ay AND Date = :date");
+            $ins = $this->conn->prepare("INSERT INTO Tx_Holidays (AcademicYearID, SchoolID, Date, Title, Type, CreatedBy, CreatedAt) VALUES (:ay, :school, :date, :title, :type, :user, :created)");
+            $createdAt = date('Y-m-d H:i:s');
+
+            $period = new \DatePeriod(new \DateTime($start), new \DateInterval('P1D'), (new \DateTime($end))->modify('+1 day'));
+            $createdDates = [];
+            $skippedDates = [];
+
+            foreach ($period as $dt) {
+                $ymd = $dt->format('Y-m-d');
+                $check->execute([':school' => $schoolId, ':ay' => $ay, ':date' => $ymd]);
+                $row = $check->fetch();
+                if ($row && isset($row['cnt']) && intval($row['cnt']) > 0) {
+                    $skippedDates[] = $ymd;
+                    continue;
+                }
+                $ok = $ins->execute([':ay' => $ay, ':school' => $schoolId, ':date' => $ymd, ':title' => $title, ':type' => $type, ':user' => $createdBy, ':created' => $createdAt]);
+                if ($ok === false) {
+                    $err = $ins->errorInfo();
+                    throw new \Exception('Insert failed: ' . ($err[2] ?? json_encode($err)));
+                }
+                $createdDates[] = $ymd;
+            }
+
+            $this->conn->commit();
+            return ['createdDates' => $createdDates, 'skippedDates' => $skippedDates];
+        } catch (\Throwable $e) {
+            try { $this->conn->rollBack(); } catch (\Throwable $ee) {}
+            error_log('[AcademicModel::createHolidayRange] ' . $e->getMessage());
+            return false;
+        }
+    }
+
     public function getSectionById($id) {
         $query = "SELECT s.*, ay.AcademicYearName FROM Tx_Sections s
             LEFT JOIN Tm_AcademicYears ay ON s.AcademicYearID = ay.AcademicYearID

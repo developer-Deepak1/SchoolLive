@@ -128,6 +128,11 @@ export class AcademicCalander implements OnInit {
 
   // Holidays
   holidayDate: any;
+  // For multi-day range support
+  holidayEndDate: any;
+  rangeMode: boolean = false;
+  rangePreview: string[] = [];
+  previewCollapsed: boolean = false;
   holidayTitle: string = '';
   holidayType: any;
   holidayTypes = [
@@ -239,6 +244,53 @@ export class AcademicCalander implements OnInit {
         return;
       }
 
+      // If in range mode, validate end date and call range API
+      if (this.rangeMode) {
+        if (!this.holidayEndDate) {
+          this.msg.add({ severity: 'warn', summary: 'End date required', detail: 'Please select an end date for the range' });
+          return;
+        }
+        const endDate = (this.holidayEndDate instanceof Date) ? this.holidayEndDate : new Date(this.holidayEndDate);
+        if (endDate < pickedDate) {
+          this.msg.add({ severity: 'warn', summary: 'Invalid Range', detail: 'End date must be the same or after start date' });
+          return;
+        }
+        if (min && endDate < min) { this.msg.add({ severity: 'warn', summary: 'Invalid Date', detail: `End date must be on or after ${min.toISOString().split('T')[0]}` }); return; }
+        if (max && endDate > max) { this.msg.add({ severity: 'warn', summary: 'Invalid Date', detail: `End date must be on or before ${max.toISOString().split('T')[0]}` }); return; }
+
+        const formattedStart = toLocalYMDIST(this.holidayDate);
+        const formattedEnd = toLocalYMDIST(this.holidayEndDate);
+        const payloadRange = {
+          AcademicYearID: this.selectedAcademicYear?.value?.AcademicYearID || null,
+          StartDate: formattedStart,
+          EndDate: formattedEnd,
+          Title: this.holidayTitle,
+          Type: this.holidayType.value
+        };
+
+        this.calendarService.createHolidayRange(payloadRange).subscribe({
+          next: (res: any) => {
+            if (res && res.success) {
+              const created = res.data?.createdDates?.length ?? 0;
+              const skipped = res.data?.skippedDates?.length ?? 0;
+              this.showToast('success','Range created', `${created} created, ${skipped} skipped`);
+              this.loadHolidays();
+            } else {
+              const detail = res?.message ?? 'Unexpected server response';
+              this.showToast('warn','Range create', detail);
+            }
+            // reset form
+            this.holidayDate = null; this.holidayEndDate = null; this.holidayTitle = ''; this.holidayType = null; this.rangePreview = [];
+          },
+          error: (err: any) => {
+            console.error('Create holiday range failed', err);
+            const detail = err?.error?.message ?? err?.message ?? 'Server error';
+            this.showToast('error','Range create failed', detail, 6000);
+          }
+        });
+        return;
+      }
+
       const formattedDate = toLocalYMDIST(this.holidayDate) || (typeof this.holidayDate === 'string' ? this.holidayDate.split('T')[0] : null);
       const payload = {
         AcademicYearID: this.selectedAcademicYear?.value?.AcademicYearID || null,
@@ -301,6 +353,20 @@ export class AcademicCalander implements OnInit {
         this.holidayType = null;
       }
     }
+  }
+
+  computeRangePreview() {
+    this.rangePreview = [];
+    if (!this.holidayDate || !this.holidayEndDate) return;
+    const sd = (this.holidayDate instanceof Date) ? new Date(this.holidayDate) : new Date(this.holidayDate);
+    const ed = (this.holidayEndDate instanceof Date) ? new Date(this.holidayEndDate) : new Date(this.holidayEndDate);
+    if (isNaN(sd.getTime()) || isNaN(ed.getTime())) return;
+    if (ed < sd) return;
+    const list: string[] = [];
+    for (let d = new Date(sd); d <= ed; d.setDate(d.getDate() + 1)) {
+      list.push(d.toISOString().split('T')[0]);
+    }
+    this.rangePreview = list;
   }
 
   removeHoliday(h: any) {

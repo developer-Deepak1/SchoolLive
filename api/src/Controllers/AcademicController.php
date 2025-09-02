@@ -314,6 +314,31 @@ class AcademicController extends BaseController {
         else { $this->fail('Failed to create holiday',500); }
     }
 
+    // Create a range of holidays (one row per date between StartDate and EndDate)
+    public function createHolidayRange($params = []) {
+    if (!$this->requireMethod('POST')) return;
+    $input = $this->input();
+    $currentUser = $this->currentUser(); if(!$currentUser) return;
+
+        // Validate required fields
+        if (!$this->ensure($input, ['AcademicYearID','StartDate','EndDate','Title','Type'])) return;
+
+        $start = $input['StartDate'];
+        $end = $input['EndDate'];
+        if (strtotime($start) === false || strtotime($end) === false) { $this->fail('Invalid date format for StartDate or EndDate',400); return; }
+        if (strtotime($start) > strtotime($end)) { $this->fail('StartDate must be <= EndDate',400); return; }
+
+        $input['SchoolID'] = $input['SchoolID'] ?? $currentUser['school_id'];
+        $input['CreatedBy'] = $input['CreatedBy'] ?? $currentUser['username'];
+
+        $res = $this->academicModel->createHolidayRange($input);
+        if ($res !== false) {
+            $this->ok('Holiday range processed', $res);
+        } else {
+            $this->fail('Failed to create holiday range',500);
+        }
+    }
+
     public function deleteHoliday($params = []) {
     if (!$this->requireMethod('DELETE')) return;
     $id = $this->requireKey($params,'id','Holiday ID'); if($id===null) return;
