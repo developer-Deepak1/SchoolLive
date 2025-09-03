@@ -551,11 +551,15 @@ class AcademicModel extends Model {
             'school_id' => 'SchoolID',
             'status' => 'Status'
         ];
+        $keysToUnset = [];
         foreach ($mapping as $snake => $pascal) {
             if (isset($data[$snake]) && !isset($data[$pascal])) {
                 $data[$pascal] = $data[$snake];
             }
-            if (isset($data[$snake])) unset($data[$snake]);
+            if (isset($data[$snake])) $keysToUnset[] = $snake;
+        }
+        foreach ($keysToUnset as $key) {
+            unset($data[$key]);
         }
 
         $fields = array_keys($data);
