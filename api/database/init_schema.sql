@@ -19,7 +19,8 @@ DROP TABLE IF EXISTS Tx_Users;
 DROP TABLE IF EXISTS Tm_Roles;
 DROP TABLE IF EXISTS Tm_AcademicYears;
 DROP TABLE IF EXISTS Tm_Schools;
-
+DROP TABLE IF EXISTS Tx_WeeklyOffs;
+DROP TABLE IF EXISTS Tx_Holidays;
 CREATE TABLE Tm_Schools (
     SchoolID INT PRIMARY KEY AUTO_INCREMENT,
     SchoolName VARCHAR(100) NOT NULL,
@@ -370,18 +371,13 @@ INSERT INTO Tx_Classes (ClassName, ClassCode, Stream, MaxStrength, SchoolID, Aca
 ('2nd', 'C2', 'General', 40, 1000, 1, 'Super Admin'),
 ('3rd', 'C3', 'General', 40, 1000, 1, 'Super Admin');
 
--- Create sample sections
--- Create sample sections (explicit SectionID to keep referential consistency)
-INSERT INTO Tx_Sections (SectionID, SectionName, SectionDisplayName, SchoolID, AcademicYearID, ClassID, CreatedBy) VALUES 
-(1, 'A', 'Section A', 1000, 1, 1, 'Super Admin'),
-(2, 'B', 'Section B', 1000, 1, 1, 'Super Admin');
-
--- Additional sections for other classes
-INSERT INTO Tx_Sections (SectionID, SectionName, SectionDisplayName, SchoolID, AcademicYearID, ClassID, CreatedBy) VALUES
-(3, 'A', 'Section A', 1000, 1, 2, 'Super Admin'),
-(4, 'B', 'Section B', 1000, 1, 2, 'Super Admin'),
-(5, 'A', 'Section A', 1000, 1, 3, 'Super Admin'),
-(6, 'B', 'Section B', 1000, 1, 3, 'Super Admin');
+INSERT INTO Tx_Sections (SectionID, ClassID, SectionName, SchoolID, AcademicYearID, CreatedBy) VALUES
+(1, 1, 'A', 1000, 1, 'Super Admin'),
+(2, 1, 'B', 1000, 1, 'Super Admin'),
+(3, 2, 'A', 1000, 1, 'Super Admin'),
+(4, 2, 'B', 1000, 1, 'Super Admin'),
+(5, 3, 'A', 1000, 1, 'Super Admin'),
+(6, 3, 'B', 1000, 1, 'Super Admin');
 
 -- Demo users: teacher and student (password: password123)
 
@@ -426,10 +422,11 @@ INSERT INTO Tx_Employee_Attendance (EmployeeAttendanceID, EmployeeID, SchoolID, 
 (2, 2, 1000, 1, '2025-08-30', 'Present', 'On time', 'System'),
 (3, 3, 1000, 1, '2025-08-30', 'Absent', 'Sick', 'System');
 
-INSERT INTO Tx_Students_Attendance (StudentAttendanceID, Date, Status, StudentID, SectionID, SchoolID, AcademicYearID, Remarks, CreatedBy) VALUES
-(1, '2025-08-30', 'Present', 1, 1, 1000, 1, 'Present in class', 'System'),
-(2, '2025-08-30', 'Present', 2, 3, 1000, 1, 'Present in class', 'System'),
-(3, '2025-08-30', 'Absent', 3, 5, 1000, 1, 'Sick', 'System');
+-- Attendance must include ClassID (not null). Use class ids that correspond to the section ids above (1->class 1, 3->class 2, 5->class 3)
+INSERT INTO Tx_Students_Attendance (StudentAttendanceID, Date, Status, StudentID, SectionID, ClassID, SchoolID, AcademicYearID, Remarks, CreatedBy) VALUES
+(1, '2025-08-30', 'Present', 1, 1, 1, 1000, 1, 'Present in class', 'System'),
+(2, '2025-08-30', 'Present', 2, 3, 2, 1000, 1, 'Present in class', 'System'),
+(3, '2025-08-30', 'Absent', 3, 5, 3, 1000, 1, 'Sick', 'System');
 
 -- ================= Additional Tables for Dashboard Enhancements =================
 -- Events table
@@ -610,13 +607,15 @@ INSERT INTO Tx_Classes (ClassName, ClassCode, Stream, MaxStrength, SchoolID, Aca
 ('11th', 'GG11', 'General', 40, @school, @ay, 'System');
 
 -- Create one section per class (A)
-INSERT INTO Tx_Sections (SectionName, SectionDisplayName, SchoolID, AcademicYearID, ClassID, CreatedBy) VALUES
-('A', 'Section A', @school, @ay, (SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='6th' LIMIT 1), 'System'),
-('A', 'Section A', @school, @ay, (SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='7th' LIMIT 1), 'System'),
-('A', 'Section A', @school, @ay, (SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='8th' LIMIT 1), 'System'),
-('A', 'Section A', @school, @ay, (SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='9th' LIMIT 1), 'System'),
-('A', 'Section A', @school, @ay, (SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='10th' LIMIT 1), 'System'),
-('A', 'Section A', @school, @ay, (SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='11th' LIMIT 1), 'System');
+-- Create one section per class (A)
+-- Note: schema expects ClassID then SectionName in Tx_Sections
+INSERT INTO Tx_Sections (ClassID, SectionName, SchoolID, AcademicYearID, CreatedBy) VALUES
+((SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='6th' LIMIT 1), 'A', @school, @ay, 'System'),
+((SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='7th' LIMIT 1), 'A', @school, @ay, 'System'),
+((SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='8th' LIMIT 1), 'A', @school, @ay, 'System'),
+((SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='9th' LIMIT 1), 'A', @school, @ay, 'System'),
+((SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='10th' LIMIT 1), 'A', @school, @ay, 'System'),
+((SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='11th' LIMIT 1), 'A', @school, @ay, 'System');
 
 INSERT INTO Tx_ClassTeachers (ClassID, EmployeeID, SchoolID, AcademicYearID, StartDate, IsActive, CreatedBy) VALUES
 ((SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='6th' LIMIT 1), (SELECT EmployeeID FROM Tx_Employees WHERE EmployeeName='Aarti Sharma' AND SchoolID=@school LIMIT 1), @school, @ay, '2021-06-01', 1, 'System'),
@@ -652,13 +651,14 @@ INSERT INTO Tx_Students (StudentName, Gender, DOB, SchoolID, SectionID, UserID, 
 ('Neha Das', 'F', '2008-05-21', @school, (SELECT SectionID FROM Tx_Sections WHERE SchoolID=@school AND ClassID=(SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='11th' LIMIT 1) LIMIT 1), (SELECT UserID FROM Tx_Users WHERE Username='gg_student6' AND SchoolID=@school LIMIT 1), @ay, 'Mr Das', 'Mrs Das', '2025-08-05', 'Active', 'System');
 
 -- Insert student attendance for a recent date (so charts using latest date pick it up)
-INSERT INTO Tx_Students_Attendance (Date, Status, StudentID, SectionID, SchoolID, AcademicYearID, Remarks, CreatedBy) VALUES
-('2025-08-30','Present',(SELECT StudentID FROM Tx_Students WHERE StudentName='Anil Kumar' AND SchoolID=@school LIMIT 1),(SELECT SectionID FROM Tx_Students WHERE StudentName='Anil Kumar' AND SchoolID=@school LIMIT 1),@school,@ay,'Present in class','System'),
-('2025-08-30','Present',(SELECT StudentID FROM Tx_Students WHERE StudentName='Meera Singh' AND SchoolID=@school LIMIT 1),(SELECT SectionID FROM Tx_Students WHERE StudentName='Meera Singh' AND SchoolID=@school LIMIT 1),@school,@ay,'Present in class','System'),
-('2025-08-30','Absent',(SELECT StudentID FROM Tx_Students WHERE StudentName='Rajat Patel' AND SchoolID=@school LIMIT 1),(SELECT SectionID FROM Tx_Students WHERE StudentName='Rajat Patel' AND SchoolID=@school LIMIT 1),@school,@ay,'Sick','System'),
-('2025-08-30','Present',(SELECT StudentID FROM Tx_Students WHERE StudentName='Sana Khan' AND SchoolID=@school LIMIT 1),(SELECT SectionID FROM Tx_Students WHERE StudentName='Sana Khan' AND SchoolID=@school LIMIT 1),@school,@ay,'Present in class','System'),
-('2025-08-30','Present',(SELECT StudentID FROM Tx_Students WHERE StudentName='Vikram Rao' AND SchoolID=@school LIMIT 1),(SELECT SectionID FROM Tx_Students WHERE StudentName='Vikram Rao' AND SchoolID=@school LIMIT 1),@school,@ay,'Present in class','System'),
-('2025-08-30','Absent',(SELECT StudentID FROM Tx_Students WHERE StudentName='Neha Das' AND SchoolID=@school LIMIT 1),(SELECT SectionID FROM Tx_Students WHERE StudentName='Neha Das' AND SchoolID=@school LIMIT 1),@school,@ay,'On leave','System');
+-- Ensure ClassID is supplied (computed from the student's SectionID)
+INSERT INTO Tx_Students_Attendance (Date, Status, StudentID, SectionID, ClassID, SchoolID, AcademicYearID, Remarks, CreatedBy) VALUES
+('2025-08-30','Present',(SELECT StudentID FROM Tx_Students WHERE StudentName='Anil Kumar' AND SchoolID=@school LIMIT 1),(SELECT SectionID FROM Tx_Students WHERE StudentName='Anil Kumar' AND SchoolID=@school LIMIT 1),(SELECT ClassID FROM Tx_Sections WHERE SectionID = (SELECT SectionID FROM Tx_Students WHERE StudentName='Anil Kumar' AND SchoolID=@school LIMIT 1) LIMIT 1),@school,@ay,'Present in class','System'),
+('2025-08-30','Present',(SELECT StudentID FROM Tx_Students WHERE StudentName='Meera Singh' AND SchoolID=@school LIMIT 1),(SELECT SectionID FROM Tx_Students WHERE StudentName='Meera Singh' AND SchoolID=@school LIMIT 1),(SELECT ClassID FROM Tx_Sections WHERE SectionID = (SELECT SectionID FROM Tx_Students WHERE StudentName='Meera Singh' AND SchoolID=@school LIMIT 1) LIMIT 1),@school,@ay,'Present in class','System'),
+('2025-08-30','Absent',(SELECT StudentID FROM Tx_Students WHERE StudentName='Rajat Patel' AND SchoolID=@school LIMIT 1),(SELECT SectionID FROM Tx_Students WHERE StudentName='Rajat Patel' AND SchoolID=@school LIMIT 1),(SELECT ClassID FROM Tx_Sections WHERE SectionID = (SELECT SectionID FROM Tx_Students WHERE StudentName='Rajat Patel' AND SchoolID=@school LIMIT 1) LIMIT 1),@school,@ay,'Sick','System'),
+('2025-08-30','Present',(SELECT StudentID FROM Tx_Students WHERE StudentName='Sana Khan' AND SchoolID=@school LIMIT 1),(SELECT SectionID FROM Tx_Students WHERE StudentName='Sana Khan' AND SchoolID=@school LIMIT 1),(SELECT ClassID FROM Tx_Sections WHERE SectionID = (SELECT SectionID FROM Tx_Students WHERE StudentName='Sana Khan' AND SchoolID=@school LIMIT 1) LIMIT 1),@school,@ay,'Present in class','System'),
+('2025-08-30','Present',(SELECT StudentID FROM Tx_Students WHERE StudentName='Vikram Rao' AND SchoolID=@school LIMIT 1),(SELECT SectionID FROM Tx_Students WHERE StudentName='Vikram Rao' AND SchoolID=@school LIMIT 1),(SELECT ClassID FROM Tx_Sections WHERE SectionID = (SELECT SectionID FROM Tx_Students WHERE StudentName='Vikram Rao' AND SchoolID=@school LIMIT 1) LIMIT 1),@school,@ay,'Present in class','System'),
+('2025-08-30','Absent',(SELECT StudentID FROM Tx_Students WHERE StudentName='Neha Das' AND SchoolID=@school LIMIT 1),(SELECT SectionID FROM Tx_Students WHERE StudentName='Neha Das' AND SchoolID=@school LIMIT 1),(SELECT ClassID FROM Tx_Sections WHERE SectionID = (SELECT SectionID FROM Tx_Students WHERE StudentName='Neha Das' AND SchoolID=@school LIMIT 1) LIMIT 1),@school,@ay,'On leave','System');
 
 -- Insert student grades (sample)
 INSERT INTO Tx_StudentGrades (StudentID, AcademicYearID, Subject, GradeLetter, Marks, CreatedBy) VALUES
@@ -707,11 +707,12 @@ INSERT INTO Tx_ActivityLog (SchoolID, AcademicYearID, ActivityType, Message, Sev
 -- Insert last 7 days of attendance for all students in GYAN GANGA (2025-08-25 .. 2025-08-31)
 -- This block avoids duplicate inserts by LEFT JOINing existing attendance rows.
 -- -----------------------------------------------------------------------------
-INSERT INTO Tx_Students_Attendance (Date, Status, StudentID, SectionID, SchoolID, AcademicYearID, Remarks, CreatedBy)
+INSERT INTO Tx_Students_Attendance (Date, Status, StudentID, SectionID, ClassID, SchoolID, AcademicYearID, Remarks, CreatedBy)
 SELECT d.Date,
              CASE WHEN (s.StudentID % 5) = d.offset THEN 'Absent' ELSE 'Present' END AS Status,
              s.StudentID,
              s.SectionID,
+             (SELECT ClassID FROM Tx_Sections WHERE SectionID = s.SectionID LIMIT 1) AS ClassID,
              @school,
              @ay,
              CASE WHEN (s.StudentID % 5) = d.offset THEN 'Sick' ELSE 'Present in class' END AS Remarks,

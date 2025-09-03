@@ -156,8 +156,8 @@ class AcademicController extends BaseController {
 
     // Normalize common camelCase keys to snake_case to be flexible for clients
     if (isset($input['SectionName']) && !isset($input['section_name'])) $input['section_name'] = $input['SectionName'];
-    if (isset($input['SectionDisplayName']) && !isset($input['section_display_name'])) $input['section_display_name'] = $input['SectionDisplayName'];
     if (isset($input['ClassID']) && !isset($input['class_id'])) $input['class_id'] = $input['ClassID'];
+    if (isset($input['MaxStrength']) && !isset($input['max_strength'])) $input['max_strength'] = $input['MaxStrength'];
     if (isset($input['AcademicYearID']) && !isset($input['academic_year_id'])) $input['academic_year_id'] = $input['AcademicYearID'];
     if (isset($input['SchoolID']) && !isset($input['school_id'])) $input['school_id'] = $input['SchoolID'];
 
@@ -166,7 +166,7 @@ class AcademicController extends BaseController {
     if (!isset($input['school_id'])) $input['school_id'] = $currentUser['school_id'];
     if (!isset($input['academic_year_id'])) $input['academic_year_id'] = $currentUser['AcademicYearID'];
 
-    if (!$this->ensure($input, ['section_name','section_display_name','school_id','academic_year_id','class_id'])) return;
+    if (!$this->ensure($input, ['section_name','school_id','academic_year_id','class_id'])) return;
 
         $sectionId = $this->academicModel->createSection($input);
 
@@ -184,10 +184,29 @@ class AcademicController extends BaseController {
 
     // Normalize camelCase keys
     if (isset($input['SectionName']) && !isset($input['section_name'])) $input['section_name'] = $input['SectionName'];
-    if (isset($input['SectionDisplayName']) && !isset($input['section_display_name'])) $input['section_display_name'] = $input['SectionDisplayName'];
     if (isset($input['ClassID']) && !isset($input['class_id'])) $input['class_id'] = $input['ClassID'];
+    if (isset($input['MaxStrength']) && !isset($input['max_strength'])) $input['max_strength'] = $input['MaxStrength'];
     if (isset($input['AcademicYearID']) && !isset($input['academic_year_id'])) $input['academic_year_id'] = $input['AcademicYearID'];
     if (isset($input['SchoolID']) && !isset($input['school_id'])) $input['school_id'] = $input['SchoolID'];
+
+    // Ensure update uses the database column names (PascalCase). If client sent snake_case
+    // convert them to PascalCase and remove snake_case keys so the dynamic SET clause
+    // doesn't try to update non-existent snake_case columns.
+    $mapping = [
+        'section_name' => 'SectionName',
+        'class_id' => 'ClassID',
+        'max_strength' => 'MaxStrength',
+        'academic_year_id' => 'AcademicYearID',
+        'school_id' => 'SchoolID'
+    ];
+    foreach ($mapping as $snake => $pascal) {
+        if (isset($input[$snake]) && !isset($input[$pascal])) {
+            $input[$pascal] = $input[$snake];
+        }
+        if (isset($input[$snake])) {
+            unset($input[$snake]);
+        }
+    }
 
     $result = $this->academicModel->updateSection($id, $input);
 

@@ -43,9 +43,10 @@ class AttendanceModel extends Model {
             $upd->execute([':st'=>$status, ':rm'=>$remarks, ':ub'=>$username, ':id'=>$existing['StudentAttendanceID']]);
             return ['created'=>false,'updated'=>true,'row'=>['StudentAttendanceID'=>$existing['StudentAttendanceID'],'Status'=>$status]];
         }
-        $ins = $this->conn->prepare("INSERT INTO Tx_Students_Attendance (Date, Status, StudentID, SectionID, SchoolID, AcademicYearID, Remarks, CreatedBy) 
-                                     SELECT :dt, :st, s.StudentID, s.SectionID, s.SchoolID, :ay, :rm, :cb
-                                       FROM Tx_Students s WHERE s.StudentID = :sid AND s.SchoolID = :school LIMIT 1");
+                // Include ClassID in the insert (schema requires ClassID NOT NULL). Use student's ClassID if available.
+                $ins = $this->conn->prepare("INSERT INTO Tx_Students_Attendance (Date, Status, StudentID, SectionID, ClassID, SchoolID, AcademicYearID, Remarks, CreatedBy) 
+                                                                         SELECT :dt, :st, s.StudentID, s.SectionID, s.ClassID, s.SchoolID, :ay, :rm, :cb
+                                                                             FROM Tx_Students s WHERE s.StudentID = :sid AND s.SchoolID = :school LIMIT 1");
         $ins->execute([':dt'=>$date, ':st'=>$status, ':sid'=>$studentId, ':school'=>$schoolId, ':ay'=>$ay, ':rm'=>$remarks, ':cb'=>$username]);
         $id = (int)$this->conn->lastInsertId();
         return ['created'=>true,'updated'=>false,'row'=>['StudentAttendanceID'=>$id,'Status'=>$status]];

@@ -154,7 +154,12 @@ class AcademicModel extends Model {
     // Classes Methods
     public function createClass($data) {
         $data['created_at'] = date('Y-m-d H:i:s');
-        $data['updated_at'] = date('Y-m-d H:i:s');
+        // Ensure UpdatedAt uses PascalCase DB column
+        if (isset($data['updated_at']) && !isset($data['UpdatedAt'])) {
+            $data['UpdatedAt'] = $data['updated_at'];
+            unset($data['updated_at']);
+        }
+        $data['UpdatedAt'] = $data['UpdatedAt'] ?? date('Y-m-d H:i:s');
 
         // New schema: Tx_Classes table stores class metadata. Teacher assignment lives in Tx_ClassTeachers table.
         // Accept incoming keys in either PascalCase (ClassName) or snake_case (class_name) for compatibility.
@@ -498,24 +503,28 @@ class AcademicModel extends Model {
     }
 
     public function createSection($data) {
-        $data['created_at'] = date('Y-m-d H:i:s');
-        $data['updated_at'] = date('Y-m-d H:i:s');
+        // Use PascalCase timestamp keys to match DB columns (CreatedAt, UpdatedAt)
+        $data['CreatedAt'] = date('Y-m-d H:i:s');
+        $data['UpdatedAt'] = date('Y-m-d H:i:s');
 
-        $query = "INSERT INTO Tx_Sections (SectionName, SectionDisplayName, SchoolID, AcademicYearID, ClassID, Status, CreatedAt, CreatedBy, UpdatedAt)
-            VALUES (:section_name, :section_display_name, :school_id, :academic_year_id, :class_id, :status, :created_at, :created_by, :updated_at)";
+        // allow MaxStrength to be provided as PascalCase or snake_case
+        $maxStrength = $data['MaxStrength'] ?? $data['max_strength'] ?? null;
+
+        $query = "INSERT INTO Tx_Sections (SectionName, SchoolID, AcademicYearID, ClassID, MaxStrength, Status, CreatedAt, CreatedBy, UpdatedAt)
+            VALUES (:section_name, :school_id, :academic_year_id, :class_id, :max_strength, :status, :created_at, :created_by, :updated_at)";
 
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':section_name', $data['section_name']);
-        $stmt->bindParam(':section_display_name', $data['section_display_name']);
         $stmt->bindParam(':school_id', $data['school_id']);
         $stmt->bindParam(':academic_year_id', $data['academic_year_id']);
         $stmt->bindParam(':class_id', $data['class_id']);
+        $stmt->bindParam(':max_strength', $maxStrength);
         $status = $data['status'] ?? 'Active';
         $stmt->bindParam(':status', $status);
-        $stmt->bindParam(':created_at', $data['created_at']);
-        $created_by = $data['created_by'] ?? 'System';
-        $stmt->bindParam(':created_by', $created_by);
-        $stmt->bindParam(':updated_at', $data['updated_at']);
+    $stmt->bindParam(':created_at', $data['CreatedAt']);
+    $created_by = $data['created_by'] ?? $data['CreatedBy'] ?? 'System';
+    $stmt->bindParam(':created_by', $created_by);
+    $stmt->bindParam(':updated_at', $data['UpdatedAt']);
 
         if ($stmt->execute()) {
             return $this->conn->lastInsertId();
@@ -524,9 +533,40 @@ class AcademicModel extends Model {
     }
 
     public function updateSection($id, $data) {
-        $data['updated_at'] = date('Y-m-d H:i:s');
+        // Map snake_case updated_at to PascalCase UpdatedAt if present
+        if (isset($data['updated_at']) && !isset($data['UpdatedAt'])) {
+            $data['UpdatedAt'] = $data['updated_at'];
+            unset($data['updated_at']);
+        }
+        // Ensure UpdatedAt is always set
+        $data['UpdatedAt'] = $data['UpdatedAt'] ?? date('Y-m-d H:i:s');
+
+        // Normalize incoming snake_case keys to PascalCase column names so the
+        // dynamic SET clause uses real DB column names like SectionName, ClassID, etc.
+        $mapping = [
+            'section_name' => 'SectionName',
+            'class_id' => 'ClassID',
+            'max_strength' => 'MaxStrength',
+            'academic_year_id' => 'AcademicYearID',
+            'school_id' => 'SchoolID',
+            'status' => 'Status'
+        ];
+        $keysToUnset = [];
+        foreach ($mapping as $snake => $pascal) {
+            if (isset($data[$snake]) && !isset($data[$pascal])) {
+                $data[$pascal] = $data[$snake];
+            }
+            if (isset($data[$snake])) $keysToUnset[] = $snake;
+        }
+        foreach ($keysToUnset as $key) {
+            unset($data[$key]);
+        }
 
         $fields = array_keys($data);
+        if (empty($fields)) {
+            return false; // nothing to update
+        }
+
         $setClause = array_map(function($field) { return $field . ' = :' . $field; }, $fields);
 
         $query = "UPDATE Tx_Sections SET " . implode(', ', $setClause) . " WHERE SectionID = :id";

@@ -32,6 +32,9 @@
             <th pSortableColumn="ClassName" class="pl-4">
                 Class Name <p-sortIcon field="ClassName" />
             </th>
+            <th pSortableColumn="SectionCount">
+                Sections <p-sortIcon field="SectionCount" />
+            </th>
             <th pSortableColumn="ClassCode">
                 Class Code <p-sortIcon field="ClassCode" />
             </th>
@@ -53,12 +56,15 @@
             </td> -->
             <td></td>
             <td class="pl-4">{{class.ClassName}}</td>
+            <td>{{ class.SectionCount || 0 }}</td>
             <td>{{class.ClassCode}}</td>
             <td>{{class.Stream}}</td>
             <td>{{class.MaxStrength}}</td>
             <td>
                 <p-button icon="pi pi-pencil" class="mr-2" [rounded]="true" [outlined]="true" 
                     (onClick)="editClass(class)" />
+                <p-button icon="pi pi-eye" class="mr-2" [rounded]="true" [outlined]="true" 
+                    (onClick)="viewSections(class)" tooltip="View Sections" />
                 <p-button icon="pi pi-trash" severity="danger" [rounded]="true" [outlined]="true" 
                     (onClick)="deleteClass(class)" />
             </td>
@@ -111,12 +117,28 @@
             <small class="text-red-500" *ngIf="isFieldInvalid('MaxStrength')">
                 Maximum Strength is required and must be greater than 0.
             </small>
-        </div>
+        </div>  
     </form>
 
-    <ng-template pTemplate="footer">
+        <ng-template pTemplate="footer">
         <p-button label="Cancel" icon="pi pi-times" (onClick)="hideDialog()" styleClass="p-button-text" />
-        <p-button label="Save" icon="pi pi-check" (onClick)="saveClass()" />
+        <p-button label="Save" icon="pi pi-check" severity="success" (onClick)="saveClass()" />
+    </ng-template>
+</p-dialog>
+
+<!-- Dialog to view sections belonging to a class -->
+<p-dialog header="Sections" [(visible)]="viewSectionsDialog" [modal]="true" [style]="{ width: '500px' }" *ngIf="selectedClassForView">
+    <ng-template pTemplate="content">
+    <h3 class="mb-3">Sections for {{ selectedClassForView.ClassName }}</h3>
+        <div *ngIf="filteredSections().length === 0">No sections found for this class.</div>
+        <ul *ngIf="filteredSections().length > 0" class="list-disc pl-6">
+            <li *ngFor="let s of filteredSections()">
+                <strong>{{ s.SectionName }}</strong> - Max Strength: {{ s.MaxStrength || '-' }}
+            </li>
+        </ul>
+    </ng-template>
+    <ng-template pTemplate="footer">
+        <p-button label="Close" icon="pi pi-times" class="p-button-text" (onClick)="viewSectionsDialog=false; selectedClassForView=null"></p-button>
     </ng-template>
 </p-dialog>
 <div>
@@ -127,32 +149,29 @@
 <p-confirmDialog [style]="{ width: '450px' }" />
     <!-- Manage Sections -->
     <section class="p-mt-8">
-            <p-table #dtSections
-                     [value]="sections()"
-                     [rows]="10"
-                     [paginator]="true"
-                     [globalFilterFields]="['ClassName','SectionName','SectionDisplayName']"
-                     [tableStyle]="{ 'min-width': '50rem' }"
-                     dataKey="SectionID"
-                     [rowsPerPageOptions]="[5,10,20]">
+                <p-table #dtSections
+                             [value]="sections()"
+                             [rows]="10"
+                             [paginator]="true"
+                             [globalFilterFields]="['ClassName','SectionName','MaxStrength']"
+                             [tableStyle]="{ 'min-width': '50rem' }"
+                             dataKey="SectionID"
+                             [rowsPerPageOptions]="[5,10,20]">
                 <ng-template pTemplate="caption">
                     <h5 class="m-0">Manage Sections</h5>
                     <div class="flex items-center justify-between">
-                        <div></div>
-                        <div class="flex items-center">
-                            <p-button label="New Section" icon="pi pi-plus" severity="secondary" class="mr-2" (onClick)="openNewSection()"></p-button>
-                            <p-iconfield>
-                                <p-inputicon styleClass="pi pi-search" />
-                                <input pInputText type="text" (input)="onGlobalFilter(dtSections, $event)" placeholder="Search sections..." />
-                            </p-iconfield>
-                        </div>
+                        <p-button label="New" icon="pi pi-plus" severity="secondary" class="mr-2" (onClick)="openNewSection()"></p-button>
+                        <p-iconfield>
+                            <p-inputicon styleClass="pi pi-search" />
+                            <input pInputText type="text" (input)="onGlobalFilter(dtSections, $event)" placeholder="Search sections..." />
+                        </p-iconfield>
                     </div>
                 </ng-template>
                 <ng-template pTemplate="header">
                     <tr>
                         <th>Class Name</th>
                         <th>Section Name</th>
-                        <th>Display Name</th>
+                        <th pSortableColumn="MaxStrength">Max Strength <p-sortIcon field="MaxStrength" /></th>
                         <th>Actions</th>
                     </tr>
                 </ng-template>
@@ -160,7 +179,7 @@
                     <tr>
                         <td>{{ section.ClassName }}</td>
                         <td>{{ section.SectionName }}</td>
-                        <td>{{ section.SectionDisplayName }}</td>
+                        <td>{{ section.MaxStrength }}</td>
                         <td>
                             <p-button icon="pi pi-pencil" class="mr-2" [rounded]="true" [outlined]="true" (onClick)="editSection(section)"></p-button>
                             <p-button icon="pi pi-trash" severity="danger" [rounded]="true" [outlined]="true" (onClick)="deleteSection(section)"></p-button>
@@ -169,11 +188,11 @@
                 </ng-template>
             </p-table>
 
-            <p-dialog header="Section" [(visible)]="sectionDialog" [modal]="true" [style]="{ width: '400px' }" (onHide)="sectionForm.reset(); sectionSubmitted=false;">
+            <p-dialog header="Section" [(visible)]="sectionDialog" [modal]="true" [style]="{ width: '400px' }" (onHide)="onSectionDialogHide()">
                 <form [formGroup]="sectionForm" class="flex flex-col gap-4">
                     <div>
                         <label for="ClassID" class="block font-bold mb-2">Class *</label>
-                        <p-select id="ClassID" formControlName="ClassID" [options]="classes()" optionLabel="ClassName" optionValue="ClassID" placeholder="Select Class"></p-select>
+                        <p-select id="ClassID" formControlName="ClassID" [options]="classes()" optionLabel="ClassName" optionValue="ClassID" placeholder="Select Class" [style]="{'width':'100%'}" appendTo="body"></p-select>
                         <small class="text-red-500" *ngIf="sectionSubmitted && sectionForm.controls['ClassID'].invalid">Class is required.</small>
                     </div>
 
@@ -184,20 +203,22 @@
                     </div>
 
                     <div>
-                        <label for="SectionDisplayName" class="block font-bold mb-2">Display Name *</label>
-                        <input pInputText id="SectionDisplayName" formControlName="SectionDisplayName" style="width:100%" />
-                        <small class="text-red-500" *ngIf="sectionSubmitted && sectionForm.controls['SectionDisplayName'].invalid">Display Name is required.</small>
+                        <label for="MaxStrength" class="block font-bold mb-2">Maximum Strength</label>
+                        <p-inputNumber id="MaxStrength" formControlName="MaxStrength" [style]="{'width':'100%'}"></p-inputNumber>
+                        <small class="text-red-500" *ngIf="sectionSubmitted && sectionForm.controls['MaxStrength'].invalid">Maximum Strength must be greater than 0.</small>
                     </div>
+
+                    <!-- Display name removed: sections now use SectionName only -->
 
                     <!-- hidden fields for context (school and academic year) -->
                     <input type="hidden" formControlName="SchoolID" />
                     <input type="hidden" formControlName="AcademicYearID" />
-
-                    <ng-template pTemplate="footer">
-                        <p-button label="Cancel" icon="pi pi-times" class="p-button-text" (onClick)="sectionDialog=false"></p-button>
-                        <p-button label="Save" icon="pi pi-check" (onClick)="saveSection()"></p-button>
-                    </ng-template>
                 </form>
+
+                <ng-template pTemplate="footer">
+                    <p-button label="Cancel" icon="pi pi-times" class="p-button-text" (onClick)="sectionDialog=false"></p-button>
+                    <p-button label="Save" icon="pi pi-check" severity="success" (onClick)="saveSection()"></p-button>
+                </ng-template>
             </p-dialog>
 
         </section>
