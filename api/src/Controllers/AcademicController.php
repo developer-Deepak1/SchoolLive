@@ -308,8 +308,9 @@ class AcademicController extends BaseController {
     // Weekly Offs
     public function getWeeklyOffs($params = []) {
     $currentUser = $this->currentUser(); if(!$currentUser) return;
-        $academicYearId = $_GET['academic_year_id'] ?? $currentUser['AcademicYearID'] ?? null;
-        $offs = $this->academicModel->getWeeklyOffsByAcademicYear($currentUser['school_id'], $academicYearId);
+    $academicYearId = $_GET['academic_year_id'] ?? $currentUser['AcademicYearID'] ?? null;
+    $isActive = isset($_GET['is_active']) ? (int)$_GET['is_active'] : 1;
+    $offs = $this->academicModel->getWeeklyOffsByAcademicYear($currentUser['school_id'], $academicYearId, $isActive);
         $this->ok('Weekly offs retrieved successfully', $offs);
     }
 
@@ -333,8 +334,9 @@ class AcademicController extends BaseController {
     // Holidays
     public function getHolidays($params = []) {
     $currentUser = $this->currentUser(); if(!$currentUser) return;
-        $academicYearId = $_GET['academic_year_id'] ?? $currentUser['AcademicYearID'] ?? null;
-        $holidays = $this->academicModel->getHolidaysByAcademicYear($currentUser['school_id'], $academicYearId);
+    $academicYearId = $_GET['academic_year_id'] ?? $currentUser['AcademicYearID'] ?? null;
+    $isActive = isset($_GET['is_active']) ? (int)$_GET['is_active'] : 1;
+    $holidays = $this->academicModel->getHolidaysByAcademicYear($currentUser['school_id'], $academicYearId, $isActive);
         $this->ok('Holidays retrieved successfully', $holidays);
     }
 
@@ -383,9 +385,9 @@ class AcademicController extends BaseController {
     $id = $this->requireKey($params,'id','Holiday ID'); if($id===null) return;
     $currentUser = $this->currentUser(); if(!$currentUser) return;
 
-        $result = $this->academicModel->deleteHoliday($id,$currentUser['school_id']);
-        if ($result) { $this->ok('Holiday deleted successfully'); }
-        else { $this->fail('Failed to delete holiday',500); }
+    $result = $this->academicModel->deleteHoliday($id,$currentUser['school_id'], $currentUser['username']);
+    if ($result) { $this->ok('Holiday deleted successfully'); }
+    else { $this->fail('Failed to delete holiday',500); }
     }
 
     public function updateHoliday($params = []) {

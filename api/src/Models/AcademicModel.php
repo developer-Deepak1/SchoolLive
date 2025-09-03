@@ -415,12 +415,14 @@ class AcademicModel extends Model {
     }
 
     // Weekly Offs and Holidays
-    public function getWeeklyOffsByAcademicYear($schoolId, $academicYearId = null) {
-        $query = "SELECT WeeklyOffID, AcademicYearID, DayOfWeek FROM Tx_WeeklyOffs WHERE SchoolID = :school_id";
+    public function getWeeklyOffsByAcademicYear($schoolId, $academicYearId = null, $active = 1) {
+        $query = "SELECT WeeklyOffID, AcademicYearID, DayOfWeek, IFNULL(IsActive, TRUE) AS IsActive FROM Tx_WeeklyOffs WHERE SchoolID = :school_id";
         if ($academicYearId) $query .= " AND AcademicYearID = :academic_year_id";
+        if ($active !== null) $query .= " AND IFNULL(IsActive, TRUE) = :active";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':school_id', $schoolId);
         if ($academicYearId) $stmt->bindParam(':academic_year_id', $academicYearId);
+        if ($active !== null) $stmt->bindParam(':active', $active);
         $stmt->execute();
         return $stmt->fetchAll();
     }
@@ -429,19 +431,51 @@ class AcademicModel extends Model {
         // daysArray expected as array of integers (1-7)
         try {
             $this->conn->beginTransaction();
-            // delete existing for this academic year
-            $del = $this->conn->prepare("DELETE FROM Tx_WeeklyOffs WHERE SchoolID = :school_id AND AcademicYearID = :academic_year_id");
-            $del->execute([':school_id' => $schoolId, ':academic_year_id' => $academicYearId]);
-
-            $ins = $this->conn->prepare("INSERT INTO Tx_WeeklyOffs (AcademicYearID, SchoolID, DayOfWeek, CreatedBy, CreatedAt) VALUES (:ay, :school, :dow, :user, :created)");
+            // Reactivate existing weekly off rows or insert new ones. Preserve history rather than deleting.
             $created = date('Y-m-d H:i:s');
-            foreach ($daysArray as $d) {
+            $now = $created;
+            $check = $this->conn->prepare("SELECT WeeklyOffID, IsActive FROM Tx_WeeklyOffs WHERE SchoolID = :school AND AcademicYearID = :ay AND DayOfWeek = :dow LIMIT 1");
+            $ins = $this->conn->prepare("INSERT INTO Tx_WeeklyOffs (AcademicYearID, SchoolID, DayOfWeek, CreatedBy, CreatedAt, IsActive) VALUES (:ay, :school, :dow, :user, :created, 1)");
+            $upd = $this->conn->prepare("UPDATE Tx_WeeklyOffs SET IsActive = 1, UpdatedBy = :user, UpdatedAt = :updated WHERE WeeklyOffID = :id");
+
+            // Build a set of desired days
+            $desired = array_map('intval', array_values(array_unique($daysArray)));
+
+            foreach ($desired as $d) {
                 $dow = (int)$d;
-                $ok = $ins->execute([':ay' => $academicYearId, ':school' => $schoolId, ':dow' => $dow, ':user' => $username, ':created' => $created]);
-                if ($ok === false) {
-                    $err = $ins->errorInfo();
-                    throw new \Exception('Insert weekly off failed: ' . ($err[2] ?? json_encode($err)));
+                $check->execute([':school' => $schoolId, ':ay' => $academicYearId, ':dow' => $dow]);
+                $row = $check->fetch();
+                if ($row && isset($row['WeeklyOffID'])) {
+                    if (intval($row['IsActive']) === 1) continue; // already active
+                    $upd->execute([':user' => $username, ':updated' => $now, ':id' => $row['WeeklyOffID']]);
+                } else {
+                    $ok = $ins->execute([':ay' => $academicYearId, ':school' => $schoolId, ':dow' => $dow, ':user' => $username, ':created' => $created]);
+                    if ($ok === false) {
+                        $err = $ins->errorInfo();
+                        throw new \Exception('Insert weekly off failed: ' . ($err[2] ?? json_encode($err)));
+                    }
                 }
+            }
+            // Deactivation of weekly offs not included in the incoming list is handled below
+            // Deactivate any existing weekly offs for this school+academic year that were NOT included in the incoming list
+            // If daysArray is empty, deactivate all; otherwise build a NOT IN clause
+            $updatedAt = $now;
+            if (empty($daysArray)) {
+                $deact = $this->conn->prepare("UPDATE Tx_WeeklyOffs SET IsActive = 0, UpdatedAt = :updated, UpdatedBy = :user WHERE SchoolID = :school AND AcademicYearID = :ay AND IFNULL(IsActive, TRUE) = 1");
+                $deact->execute([':updated' => $updatedAt, ':user' => $username, ':school' => $schoolId, ':ay' => $academicYearId]);
+            } else {
+                // build placeholders for NOT IN
+                $placeholders = [];
+                $params = [':school' => $schoolId, ':ay' => $academicYearId, ':updated' => $updatedAt, ':user' => $username];
+                foreach ($daysArray as $i => $d) {
+                    $ph = ':d' . $i;
+                    $placeholders[] = $ph;
+                    $params[$ph] = (int)$d;
+                }
+                $notIn = implode(', ', $placeholders);
+                $deactSql = "UPDATE Tx_WeeklyOffs SET IsActive = 0, UpdatedAt = :updated, UpdatedBy = :user WHERE SchoolID = :school AND AcademicYearID = :ay AND DayOfWeek NOT IN (" . $notIn . ") AND IFNULL(IsActive, TRUE) = 1";
+                $deact = $this->conn->prepare($deactSql);
+                $deact->execute($params);
             }
             $this->conn->commit();
             return true;
@@ -453,29 +487,64 @@ class AcademicModel extends Model {
         }
     }
 
-    public function getHolidaysByAcademicYear($schoolId, $academicYearId = null) {
-        $query = "SELECT HolidayID, AcademicYearID, Date, Title, Type FROM Tx_Holidays WHERE SchoolID = :school_id";
+    public function getHolidaysByAcademicYear($schoolId, $academicYearId = null, $active = 1) {
+        $query = "SELECT HolidayID, AcademicYearID, Date, Title, Type, IFNULL(IsActive, TRUE) AS IsActive FROM Tx_Holidays WHERE SchoolID = :school_id";
         if ($academicYearId) $query .= " AND AcademicYearID = :academic_year_id";
+        if ($active !== null) $query .= " AND IFNULL(IsActive, TRUE) = :active";
         $query .= " ORDER BY Date";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':school_id', $schoolId);
         if ($academicYearId) $stmt->bindParam(':academic_year_id', $academicYearId);
+        if ($active !== null) $stmt->bindParam(':active', $active);
         $stmt->execute();
         return $stmt->fetchAll();
     }
 
     public function createHoliday($data) {
-        $query = "INSERT INTO Tx_Holidays (AcademicYearID, SchoolID, Date, Title, Type, CreatedBy, CreatedAt) VALUES (:ay, :school, :date, :title, :type, :user, :created)";
-        $stmt = $this->conn->prepare($query);
-        $created = date('Y-m-d H:i:s');
-        $stmt->bindParam(':ay', $data['AcademicYearID']);
-        $stmt->bindParam(':school', $data['SchoolID']);
-        $stmt->bindParam(':date', $data['Date']);
-        $stmt->bindParam(':title', $data['Title']);
-        $stmt->bindParam(':type', $data['Type']);
-        $stmt->bindParam(':user', $data['CreatedBy']);
-        $stmt->bindParam(':created', $created);
-        if ($stmt->execute()) return $this->conn->lastInsertId();
+        // Upsert-like behaviour: if a holiday exists for the same School+AcademicYear+Date,
+        // reactivate or update it instead of inserting a duplicate (avoids unique key errors).
+        $school = $data['SchoolID'] ?? null;
+        $ay = $data['AcademicYearID'] ?? null;
+        $date = $data['Date'] ?? null;
+        $title = $data['Title'] ?? null;
+        $type = $data['Type'] ?? null;
+        $user = $data['CreatedBy'] ?? null;
+        $now = date('Y-m-d H:i:s');
+
+        // Look for existing holiday
+        $checkSql = "SELECT HolidayID, IFNULL(IsActive, TRUE) AS IsActive FROM Tx_Holidays WHERE SchoolID = :school AND AcademicYearID = :ay AND Date = :date LIMIT 1";
+        $check = $this->conn->prepare($checkSql);
+        $check->bindValue(':school', $school);
+        $check->bindValue(':ay', $ay);
+        $check->bindValue(':date', $date);
+        $check->execute();
+        $existing = $check->fetch();
+
+        if ($existing && isset($existing['HolidayID'])) {
+            // Update existing row and set IsActive = 1 (reactivate) and update fields
+            $updSql = "UPDATE Tx_Holidays SET Title = :title, Type = :type, IsActive = 1, UpdatedAt = :updated";
+            $params = [':title' => $title, ':type' => $type, ':updated' => $now, ':id' => $existing['HolidayID'], ':school' => $school];
+            if ($user) {
+                $updSql .= ", UpdatedBy = :user";
+                $params[':user'] = $user;
+            }
+            $updSql .= " WHERE HolidayID = :id AND SchoolID = :school";
+            $upd = $this->conn->prepare($updSql);
+            if ($upd->execute($params)) return $existing['HolidayID'];
+            return false;
+        }
+
+        // No existing holiday - insert a new one
+        $insSql = "INSERT INTO Tx_Holidays (AcademicYearID, SchoolID, Date, Title, Type, CreatedBy, CreatedAt) VALUES (:ay, :school, :date, :title, :type, :user, :created)";
+        $ins = $this->conn->prepare($insSql);
+        $ins->bindValue(':ay', $ay);
+        $ins->bindValue(':school', $school);
+        $ins->bindValue(':date', $date);
+        $ins->bindValue(':title', $title);
+        $ins->bindValue(':type', $type);
+        $ins->bindValue(':user', $user);
+        $ins->bindValue(':created', $now);
+        if ($ins->execute()) return $this->conn->lastInsertId();
         return false;
     }
 
@@ -487,12 +556,17 @@ class AcademicModel extends Model {
         return $stmt->fetch();
     }
 
-    public function deleteHoliday($id, $schoolId) {
-        $query = "DELETE FROM Tx_Holidays WHERE HolidayID = :id AND SchoolID = :school_id";
+    public function deleteHoliday($id, $schoolId, $deletedBy = null) {
+        $query = "UPDATE Tx_Holidays SET IsActive = 0, UpdatedAt = :updated_at";
+        $params = [':id' => $id, ':updated_at' => date('Y-m-d H:i:s')];
+        if ($deletedBy) {
+            $query .= ", UpdatedBy = :updated_by";
+            $params[':updated_by'] = $deletedBy;
+        }
+        $query .= " WHERE HolidayID = :id AND SchoolID = :school_id";
+        $params[':school_id'] = $schoolId;
         $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':id', $id);
-        $stmt->bindParam(':school_id', $schoolId);
-        return $stmt->execute();
+        return $stmt->execute($params);
     }
 
     public function updateHoliday($id, $data, $schoolId) {

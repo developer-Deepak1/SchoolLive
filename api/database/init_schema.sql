@@ -79,8 +79,8 @@ CREATE TABLE Tx_Holidays (
     CreatedBy VARCHAR(100),
     UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UpdatedBy VARCHAR(100),
-    UNIQUE KEY ux_holidays_ay_date (AcademicYearID, Date),
-    INDEX idx_holidays_ay_date (AcademicYearID, Date)
+    UNIQUE KEY ux_holidays_ay_date (AcademicYearID, Date,IsActive),
+    INDEX idx_holidays_ay_date (AcademicYearID, Date,IsActive)
 );
 
 
