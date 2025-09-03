@@ -121,7 +121,7 @@ export class AddEditClasses implements OnInit {
         this.sectionForm = this.fb.group({
             SectionID: [null],
             SectionName: ['', [Validators.required]],
-            MaxStrength: [null, [Validators.min(1)]],
+            MaxStrength: [null, [Validators.required, Validators.min(1)]],
             ClassID: [null, [Validators.required]],
             SchoolID: [null],
             AcademicYearID: [null]
