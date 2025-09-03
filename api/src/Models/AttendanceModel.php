@@ -8,21 +8,25 @@ class AttendanceModel extends Model {
      * Fetch attendance for a date (default today) for all students (optionally filter by SectionID).
      * Returns list of students with existing Status or null if not yet marked.
      */
-    public function getDaily(int $schoolId, ?int $academicYearId, string $date, ?int $sectionId = null): array {
+    public function getDaily(int $schoolId, ?int $academicYearId, string $date, ?int $sectionId = null, bool $includeInactive = false): array {
+        // By default, exclude students where IsActive = 0. Pass includeInactive=true to include them.
         $sql = "SELECT s.StudentID, s.StudentName, s.FirstName, s.LastName, s.SectionID, sec.SectionName, c.ClassName,
-                       a.StudentAttendanceID, a.Status, a.Remarks
+                       IFNULL(s.IsActive, TRUE) AS IsActive, a.StudentAttendanceID, a.Status, a.Remarks
                 FROM Tx_Students s
                 INNER JOIN Tx_Sections sec ON s.SectionID = sec.SectionID
                 INNER JOIN Tx_Classes c ON sec.ClassID = c.ClassID
                 LEFT JOIN Tx_Students_Attendance a
                        ON a.StudentID = s.StudentID AND a.Date = :dt" . ($academicYearId?" AND a.AcademicYearID = :ay":"") . "
-                WHERE s.SchoolID = :school" . ($academicYearId?" AND s.AcademicYearID = :ay":"") . ($sectionId?" AND s.SectionID = :sid":"") . "
-                ORDER BY c.ClassName, sec.SectionName, s.StudentName";
+                WHERE s.SchoolID = :school" . ($academicYearId?" AND s.AcademicYearID = :ay":"") . ($sectionId?" AND s.SectionID = :sid":"");
+        if (!$includeInactive) {
+            $sql .= " AND IFNULL(s.IsActive, TRUE) = 1";
+        }
+        $sql .= " ORDER BY c.ClassName, sec.SectionName, s.StudentName";
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':dt',$date);
         $stmt->bindValue(':school',$schoolId,PDO::PARAM_INT);
         if ($academicYearId) $stmt->bindValue(':ay',$academicYearId,PDO::PARAM_INT);
-        if ($sectionId) $stmt->bindValue(':sid',$sectionId,PDO::PARAM_INT);
+    if ($sectionId) $stmt->bindValue(':sid',$sectionId,PDO::PARAM_INT);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }

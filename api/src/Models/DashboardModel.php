@@ -21,7 +21,8 @@ class DashboardModel extends Model {
         ];
 
         // Students
-        $sql = "SELECT COUNT(*) c FROM Tx_Students WHERE SchoolID = :school" . ($academicYearId ? " AND AcademicYearID = :ay" : "");
+    // Count only active students by default (use IFNULL to tolerate older schemas)
+    $sql = "SELECT COUNT(*) c FROM Tx_Students WHERE SchoolID = :school AND IFNULL(IsActive, TRUE) = 1" . ($academicYearId ? " AND AcademicYearID = :ay" : "");
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':school', $schoolId, PDO::PARAM_INT);
         if ($academicYearId) $stmt->bindValue(':ay', $academicYearId, PDO::PARAM_INT);
@@ -29,7 +30,7 @@ class DashboardModel extends Model {
         $stats['totalStudents'] = (int)$stmt->fetchColumn();
 
         // Employees (teachers + other staff) from Tx_Employees
-        $sql = "SELECT COUNT(*) c FROM Tx_Employees WHERE SchoolID = :school" . ($academicYearId ? " AND AcademicYearID = :ay" : "");
+    $sql = "SELECT COUNT(*) c FROM Tx_Employees WHERE SchoolID = :school AND IFNULL(IsActive, TRUE) = 1" . ($academicYearId ? " AND AcademicYearID = :ay" : "");
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':school', $schoolId, PDO::PARAM_INT);
         if ($academicYearId) $stmt->bindValue(':ay', $academicYearId, PDO::PARAM_INT);
@@ -39,7 +40,7 @@ class DashboardModel extends Model {
         // Teachers have RoleID referencing teacher role (look up RoleID where RoleName='teacher')
         $teacherRoleId = $this->getTeacherRoleId();
         if ($teacherRoleId) {
-            $sql = "SELECT COUNT(*) c FROM Tx_Employees WHERE SchoolID = :school AND RoleID = :role" . ($academicYearId ? " AND AcademicYearID = :ay" : "");
+            $sql = "SELECT COUNT(*) c FROM Tx_Employees WHERE SchoolID = :school AND RoleID = :role AND IFNULL(IsActive, TRUE) = 1" . ($academicYearId ? " AND AcademicYearID = :ay" : "");
             $stmt = $this->conn->prepare($sql);
             $stmt->bindValue(':school', $schoolId, PDO::PARAM_INT);
             $stmt->bindValue(':role', $teacherRoleId, PDO::PARAM_INT);
@@ -50,7 +51,7 @@ class DashboardModel extends Model {
         $stats['totalStaff'] = max(0, $totalEmployees - $stats['totalTeachers']);
 
         // Classes
-        $sql = "SELECT COUNT(*) c FROM Tx_Classes WHERE SchoolID = :school" . ($academicYearId ? " AND AcademicYearID = :ay" : "");
+    $sql = "SELECT COUNT(*) c FROM Tx_Classes WHERE SchoolID = :school AND IFNULL(IsActive, TRUE) = 1" . ($academicYearId ? " AND AcademicYearID = :ay" : "");
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':school', $schoolId, PDO::PARAM_INT);
         if ($academicYearId) $stmt->bindValue(':ay', $academicYearId, PDO::PARAM_INT);
@@ -81,7 +82,8 @@ class DashboardModel extends Model {
 
         // Upcoming events count
         if ($this->tableExists('Tx_Events')) {
-            $sql = "SELECT COUNT(*) FROM Tx_Events WHERE SchoolID=:school AND EventDate >= CURDATE()" . ($academicYearId?" AND AcademicYearID=:ay":"");
+            // Consider only active events if IsActive exists; otherwise include by default
+            $sql = "SELECT COUNT(*) FROM Tx_Events WHERE SchoolID=:school AND EventDate >= CURDATE() AND IFNULL(IsActive, TRUE) = 1" . ($academicYearId?" AND AcademicYearID=:ay":"");
             $stmt = $this->conn->prepare($sql);
             $stmt->bindValue(':school',$schoolId,PDO::PARAM_INT);
             if ($academicYearId) $stmt->bindValue(':ay',$academicYearId,PDO::PARAM_INT);

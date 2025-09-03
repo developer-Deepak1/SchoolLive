@@ -41,6 +41,7 @@ class StudentController extends BaseController {
             'section_id' => $_GET['section_id'] ?? null,
             'gender' => $_GET['gender'] ?? null,
             'status' => $_GET['status'] ?? null,
+            'is_active' => isset($_GET['is_active']) ? $_GET['is_active'] : null,
             'search' => $_GET['search'] ?? null
         ];
         $data = $this->students->listStudents($current['school_id'], $current['AcademicYearID'] ?? null, $filters);

@@ -16,7 +16,9 @@ class AcademicController extends BaseController {
     // Academic Years Methods
     public function getAcademicYears($params = []) {
     $currentUser = $this->currentUser(); if(!$currentUser) return;
-    $academicYears = $this->academicModel->getAcademicYearsBySchoolId($currentUser['school_id']);
+    // Default behavior: return only active records. Pass is_active=0 to fetch inactive records.
+    $isActive = isset($_GET['is_active']) ? (int)$_GET['is_active'] : 1;
+    $academicYears = $this->academicModel->getAcademicYearsBySchoolId($currentUser['school_id'], $isActive);
     $this->ok('Academic years retrieved successfully', $academicYears);
     }
 
@@ -24,6 +26,7 @@ class AcademicController extends BaseController {
     if (!$this->requireMethod('POST')) return;
     $input = $this->input();
     if (!$this->ensure($input, ['AcademicYearName','StartDate','EndDate'])) return;
+    // Allow creation of upcoming academic years; do not enforce strict overlap here.
     if (strtotime($input['StartDate']) >= strtotime($input['EndDate'])) { $this->fail('End date must be after start date',400); return; }
 
     $currentUser = $this->currentUser(); if(!$currentUser) return;
@@ -37,25 +40,12 @@ class AcademicController extends BaseController {
             $input['SchoolID'] = $currentUser['school_id'];
         }
 
+        // Default new entries to 'Upcoming' so frontend can control activation
         if (!isset($input['Status'])) {
-            $input['Status'] = 'active';
+            $input['Status'] = 'Upcoming';
         }
 
-    // Enforce rule: the next academic year's StartDate must not be before
-    // the current academic year's EndDate. We allow StartDate on the same day
-    // as the current EndDate (some schools switch on the same date) or later.
-    if ($currentyear && isset($input['StartDate'])) {
-        $currEndTs = strtotime($currentyear['EndDate']);
-        $startTs = strtotime($input['StartDate']);
-        if ($startTs === false || $currEndTs === false) {
-            $this->fail('Invalid date format for StartDate or current academic year EndDate',400);
-            return;
-        }
-        if ($startTs < $currEndTs) {
-            $this->fail("Start date must be on or after current academic year's end date ({$currentyear['EndDate']})",400);
-            return;
-        }
-    }
+    // Creation of upcoming academic years is allowed; frontend should manage activation and overlaps.
 
         $academicYearId = $this->academicModel->createAcademicYear($input);
 
@@ -70,9 +60,8 @@ class AcademicController extends BaseController {
     if (!$this->requireMethod('DELETE')) return;
     if (!isset($params['id'])) { $this->fail('Academic Year ID is required',400); return; }
     $currentUser = $this->currentUser(); if(!$currentUser) return;
-
-        $result = $this->academicModel->deleteAcademicYear($params['id'],$currentUser['school_id']);
-
+    // Soft-delete: set IsActive = 0
+    $result = $this->academicModel->deleteAcademicYear($params['id'], $currentUser['school_id'], $currentUser['username']);
         if ($result['success']) { $this->ok($result['message']); }
         else {
             $status = 500;
@@ -123,7 +112,9 @@ class AcademicController extends BaseController {
     $currentUser = $this->currentUser(); if(!$currentUser) return;
     // Accept AcademicYearID via query param (camelCase or snake_case) or fall back to current user
     $academicYearId = $_GET['AcademicYearID'] ?? $_GET['academic_year_id'] ?? $currentUser['AcademicYearID'] ?? null;
-    $classes = $this->academicModel->getAllClasses($academicYearId, $currentUser['school_id']);
+    // default to active classes; accept is_active=0 to list inactive
+    $isActive = isset($_GET['is_active']) ? (int)$_GET['is_active'] : 1;
+    $classes = $this->academicModel->getAllClasses($academicYearId, $currentUser['school_id'], $isActive);
     $this->ok('Classes retrieved successfully', $classes);
     }
 
@@ -137,13 +128,15 @@ class AcademicController extends BaseController {
     $currentUser = $this->currentUser(); // may be null if unauthenticated
     $school_id = $_GET['school_id'] ?? $_GET['SchoolID'] ?? ($currentUser['school_id'] ?? null);
 
+    // default to active sections; accept is_active=0 to return inactive sections
+    $isActive = isset($_GET['is_active']) ? (int)$_GET['is_active'] : 1;
     $sections = $this->academicModel->getAllSections($academic_year_id, $class_id, $school_id);
     $this->ok('Sections retrieved successfully', $sections);
     }
 
     public function getSection($params = []) {
     $id = $this->requireKey($params,'id','Section ID'); if($id===null) return;
-
+    // default: return only active sections
     $section = $this->academicModel->getSectionById($id);
 
     if (!$section) { $this->fail('Section not found',404); return; }

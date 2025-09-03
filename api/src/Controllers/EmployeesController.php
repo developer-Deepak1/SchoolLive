@@ -22,6 +22,7 @@ class EmployeesController extends BaseController {
         $filters = [
             'role_id' => $_GET['role_id'] ?? null,
             'status' => $_GET['status'] ?? null,
+            'is_active' => isset($_GET['is_active']) ? $_GET['is_active'] : null,
             'search' => $_GET['search'] ?? null
         ];
         $data = $this->employees->listEmployees($current['school_id'], $current['AcademicYearID'] ?? null, $filters);

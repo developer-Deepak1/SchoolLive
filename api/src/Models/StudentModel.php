@@ -9,7 +9,7 @@ class StudentModel extends Model {
     public function listStudents($schoolId, $academicYearId = null, $filters = []) {
     // Include Username from Tx_Users so UI can display it
     $sql = "SELECT s.StudentID, s.StudentName, s.FirstName, s.MiddleName, s.LastName, s.ContactNumber, s.EmailID,
-               s.Gender, s.DOB, s.SectionID, s.UserID, s.FatherName, s.MotherName, s.AdmissionDate, s.Status,
+               s.Gender, s.DOB, s.SectionID, s.UserID, s.FatherName, s.MotherName, s.AdmissionDate, s.Status, s.IsActive,
                sec.SectionName, c.ClassName, c.ClassID, u.Username
         FROM Tx_Students s
         LEFT JOIN Tx_Sections sec ON s.SectionID = sec.SectionID
@@ -30,6 +30,9 @@ class StudentModel extends Model {
         }
         if (!empty($filters['status'])) {
             $sql .= " AND s.Status = :status";
+        }
+        if (isset($filters['is_active'])) {
+            $sql .= " AND s.IsActive = :is_active";
         }
         if (!empty($filters['search'])) {
             $sql .= " AND (s.StudentName LIKE :search OR s.FatherName LIKE :search OR s.MotherName LIKE :search)";
@@ -53,6 +56,9 @@ class StudentModel extends Model {
         if (!empty($filters['status'])) {
             $stmt->bindValue(':status', $filters['status']);
         }
+        if (isset($filters['is_active'])) {
+            $stmt->bindValue(':is_active', (int)$filters['is_active'], PDO::PARAM_INT);
+        }
         if (!empty($filters['search'])) {
             $stmt->bindValue(':search', '%' . $filters['search'] . '%');
         }
@@ -62,7 +68,7 @@ class StudentModel extends Model {
 
     public function getStudent($id, $schoolId) {
     // Include Username for single student fetch
-    $sql = "SELECT s.*, sec.SectionName, c.ClassName, c.ClassID, u.Username
+    $sql = "SELECT s.*, s.IsActive, sec.SectionName, c.ClassName, c.ClassID, u.Username
         FROM Tx_Students s
         LEFT JOIN Tx_Sections sec ON s.SectionID = sec.SectionID
         LEFT JOIN Tx_Classes c ON sec.ClassID = c.ClassID
@@ -90,9 +96,14 @@ class StudentModel extends Model {
         }
         // Guarantee non-null FirstName (NOT NULL column) even if empty
         if (!isset($data['FirstName']) || $data['FirstName'] === null) { $data['FirstName'] = ''; }
+        // include IsActive only if caller provided it; otherwise let DB default apply
         $fields = [
             'StudentName','FirstName','MiddleName','LastName','ContactNumber','EmailID','Gender','DOB','SchoolID','SectionID','UserID','AcademicYearID','FatherName','FatherContactNumber','MotherName','MotherContactNumber','AdmissionDate','Status','CreatedAt','CreatedBy'
         ];
+        if (array_key_exists('IsActive', $data)) {
+            $pos = array_search('Status', $fields);
+            array_splice($fields, $pos + 1, 0, 'IsActive');
+        }
         $placeholders = array_map(fn($f) => ':' . $f, $fields);
         $sql = 'INSERT INTO Tx_Students (' . implode(',', $fields) . ') VALUES (' . implode(',', $placeholders) . ')';
         $stmt = $this->conn->prepare($sql);
@@ -106,7 +117,7 @@ class StudentModel extends Model {
     }
 
     public function updateStudent($id, $schoolId, $data) {
-        $allowed = ['StudentName','FirstName','MiddleName','LastName','ContactNumber','EmailID','Gender','DOB','SectionID','FatherName','FatherContactNumber','MotherName','MotherContactNumber','AdmissionDate','Status','UpdatedBy'];
+    $allowed = ['StudentName','FirstName','MiddleName','LastName','ContactNumber','EmailID','Gender','DOB','SectionID','FatherName','FatherContactNumber','MotherName','MotherContactNumber','AdmissionDate','Status','IsActive','UpdatedBy'];
         // Auto-derive StudentName if not explicitly set but name parts are provided
         $namePartsChanged = false;
         foreach (['FirstName','MiddleName','LastName'] as $n) {

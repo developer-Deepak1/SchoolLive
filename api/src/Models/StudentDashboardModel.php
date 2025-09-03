@@ -14,7 +14,8 @@ class StudentDashboardModel extends Model {
     }
 
     public function resolveStudentIdForUser(int $schoolId, int $userId): ?int {
-        $sql = "SELECT StudentID FROM Tx_Students WHERE SchoolID=:school AND UserID=:user LIMIT 1";
+    // Only map to active student record by default
+    $sql = "SELECT StudentID FROM Tx_Students WHERE SchoolID=:school AND UserID=:user AND IFNULL(IsActive, TRUE) = 1 LIMIT 1";
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':school',$schoolId,PDO::PARAM_INT);
         $stmt->bindValue(':user',$userId,PDO::PARAM_INT);
@@ -25,7 +26,7 @@ class StudentDashboardModel extends Model {
 
     public function getAverageAttendance(int $schoolId, int $studentId, ?int $academicYearId): float {
         if (!$this->tableExists('Tx_Students_Attendance')) return 0.0;
-        $sql = "SELECT AVG(CASE WHEN Status='Present' THEN 1 ELSE 0 END)*100 FROM Tx_Students_Attendance WHERE SchoolID=:school AND StudentID=:sid" . ($academicYearId?" AND AcademicYearID=:ay":"");
+    $sql = "SELECT AVG(CASE WHEN Status='Present' THEN 1 ELSE 0 END)*100 FROM Tx_Students_Attendance WHERE SchoolID=:school AND StudentID=:sid" . ($academicYearId?" AND AcademicYearID=:ay":"");
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':school',$schoolId,PDO::PARAM_INT);
         $stmt->bindValue(':sid',$studentId,PDO::PARAM_INT);

@@ -18,6 +18,33 @@ class AcademicModel extends Model {
         $status = $data['Status'];
         $createdBy = $data['CreatedBy'];
 
+        // If an academic year with same name already exists for this school,
+        // reactivate it (soft) and update dates/status instead of creating duplicate.
+        $checkQ = "SELECT AcademicYearID, IFNULL(IsActive, TRUE) AS IsActive FROM Tm_AcademicYears WHERE AcademicYearName = :academic_year_name AND SchoolID = :school_id LIMIT 1";
+        $checkSt = $this->conn->prepare($checkQ);
+        $checkSt->bindParam(':academic_year_name', $academicYearName);
+        $checkSt->bindParam(':school_id', $schoolId);
+        $checkSt->execute();
+        $existing = $checkSt->fetch();
+        if ($existing) {
+            $existingId = $existing['AcademicYearID'];
+            // If already active, just return the ID
+            if (isset($existing['IsActive']) && $existing['IsActive']) {
+                return $existingId;
+            }
+            // Otherwise reactivate and update date range/status
+            $upd = $this->conn->prepare("UPDATE Tm_AcademicYears SET StartDate = :start_date, EndDate = :end_date, Status = :status, IsActive = 1, UpdatedAt = :updated_at, UpdatedBy = :updated_by WHERE AcademicYearID = :id");
+            $now = date('Y-m-d H:i:s');
+            $upd->bindParam(':start_date', $startDate);
+            $upd->bindParam(':end_date', $endDate);
+            $upd->bindParam(':status', $status);
+            $upd->bindParam(':updated_at', $now);
+            $upd->bindParam(':updated_by', $createdBy);
+            $upd->bindParam(':id', $existingId);
+            if ($upd->execute()) return $existingId;
+            return false;
+        }
+
         $query = "INSERT INTO Tm_AcademicYears (AcademicYearName, StartDate, EndDate, SchoolID, Status, CreatedAt, CreatedBy)
                   VALUES (:academic_year_name, :start_date, :end_date, :school_id, :status, :created_at, :created_by)";
         
@@ -61,35 +88,48 @@ class AcademicModel extends Model {
         return $stmt->execute($params);
     }
 
-    public function getAcademicYearById($id) {
-        $query = "SELECT AcademicYearID, AcademicYearName, StartDate, EndDate
+    public function getAcademicYearById($id, $active = 1) {
+        $query = "SELECT AcademicYearID, AcademicYearName, StartDate, EndDate, Status, IFNULL(IsActive, TRUE) AS IsActive
                   FROM " . $this->table . " 
-                  WHERE AcademicYearID = :id LIMIT 1";
-        
+                  WHERE AcademicYearID = :id";
+        if ($active !== null) {
+            $query .= " AND IFNULL(IsActive, TRUE) = :active";
+        }
+        $query .= " LIMIT 1";
+
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':id', $id);
+        if ($active !== null) $stmt->bindParam(':active', $active);
         $stmt->execute();
         return $stmt->fetch();
     }
 
-    public function getAcademicYearsBySchoolId($schoolId) {
-        $query = "SELECT AcademicYearID, AcademicYearName, StartDate, EndDate,Status FROM " . $this->table . " 
-                  WHERE SchoolID = :school_id
-                  ORDER BY StartDate";
+    public function getAcademicYearsBySchoolId($schoolId, $active = 1) {
+    $query = "SELECT AcademicYearID, AcademicYearName, StartDate, EndDate, Status, IFNULL(IsActive, TRUE) AS IsActive FROM " . $this->table . " 
+          WHERE SchoolID = :school_id";
+        if ($active !== null) {
+            $query .= " AND IFNULL(IsActive, TRUE) = :active";
+        }
+        $query .= " ORDER BY StartDate";
         
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':school_id', $schoolId);
+        if ($active !== null) $stmt->bindParam(':active', $active);
         $stmt->execute();
         return $stmt->fetchAll();
     }
 
-    public function getCurrentAcademicYear($schoolId) {
+    public function getCurrentAcademicYear($schoolId, $active = 1) {
         // Prefer explicitly marked current academic year if present
         $row = [];
         try {
-            $query = "SELECT AcademicYearID,AcademicYearName,StartDate,EndDate,Status FROM " . $this->table . " WHERE SchoolID = :schoolId and Status = 'active'";
+            $query = "SELECT AcademicYearID,AcademicYearName,StartDate,EndDate,Status, IFNULL(IsActive, TRUE) AS IsActive FROM " . $this->table . " WHERE SchoolID = :schoolId and Status = 'active'";
+            if ($active !== null) {
+                $query .= " AND IFNULL(IsActive, TRUE) = :active";
+            }
             $stmt = $this->conn->prepare($query);
-            $stmt->bindParam(':schoolId', $schoolId);   
+            $stmt->bindParam(':schoolId', $schoolId);
+            if ($active !== null) $stmt->bindParam(':active', $active);
             $stmt->execute();
             $row = $stmt->fetch();
             if ($row) {
@@ -105,24 +145,31 @@ class AcademicModel extends Model {
         }
         
         // Fallback: find academic year covering today's date
-        $query2 = "SELECT * FROM " . $this->table . " WHERE StartDate <= CURDATE() AND EndDate >= CURDATE() LIMIT 1";
-        $stmt2 = $this->conn->prepare($query2);
-        $stmt2->execute();
-        $row2 = $stmt2->fetch();
+    $query2 = "SELECT *, IFNULL(IsActive, TRUE) AS IsActive FROM " . $this->table . " WHERE StartDate <= CURDATE() AND EndDate >= CURDATE()";
+    if ($active !== null) $query2 .= " AND IFNULL(IsActive, TRUE) = :active";
+    $query2 .= " LIMIT 1";
+    $stmt2 = $this->conn->prepare($query2);
+    if ($active !== null) $stmt2->bindParam(':active', $active);
+    $stmt2->execute();
+    $row2 = $stmt2->fetch();
         if ($row2) {
             return $row2;
         }
 
         // Final fallback: most recent academic year
-        $query3 = "SELECT * FROM " . $this->table . " ORDER BY StartDate DESC LIMIT 1";
+    $query3 = "SELECT *, IFNULL(IsActive, TRUE) AS IsActive FROM " . $this->table . "";
+        if ($active !== null) $query3 .= " WHERE IFNULL(IsActive, TRUE) = :active";
+        $query3 .= " ORDER BY StartDate DESC LIMIT 1";
         $stmt3 = $this->conn->prepare($query3);
+        if ($active !== null) $stmt3->bindParam(':active', $active);
         $stmt3->execute();
         return $stmt3->fetch();
     }
 
-    public function deleteAcademicYear($id, $schoolId) {
+    public function deleteAcademicYear($id, $schoolId, $deletedBy = null) {
+        // Soft-delete: set IsActive = 0 instead of physical delete
         // First check if the academic year exists and get its status
-        $query = "SELECT AcademicYearID, Status FROM " . $this->table . " WHERE AcademicYearID = :id LIMIT 1";
+        $query = "SELECT AcademicYearID, Status, IFNULL(IsActive, TRUE) AS IsActive FROM " . $this->table . " WHERE AcademicYearID = :id LIMIT 1";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':id', $id);
         $stmt->execute();
@@ -134,20 +181,24 @@ class AcademicModel extends Model {
 
         $currentacademicYear = $this->getCurrentAcademicYear($schoolId);
         
-        // Check if the academic year is active - prevent deletion
+        // Prevent soft-deleting the current active academic year
         if (strtolower($academicYear['Status']) === 'active' && $academicYear['AcademicYearID'] == $currentacademicYear['AcademicYearID']) {
             return ['success' => false, 'message' => 'Cannot delete active academic year. Please change status first.'];
         }
 
-        // Proceed with deletion if not active
-        $deleteQuery = "DELETE FROM " . $this->table . " WHERE AcademicYearID = :id";
-        $deleteStmt = $this->conn->prepare($deleteQuery);
-        $deleteStmt->bindParam(':id', $id);
-        
-        if ($deleteStmt->execute()) {
-            return ['success' => true, 'message' => 'Academic year deleted successfully'];
+        $updateQuery = "UPDATE " . $this->table . " SET IsActive = 0, UpdatedAt = :updated_at";
+        $params = [':id' => $id, ':updated_at' => date('Y-m-d H:i:s')];
+        if ($deletedBy) {
+            $updateQuery .= ", UpdatedBy = :updated_by";
+            $params[':updated_by'] = $deletedBy;
+        }
+        $updateQuery .= " WHERE AcademicYearID = :id";
+
+        $updateStmt = $this->conn->prepare($updateQuery);
+        if ($updateStmt->execute($params)) {
+            return ['success' => true, 'message' => 'Academic year soft-deleted (IsActive set to 0)'];
         } else {
-            return ['success' => false, 'message' => 'Failed to delete academic year'];
+            return ['success' => false, 'message' => 'Failed to soft-delete academic year'];
         }
     }
 
@@ -171,8 +222,16 @@ class AcademicModel extends Model {
         $schoolId = $data['SchoolID'] ?? null;
         $createdBy = $data['Username'] ?? null;
 
-        $query = "INSERT INTO Tx_Classes (ClassName, ClassCode, Stream, AcademicYearID, MaxStrength, SchoolID, CreatedAt, CreatedBy)
-            VALUES (:class_name, :class_code, :stream, :academic_year_id, :max_strength, :school_id, :created_at, :created_by)";
+        // Include IsActive when provided to allow creating disabled/enabled explicitly. Otherwise DB default applies.
+        $query = "INSERT INTO Tx_Classes (ClassName, ClassCode, Stream, AcademicYearID, MaxStrength, SchoolID, CreatedAt, CreatedBy";
+        if (isset($data['IsActive']) || isset($data['is_active'])) {
+            $query .= ", IsActive";
+        }
+        $query .= ") VALUES (:class_name, :class_code, :stream, :academic_year_id, :max_strength, :school_id, :created_at, :created_by";
+        if (isset($data['IsActive']) || isset($data['is_active'])) {
+            $query .= ", :is_active";
+        }
+        $query .= ")";
 
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':class_name', $className);
@@ -183,6 +242,10 @@ class AcademicModel extends Model {
         $stmt->bindParam(':school_id', $schoolId);
         $stmt->bindParam(':created_at', $data['created_at']);
         $stmt->bindParam(':created_by', $createdBy);
+        if (isset($data['IsActive']) || isset($data['is_active'])) {
+            $isActiveVal = isset($data['IsActive']) ? $data['IsActive'] : $data['is_active'];
+            $stmt->bindParam(':is_active', $isActiveVal);
+        }
 
         if ($stmt->execute()) {
             return $this->conn->lastInsertId();
@@ -192,6 +255,11 @@ class AcademicModel extends Model {
 
     public function updateClass($id, $data) {
         $data['UpdatedAt'] = date('Y-m-d H:i:s');
+        // Allow IsActive to be updated if provided (snake_case or PascalCase)
+        if (isset($data['is_active']) && !isset($data['IsActive'])) {
+            $data['IsActive'] = $data['is_active'];
+            unset($data['is_active']);
+        }
 
         $fields = array_keys($data);
         $setClause = array_map(function($field) { return $field . ' = :' . $field; }, $fields);
@@ -222,15 +290,26 @@ class AcademicModel extends Model {
         return (!empty($row) && $row['cnt'] > 0);
     }
 
-    public function getAllClasses($academic_year_id = null, $school_id = null) {
-    $query = "SELECT c.ClassID,c.ClassName,c.ClassCode,c.Stream,c.MaxStrength,c.SchoolID,c.Status, ay.AcademicYearName
+    public function getAllClasses($academic_year_id = null, $school_id = null, $active = 1) {
+    $query = "SELECT c.ClassID,c.ClassName,c.ClassCode,c.Stream,c.MaxStrength,c.SchoolID,c.Status, ay.AcademicYearName, IFNULL(c.IsActive, TRUE) AS IsActive
           FROM Tx_Classes c
           INNER JOIN Tm_AcademicYears ay ON c.AcademicYearID = ay.AcademicYearID";
 
-        if ($academic_year_id && $school_id) {
-            $query .= " WHERE c.AcademicYearID = :academic_year_id and c.SchoolID = :school_id";
+        $clauses = [];
+        if ($academic_year_id) {
+            $clauses[] = "c.AcademicYearID = :academic_year_id";
         }
-        
+        if ($school_id) {
+            $clauses[] = "c.SchoolID = :school_id";
+        }
+        if ($active !== null) {
+            $clauses[] = "IFNULL(c.IsActive, TRUE) = :active";
+        }
+
+        if (!empty($clauses)) {
+            $query .= " WHERE " . implode(' AND ', $clauses);
+        }
+
     $query .= " ORDER BY c.ClassName, c.ClassCode";
         
         $stmt = $this->conn->prepare($query);
@@ -241,28 +320,43 @@ class AcademicModel extends Model {
         if ($school_id) {
             $stmt->bindParam(':school_id', $school_id);
         }
+        if ($active !== null) {
+            $stmt->bindParam(':active', $active);
+        }
 
         $stmt->execute();
         return $stmt->fetchAll();
     }
 
-    public function getClassById($id) {
-    $query = "SELECT c.ClassID,c.ClassName,c.ClassCode,c.Stream,c.MaxStrength,c.SchoolID,c.Status, ay.AcademicYearName
+    public function getClassById($id, $active = 1) {
+    $query = "SELECT c.ClassID,c.ClassName,c.ClassCode,c.Stream,c.MaxStrength,c.SchoolID,c.Status, ay.AcademicYearName, IFNULL(c.IsActive, TRUE) AS IsActive
           FROM Tx_Classes c
           INNER JOIN Tm_AcademicYears ay ON c.AcademicYearID = ay.AcademicYearID
-          WHERE c.ClassID = :id LIMIT 1";
+          WHERE c.ClassID = :id";
+          if ($active !== null) {
+              $query .= " AND IFNULL(c.IsActive, TRUE) = :active";
+          }
+          $query .= " LIMIT 1";
         
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':id', $id);
+        if ($active !== null) $stmt->bindParam(':active', $active);
         $stmt->execute();
         return $stmt->fetch();
     }
 
-    public function deleteClass($id) {
-    $query = "DELETE FROM Tx_Classes WHERE ClassID = :id";
+    public function deleteClass($id, $deletedBy = null) {
+    // soft-delete the class
+    $query = "UPDATE Tx_Classes SET IsActive = 0, UpdatedAt = :updated_at";
+    $params = [':id' => $id, ':updated_at' => date('Y-m-d H:i:s')];
+    if ($deletedBy) {
+        $query .= ", UpdatedBy = :updated_by";
+        $params[':updated_by'] = $deletedBy;
+    }
+    $query .= " WHERE ClassID = :id";
+
         $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':id', $id);
-        return $stmt->execute();
+        return $stmt->execute($params);
     }
 
     public function getClassesByTeacher($teacher_id) {
@@ -281,7 +375,7 @@ class AcademicModel extends Model {
 
     // Sections methods
     public function getAllSections($academic_year_id = null, $class_id = null, $school_id = null) {
-        $query = "SELECT s.*, ay.AcademicYearName FROM Tx_Sections s
+        $query = "SELECT s.*, ay.AcademicYearName, IFNULL(s.IsActive, TRUE) AS IsActive FROM Tx_Sections s
             LEFT JOIN Tm_AcademicYears ay ON s.AcademicYearID = ay.AcademicYearID";
 
         $clauses = [];
@@ -294,6 +388,9 @@ class AcademicModel extends Model {
         if ($school_id) {
             $clauses[] = "s.SchoolID = :school_id";
         }
+        // default to active records when not explicitly requested otherwise
+        $active = 1;
+        $clauses[] = "IFNULL(s.IsActive, TRUE) = :active";
 
         if (!empty($clauses)) {
             $query .= " WHERE " . implode(' AND ', $clauses);
@@ -311,6 +408,7 @@ class AcademicModel extends Model {
         if ($school_id) {
             $stmt->bindParam(':school_id', $school_id);
         }
+        $stmt->bindParam(':active', $active);
 
         $stmt->execute();
         return $stmt->fetchAll();
@@ -492,9 +590,9 @@ class AcademicModel extends Model {
     }
 
     public function getSectionById($id) {
-        $query = "SELECT s.*, ay.AcademicYearName FROM Tx_Sections s
+        $query = "SELECT s.*, ay.AcademicYearName, IFNULL(s.IsActive, TRUE) AS IsActive FROM Tx_Sections s
             LEFT JOIN Tm_AcademicYears ay ON s.AcademicYearID = ay.AcademicYearID
-            WHERE s.SectionID = :id LIMIT 1";
+            WHERE s.SectionID = :id AND IFNULL(s.IsActive, TRUE) = 1 LIMIT 1";
 
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':id', $id);
@@ -581,9 +679,11 @@ class AcademicModel extends Model {
     }
 
     public function deleteSection($id) {
-        $query = "DELETE FROM Tx_Sections WHERE SectionID = :id";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':id', $id);
-        return $stmt->execute();
+    $query = "UPDATE Tx_Sections SET IsActive = 0, UpdatedAt = :updated_at WHERE SectionID = :id";
+    $stmt = $this->conn->prepare($query);
+    $updatedAt = date('Y-m-d H:i:s');
+    $stmt->bindParam(':updated_at', $updatedAt);
+    $stmt->bindParam(':id', $id);
+    return $stmt->execute();
     }
 }
