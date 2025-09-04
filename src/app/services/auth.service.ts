@@ -14,7 +14,11 @@ export class AuthService {
     private tokenKeys = ['authToken', 'token', 'jwt'];
     private userKey = 'user';
 
-    constructor(private router: Router, private http: HttpClient, private userService: UserService) {}
+    constructor(
+        private router: Router,
+        private http: HttpClient,
+        private userService: UserService
+    ) {}
 
     getToken(): string | null {
         for (const k of this.tokenKeys) {
@@ -141,7 +145,11 @@ export class AuthService {
         for (const k of this.tokenKeys) {
             localStorage.removeItem(k);
         }
-        try { this.userService.clearUser(); } catch (e) { localStorage.removeItem(this.userKey); }
+        try {
+            this.userService.clearUser();
+        } catch (e) {
+            localStorage.removeItem(this.userKey);
+        }
         return this.http.post(url, payload);
     }
 

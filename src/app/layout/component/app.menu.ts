@@ -32,76 +32,79 @@ export class AppMenu {
                 {
                     label: 'Home',
                     items: [
-                    { label: 'Dashboard', icon: 'pi pi-fw pi-home', routerLink: ['/'] },
-                    { label: 'Profile Settings', icon: 'pi pi-fw pi-cog', routerLink: ['/features/profile-setting'] }
-                ]
-            },
-            {
-                label: 'Academic Management',
-                items: [
-                    { label: 'Academic years', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/academic-years'] },
-                    { label: 'Academic Calendar', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/academic-calendar'] },
-                    { label: 'Add/View Classes', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/add-edit-classes'] }
-                ]
-            },
-            {
-                label: 'Employee Management',
-                items: [
-                    { label: 'All Employees', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/all-employees'] },
-                    { label: 'Add New', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/add-employees'] },
-                    { label: 'Take Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/employee-attendance'] }
-                ]
-            },
-            {
-                label: 'Student Management',
-                items: [
-                    { label: 'All Students', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/all-students'] },
-                    { label: 'Admission', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/student-admission'] },
-                    { label: 'Take Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/student-attendance'] }
-                ]
-            },
-            {
-                label: 'Reports',
-                items: [
-                    { label: 'Classwise Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/classwise-attendance'] },
-                    { label: 'Employee Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/employee-attendance-reports'] },
-                    { label: 'Studentwise Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/student-attendance-reports'] }
-                ]
-            }
-        ];}
+                        { label: 'Dashboard', icon: 'pi pi-fw pi-home', routerLink: ['/'] },
+                        { label: 'Profile Settings', icon: 'pi pi-fw pi-cog', routerLink: ['/features/profile-setting'] }
+                    ]
+                },
+                {
+                    label: 'Academic Management',
+                    items: [
+                        { label: 'Academic years', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/academic-years'] },
+                        { label: 'Academic Calendar', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/academic-calendar'] },
+                        { label: 'Add/View Classes', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/add-edit-classes'] }
+                    ]
+                },
+                {
+                    label: 'Employee Management',
+                    items: [
+                        { label: 'All Employees', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/all-employees'] },
+                        { label: 'Add New', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/add-employees'] },
+                        { label: 'Take Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/employee-attendance'] }
+                    ]
+                },
+                {
+                    label: 'Student Management',
+                    items: [
+                        { label: 'All Students', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/all-students'] },
+                        { label: 'Admission', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/student-admission'] },
+                        { label: 'Take Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/student-attendance'] }
+                    ]
+                },
+                {
+                    label: 'Reports',
+                    items: [
+                        { label: 'Classwise Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/classwise-attendance'] },
+                        { label: 'Employee Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/employee-attendance-reports'] },
+                        { label: 'Studentwise Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/student-attendance-reports'] }
+                    ]
+                }
+            ];
+        }
         if (this.userRoles === USER_ROLES.ROLE_TEACHER) {
             this.model = [
                 {
                     label: 'Home',
                     items: [
-                    { label: 'Dashboard', icon: 'pi pi-fw pi-home', routerLink: ['/'] },
-                    { label: 'Profile Settings', icon: 'pi pi-fw pi-cog', routerLink: ['/features/profile-setting'] }
-                ]
-            },
-            {
-                label: 'Student Management',
-                items: [
-                    { label: 'All Students', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/all-students'] },
-                    { label: 'Take Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/student-attendance'] }
-                ]
-            },
-            {
-                label: 'Reports',
-                items: [
-                    { label: 'Classwise Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/classwise-attendance'] },
-                    { label: 'Studentwise Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/student-attendance-reports'] }
-                ]
-            }
-        ];}
+                        { label: 'Dashboard', icon: 'pi pi-fw pi-home', routerLink: ['/'] },
+                        { label: 'Profile Settings', icon: 'pi pi-fw pi-cog', routerLink: ['/features/profile-setting'] }
+                    ]
+                },
+                {
+                    label: 'Student Management',
+                    items: [
+                        { label: 'All Students', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/all-students'] },
+                        { label: 'Take Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/student-attendance'] }
+                    ]
+                },
+                {
+                    label: 'Reports',
+                    items: [
+                        { label: 'Classwise Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/classwise-attendance'] },
+                        { label: 'Studentwise Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/student-attendance-reports'] }
+                    ]
+                }
+            ];
+        }
         if (this.userRoles === USER_ROLES.ROLE_STUDENT) {
             this.model = [
                 {
                     label: 'Home',
                     items: [
-                    { label: 'Dashboard', icon: 'pi pi-fw pi-home', routerLink: ['/'] },
-                    { label: 'Profile Settings', icon: 'pi pi-fw pi-cog', routerLink: ['/features/profile-setting'] }
-                ]
-            }
-        ];}
+                        { label: 'Dashboard', icon: 'pi pi-fw pi-home', routerLink: ['/'] },
+                        { label: 'Profile Settings', icon: 'pi pi-fw pi-cog', routerLink: ['/features/profile-setting'] }
+                    ]
+                }
+            ];
+        }
     }
 }

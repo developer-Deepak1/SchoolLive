@@ -12,7 +12,7 @@ import { TokenInterceptor } from '@/interceptors/token.interceptor';
 export const appConfig: ApplicationConfig = {
     providers: [
         provideRouter(appRoutes, withInMemoryScrolling({ anchorScrolling: 'enabled', scrollPositionRestoration: 'enabled' }), withEnabledBlockingInitialNavigation()),
-    provideHttpClient(withFetch(), withInterceptorsFromDi()),
+        provideHttpClient(withFetch(), withInterceptorsFromDi()),
         provideAnimationsAsync(),
         {
             provide: HTTP_INTERCEPTORS,
