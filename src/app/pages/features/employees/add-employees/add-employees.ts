@@ -7,7 +7,9 @@ import { SelectModule } from 'primeng/select';
 import { DatePickerModule } from 'primeng/datepicker';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
-import { MessageService } from 'primeng/api';
+import { DialogModule } from 'primeng/dialog';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { MessageService, ConfirmationService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { EmployeesService } from '../../services/employees.service';
 import { HttpClient } from '@angular/common/http';
@@ -17,8 +19,8 @@ import { toLocalYMDIST, toISOStringNoonIST } from '../../../../utils/date-utils'
 @Component({
   selector: 'app-add-employees',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, InputTextModule, SelectModule, DatePickerModule, ButtonModule, CardModule, ToastModule],
-  providers: [MessageService],
+  imports: [CommonModule, ReactiveFormsModule, InputTextModule, SelectModule, DatePickerModule, ButtonModule, CardModule, ToastModule, DialogModule, ConfirmDialogModule],
+  providers: [MessageService, ConfirmationService],
   templateUrl: './add-employees.html',
   styleUrl: './add-employees.scss'
 })
@@ -28,6 +30,7 @@ export class AddEmployees {
   // guard to prevent multiple concurrent reset-password requests
   resetting = false;
   issuedCredentials: { username: string; password: string } | null = null;
+  showCredModal = false;
   editingId: number | null = null;
   employeeUsername: string | null = null;
   originalData: any = null;
@@ -40,16 +43,24 @@ export class AddEmployees {
 
   roleOptions: any[] = [];
 
-  constructor(private fb: FormBuilder, private employeesService: EmployeesService, private msg: MessageService, private route: ActivatedRoute, private router: Router, private http: HttpClient) {
+  constructor(private fb: FormBuilder, private employeesService: EmployeesService, private msg: MessageService, private confirmation: ConfirmationService, private route: ActivatedRoute, private router: Router, private http: HttpClient) {
     this.form = this.fb.group({
-      EmployeeName: ['', [Validators.required, Validators.minLength(2)]],
-      ContactNumber: [''],
+  FirstName: ['', [Validators.required, Validators.minLength(2)]],
+      MiddleName: [''],
+  LastName: [''],
+  ContactNumber: ['', [Validators.required, Validators.pattern('^[0-9]{10,}$')]],
+  FatherName: ['', Validators.required],
+  FatherContactNumber: ['', [Validators.required, Validators.pattern('^[0-9]{10,}$')]],
+  MotherName: [''],
+  MotherContactNumber: ['', [Validators.pattern('^[0-9]{10,}$')]],
+  Subjects: [''],
+  BloodGroup: ['', Validators.required],
       EmailID: ['', [Validators.email]],
       Gender: ['', Validators.required],
-      DOB: [null, Validators.required],
-  RoleID: [null],
-      JoiningDate: [null],
-      Salary: ['']
+  DOB: [null, Validators.required],
+    RoleID: [null, Validators.required],
+  JoiningDate: [null, Validators.required],
+    Salary: ['', Validators.required]
     });
 
     this.route.queryParams.subscribe(params => {
@@ -69,9 +80,29 @@ export class AddEmployees {
       next: (e: any) => {
         if (!e) return;
         // Map values defensively
+        // Populate name parts if available, otherwise split EmployeeName
+        let first = '', middle = '', last = '';
+        if (e.FirstName || e.MiddleName || e.LastName) {
+          first = e.FirstName || '';
+          middle = e.MiddleName || '';
+          last = e.LastName || '';
+        } else if (e.EmployeeName) {
+          const parts = (e.EmployeeName || '').trim().split(/\s+/);
+          if (parts.length === 1) first = parts[0];
+          else if (parts.length === 2) { first = parts[0]; last = parts[1]; }
+          else if (parts.length > 2) { first = parts[0]; last = parts[parts.length - 1]; middle = parts.slice(1, -1).join(' '); }
+        }
         this.form.patchValue({
-          EmployeeName: e.EmployeeName || e.employee_name || e.name || '',
+          FirstName: first,
+          MiddleName: middle,
+          LastName: last,
           ContactNumber: e.ContactNumber || e.contact_number || '',
+          FatherName: e.FatherName || e.father_name || '',
+          FatherContactNumber: e.FatherContactNumber || e.father_contact_number || '',
+          MotherName: e.MotherName || e.mother_name || '',
+          MotherContactNumber: e.MotherContactNumber || e.mother_contact_number || '',
+          Subjects: e.Subjects || e.subjects || '',
+          BloodGroup: e.BloodGroup || e.blood_group || '',
           EmailID: e.EmailID || e.email || e.email_id || '',
           Gender: e.Gender || e.gender || 'M',
           DOB: e.DOB ? new Date(e.DOB) : (e.dob ? new Date(e.dob) : null),
@@ -110,7 +141,7 @@ export class AddEmployees {
       return;
     }
     this.loading = true;
-    const payload: any = { ...this.form.value };
+  const payload: any = { ...this.form.value };
     // format dates
     payload.DOB = toLocalYMDIST(payload.DOB);
     payload.JoiningDate = toLocalYMDIST(payload.JoiningDate);
@@ -118,17 +149,11 @@ export class AddEmployees {
     payload.joining_date = payload.JoiningDate;
   // ensure consistent role key for backend
   if (payload.RoleID !== undefined) payload.role_id = payload.RoleID;
-    try {
-      const jd = payload.JoiningDate;
-      if (jd) {
-        const isoNoon = toISOStringNoonIST(jd);
-        if (isoNoon) payload.JoiningDateISO = isoNoon;
-      }
-    } catch (e) {}
+  // (Intentionally not adding EmployeeName / JoiningDateISO to payload)
 
     const finish = () => { this.loading = false; };
     if (this.editingId) {
-      this.employeesService.updateEmployee(this.editingId, payload).subscribe({
+  this.employeesService.updateEmployee(this.editingId, payload).subscribe({
         next: res => {
           finish();
           if (res) {
@@ -141,12 +166,22 @@ export class AddEmployees {
         error: err => { finish(); this.msg.add({ severity: 'error', summary: 'Error', detail: err.error?.message || 'Update failed' }); }
       });
     } else {
-      this.employeesService.createEmployee(payload).subscribe({
+  this.employeesService.createEmployee(payload).subscribe({
         next: res => {
           finish();
           if (res) {
             this.msg.add({ severity: 'success', summary: 'Created', detail: 'Employee created successfully' });
-              this.form.reset({ EmployeeName: '', ContactNumber: '', EmailID: '', Gender: '', DOB: null, RoleID: null, JoiningDate: null, Salary: '' });
+              // Capture generated credentials returned by backend (if any) and show Issued Credentials card
+              this.issuedCredentials = {
+                username: (res as any).generated_username || (res as any).generatedUsername || (res as any).username || '',
+                password: (res as any).generated_password || (res as any).generatedPassword || ''
+              };
+              // Auto-open modal when credentials are present
+              if (this.issuedCredentials.username || this.issuedCredentials.password) {
+                this.showCredModal = true;
+              }
+              if (this.issuedCredentials.username) this.employeeUsername = this.issuedCredentials.username;
+              this.form.reset({ FirstName: '', MiddleName: '', LastName: '', ContactNumber: '', EmailID: '', Gender: '', DOB: null, RoleID: null, JoiningDate: null, Salary: '' });
           } else {
             this.msg.add({ severity: 'error', summary: 'Error', detail: 'Failed to create employee' });
           }
@@ -160,8 +195,32 @@ export class AddEmployees {
     const c = this.form.get(name); return !!c && c.invalid && (c.touched || c.dirty);
   }
   resetForm() {
-  this.form.reset({ EmployeeName: '', ContactNumber: '', EmailID: '', Gender: '', DOB: null, RoleID: null, JoiningDate: null, Salary: '' });
+  this.form.reset({ FirstName: '', MiddleName: '', LastName: '', ContactNumber: '', FatherName: '', FatherContactNumber: '', MotherName: '', MotherContactNumber: '', Subjects: '', BloodGroup: '', EmailID: '', Gender: '', DOB: null, RoleID: null, JoiningDate: null, Salary: '' });
     this.issuedCredentials = null;
+  }
+
+  copyToClipboard(text?: string, toastMsg?: string) {
+    if (!text) return;
+    if (navigator && (navigator as any).clipboard && (navigator as any).clipboard.writeText) {
+      (navigator as any).clipboard.writeText(text).then(() => {
+        this.msg.add({ severity: 'success', summary: 'Copied', detail: toastMsg || 'Copied to clipboard' });
+      }).catch(() => {
+        this.msg.add({ severity: 'error', summary: 'Copy failed', detail: 'Unable to copy to clipboard' });
+      });
+    } else {
+      try {
+        // fallback
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        this.msg.add({ severity: 'success', summary: 'Copied', detail: toastMsg || 'Copied to clipboard' });
+      } catch (e) {
+        this.msg.add({ severity: 'error', summary: 'Copy failed', detail: 'Unable to copy to clipboard' });
+      }
+    }
   }
 
   restoreLoaded() {
@@ -171,6 +230,19 @@ export class AddEmployees {
     } else {
       this.resetForm();
     }
+  }
+
+  // Confirmation using PrimeNG ConfirmationService
+  cancelEdit() {
+    if (!this.form.dirty || JSON.stringify(this.form.value) === JSON.stringify(this.originalData || {})) {
+      this.router.navigate(['/features/all-employees']);
+      return;
+    }
+    // Use PrimeNG ConfirmationService
+    this.confirmation.confirm({
+      message: 'You have unsaved changes. Discard changes and go back to All Employees?',
+      accept: () => { this.router.navigate(['/features/all-employees']); }
+    });
   }
 
   resetPassword() {

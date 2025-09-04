@@ -189,7 +189,6 @@ CREATE TABLE Tx_Sections (
 
 CREATE TABLE Tx_Employees (
     EmployeeID BIGINT AUTO_INCREMENT PRIMARY KEY,
-    EmployeeName VARCHAR(300), -- legacy full name
     FirstName VARCHAR(100) NOT NULL DEFAULT '',
     MiddleName VARCHAR(100) NULL,
     LastName VARCHAR(100) NULL,
@@ -208,6 +207,7 @@ CREATE TABLE Tx_Employees (
     MotherContactNumber VARCHAR(15),
     Salary DECIMAL(10,2) DEFAULT 0.00,
     Subjects VARCHAR(200),
+    BloodGroup VARCHAR(3) NULL,
     Status VARCHAR(20) DEFAULT 'Active',
     IsActive BOOLEAN NOT NULL DEFAULT TRUE,
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -392,11 +392,11 @@ INSERT INTO Tx_Users (UserID, Username, PasswordHash, FirstName, LastName, Conta
 (8, 'student3', '$2y$12$U3X7satfZs7fDwHMV3ShHenIhduvqBWBR01XdrQf89OWPkBUm8.DG', 'Frank', 'Student', '555-7777', 'frank@student.demo', 4, 1000, 1, 1, 'System');
 
 -- Demo employee for teacher1 (UserID will be 2)
--- Demo employees
-INSERT INTO Tx_Employees (EmployeeID, EmployeeName, UserID, SchoolID, RoleID, AcademicYearID, DOB, Gender, JoiningDate, Salary, Subjects, Status, CreatedBy) VALUES
-(1, 'Alice Teacher', 2, 1000, 3, 1, '1985-06-15', 'F', '2020-06-01', 30000.00, 'Math,Science', 'Active', 'System'),
-(2, 'Carol Teacher', 5, 1000, 3, 1, '1990-02-20', 'F', '2021-01-15', 28000.00, 'English', 'Active', 'System'),
-(3, 'Dave Teacher', 6, 1000, 3, 1, '1988-11-10', 'M', '2019-08-01', 32000.00, 'Physics', 'Active', 'System');
+-- Demo employees (split name parts)
+INSERT INTO Tx_Employees (EmployeeID, FirstName, MiddleName, LastName, UserID, SchoolID, RoleID, AcademicYearID, DOB, Gender, JoiningDate, Salary, Subjects, Status, CreatedBy) VALUES
+(1, 'Alice', NULL, 'Teacher', 2, 1000, 3, 1, '1985-06-15', 'F', '2020-06-01', 30000.00, 'Math,Science', 'Active', 'System'),
+(2, 'Carol', NULL, 'Teacher', 5, 1000, 3, 1, '1990-02-20', 'F', '2021-01-15', 28000.00, 'English', 'Active', 'System'),
+(3, 'Dave', NULL, 'Teacher', 6, 1000, 3, 1, '1988-11-10', 'M', '2019-08-01', 32000.00, 'Physics', 'Active', 'System');
 
 -- Demo student record for student1 (UserID will be 3). SectionID references SectionID=1
 -- Demo students (explicit StudentIDs)
@@ -593,11 +593,11 @@ INSERT INTO Tx_Users (Username, PasswordHash, FirstName, LastName, ContactNumber
 ('gg_student5', '$2y$12$U3X7satfZs7fDwHMV3ShHenIhduvqBWBR01XdrQf89OWPkBUm8.DG', 'Vikram', 'Rao', '999001005', 'vikram@student.ggy', 4, @school, 1, 1, 'System'),
 ('gg_student6', '$2y$12$U3X7satfZs7fDwHMV3ShHenIhduvqBWBR01XdrQf89OWPkBUm8.DG', 'Neha', 'Das', '999001006', 'neha@student.ggy', 4, @school, 1, 1, 'System');
 
--- Create employees (teachers) mapped to user accounts
-INSERT INTO Tx_Employees (EmployeeName, UserID, SchoolID, RoleID, AcademicYearID, DOB, Gender, JoiningDate, Salary, Subjects, Status, CreatedBy)
+-- Create employees (teachers) mapped to user accounts (split names)
+INSERT INTO Tx_Employees (FirstName, MiddleName, LastName, UserID, SchoolID, RoleID, AcademicYearID, DOB, Gender, JoiningDate, Salary, Subjects, Status, CreatedBy)
 VALUES
-('Aarti Sharma', (SELECT UserID FROM Tx_Users WHERE Username='gg_teacher1' AND SchoolID=@school LIMIT 1), @school, 3, @ay, '1990-05-01', 'F', '2021-06-01', 28000.00, 'Mathematics', 'Active', 'System'),
-('Rohit Verma', (SELECT UserID FROM Tx_Users WHERE Username='gg_teacher2' AND SchoolID=@school LIMIT 1), @school, 3, @ay, '1988-09-10', 'M', '2020-07-15', 30000.00, 'Science', 'Active', 'System');
+('Aarti', NULL, 'Sharma', (SELECT UserID FROM Tx_Users WHERE Username='gg_teacher1' AND SchoolID=@school LIMIT 1), @school, 3, @ay, '1990-05-01', 'F', '2021-06-01', 28000.00, 'Mathematics', 'Active', 'System'),
+('Rohit', NULL, 'Verma', (SELECT UserID FROM Tx_Users WHERE Username='gg_teacher2' AND SchoolID=@school LIMIT 1), @school, 3, @ay, '1988-09-10', 'M', '2020-07-15', 30000.00, 'Science', 'Active', 'System');
 
 -- Create classes (6th - 11th)
 INSERT INTO Tx_Classes (ClassName, ClassCode, Stream, MaxStrength, SchoolID, AcademicYearID, CreatedBy) VALUES
@@ -620,10 +620,10 @@ INSERT INTO Tx_Sections (ClassID, SectionName, SchoolID, AcademicYearID, Created
 ((SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='11th' LIMIT 1), 'A', @school, @ay, 'System');
 
 INSERT INTO Tx_ClassTeachers (ClassID, EmployeeID, SchoolID, AcademicYearID, StartDate, IsActive, CreatedBy) VALUES
-((SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='6th' LIMIT 1), (SELECT EmployeeID FROM Tx_Employees WHERE EmployeeName='Aarti Sharma' AND SchoolID=@school LIMIT 1), @school, @ay, '2021-06-01', 1, 'System'),
-((SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='7th' LIMIT 1), (SELECT EmployeeID FROM Tx_Employees WHERE EmployeeName='Aarti Sharma' AND SchoolID=@school LIMIT 1), @school, @ay, '2021-06-01', 1, 'System'),
-((SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='8th' LIMIT 1), (SELECT EmployeeID FROM Tx_Employees WHERE EmployeeName='Rohit Verma' AND SchoolID=@school LIMIT 1), @school, @ay, '2020-07-15', 1, 'System'),
-((SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='9th' LIMIT 1), (SELECT EmployeeID FROM Tx_Employees WHERE EmployeeName='Rohit Verma' AND SchoolID=@school LIMIT 1), @school, @ay, '2020-07-15', 1, 'System');
+((SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='6th' LIMIT 1), (SELECT EmployeeID FROM Tx_Employees WHERE CONCAT_WS(' ', FirstName, MiddleName, LastName)='Aarti Sharma' AND SchoolID=@school LIMIT 1), @school, @ay, '2021-06-01', 1, 'System'),
+((SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='7th' LIMIT 1), (SELECT EmployeeID FROM Tx_Employees WHERE CONCAT_WS(' ', FirstName, MiddleName, LastName)='Aarti Sharma' AND SchoolID=@school LIMIT 1), @school, @ay, '2021-06-01', 1, 'System'),
+((SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='8th' LIMIT 1), (SELECT EmployeeID FROM Tx_Employees WHERE CONCAT_WS(' ', FirstName, MiddleName, LastName)='Rohit Verma' AND SchoolID=@school LIMIT 1), @school, @ay, '2020-07-15', 1, 'System'),
+((SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='9th' LIMIT 1), (SELECT EmployeeID FROM Tx_Employees WHERE CONCAT_WS(' ', FirstName, MiddleName, LastName)='Rohit Verma' AND SchoolID=@school LIMIT 1), @school, @ay, '2020-07-15', 1, 'System');
 
 -- Add additional teachers and map them to remaining classes (10th, 11th)
 -- Create teacher user accounts for 10th and 11th
@@ -631,17 +631,17 @@ INSERT INTO Tx_Users (Username, PasswordHash, FirstName, LastName, ContactNumber
 ('gg_teacher3', '$2y$12$U3X7satfZs7fDwHMV3ShHenIhduvqBWBR01XdrQf89OWPkBUm8.DG', 'Suresh', 'Kumar', '999000444', 'suresh@gyanganga.edu', 3, @school, 1, 1, 'System'),
 ('gg_teacher4', '$2y$12$U3X7satfZs7fDwHMV3ShHenIhduvqBWBR01XdrQf89OWPkBUm8.DG', 'Priya', 'Gupta', '999000555', 'priya@gyanganga.edu', 3, @school, 1, 1, 'System');
 
--- Create employee records for these teacher users
-INSERT INTO Tx_Employees (EmployeeName, UserID, SchoolID, RoleID, AcademicYearID, DOB, Gender, JoiningDate, Salary, Subjects, Status, CreatedBy)
+-- Create employee records for these teacher users (split names)
+INSERT INTO Tx_Employees (FirstName, MiddleName, LastName, UserID, SchoolID, RoleID, AcademicYearID, DOB, Gender, JoiningDate, Salary, Subjects, Status, CreatedBy)
 VALUES
-('Suresh Kumar', (SELECT UserID FROM Tx_Users WHERE Username='gg_teacher3' AND SchoolID=@school LIMIT 1), @school, 3, @ay, '1985-04-10', 'M', '2018-08-01', 30000.00, 'Mathematics', 'Active', 'System'),
-('Priya Gupta', (SELECT UserID FROM Tx_Users WHERE Username='gg_teacher4' AND SchoolID=@school LIMIT 1), @school, 3, @ay, '1987-09-22', 'F', '2019-09-01', 29000.00, 'Physics', 'Active', 'System');
+('Suresh', NULL, 'Kumar', (SELECT UserID FROM Tx_Users WHERE Username='gg_teacher3' AND SchoolID=@school LIMIT 1), @school, 3, @ay, '1985-04-10', 'M', '2018-08-01', 30000.00, 'Mathematics', 'Active', 'System'),
+('Priya', NULL, 'Gupta', (SELECT UserID FROM Tx_Users WHERE Username='gg_teacher4' AND SchoolID=@school LIMIT 1), @school, 3, @ay, '1987-09-22', 'F', '2019-09-01', 29000.00, 'Physics', 'Active', 'System');
 
 -- Map the new teachers to classes 10th and 11th respectively
 INSERT INTO Tx_ClassTeachers (ClassID, EmployeeID, SchoolID, AcademicYearID, StartDate, IsActive, CreatedBy)
 VALUES
-((SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='10th' LIMIT 1), (SELECT EmployeeID FROM Tx_Employees WHERE EmployeeName='Suresh Kumar' AND SchoolID=@school LIMIT 1), @school, @ay, '2018-08-01', 1, 'System'),
-((SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='11th' LIMIT 1), (SELECT EmployeeID FROM Tx_Employees WHERE EmployeeName='Priya Gupta' AND SchoolID=@school LIMIT 1), @school, @ay, '2019-09-01', 1, 'System');
+((SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='10th' LIMIT 1), (SELECT EmployeeID FROM Tx_Employees WHERE CONCAT_WS(' ', FirstName, MiddleName, LastName)='Suresh Kumar' AND SchoolID=@school LIMIT 1), @school, @ay, '2018-08-01', 1, 'System'),
+((SELECT ClassID FROM Tx_Classes WHERE SchoolID=@school AND ClassName='11th' LIMIT 1), (SELECT EmployeeID FROM Tx_Employees WHERE CONCAT_WS(' ', FirstName, MiddleName, LastName)='Priya Gupta' AND SchoolID=@school LIMIT 1), @school, @ay, '2019-09-01', 1, 'System');
 
 -- Create student records assigned to sections
 INSERT INTO Tx_Students (StudentName, Gender, DOB, SchoolID, SectionID, UserID, AcademicYearID, FatherName, MotherName, AdmissionDate, Status, CreatedBy) VALUES

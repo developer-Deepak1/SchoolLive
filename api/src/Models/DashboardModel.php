@@ -417,7 +417,7 @@ class DashboardModel extends Model {
                        COUNT(DISTINCT s.StudentID) AS students,
                        ROUND(AVG(g.Marks),2) AS averageGrade,
                        ROUND(AVG(CASE WHEN a.Status='Present' THEN 1 ELSE 0 END)*100,2) AS attendance,
-                       e.EmployeeName AS teacher
+                       CONCAT_WS(' ', e.FirstName, e.MiddleName, e.LastName) AS teacher
                 FROM Tx_Classes c
                 LEFT JOIN Tx_Sections sec ON sec.ClassID = c.ClassID
                 LEFT JOIN Tx_Students s ON s.SectionID = sec.SectionID AND s.SchoolID = c.SchoolID
@@ -426,7 +426,7 @@ class DashboardModel extends Model {
                 LEFT JOIN Tx_ClassTeachers ct ON ct.ClassID = c.ClassID AND ct.IsActive = 1
                 LEFT JOIN Tx_Employees e ON e.EmployeeID = ct.EmployeeID
                 WHERE c.SchoolID = :school" . ($academicYearId ? " AND c.AcademicYearID = :ay" : "") . "
-                GROUP BY c.ClassID, c.ClassName, e.EmployeeName
+                GROUP BY c.ClassID, c.ClassName, CONCAT_WS(' ', e.FirstName, e.MiddleName, e.LastName)
                 ORDER BY averageGrade DESC
                 LIMIT :lim";
 

@@ -1,16 +1,61 @@
 <p-toast />
 <div class="grid gap-4 md:grid-cols-2">
-	<p-card header="Employee Admission" class="col-span-2">
+	<p-card header="Add Employee" class="col-span-2">
 		<form [formGroup]="form" class="grid gap-4 md:grid-cols-3 pt-4" (ngSubmit)="submit()">
 			<div class="field col-span-3 md:col-span-1">
-				<label class="block mb-2 font-medium">Full Name <span class="text-red-500 ml-1">*</span></label>
-				<input pInputText formControlName="EmployeeName" placeholder="Full name" />
-				<small class="text-red-500" [class.invisible]="!fieldInvalid('EmployeeName')" style="min-height:1rem;display:block">Required (min 2 chars)</small>
+				<label class="block mb-2 font-medium">First Name <span class="text-red-500 ml-1">*</span></label>
+				<input pInputText formControlName="FirstName" placeholder="First name" [class.border-red-500]="fieldInvalid('FirstName')" />
+				<small class="text-red-500" [class.invisible]="!fieldInvalid('FirstName')" style="min-height:1rem;display:block">Required (min 2 chars)</small>
 			</div>
 
 			<div class="field col-span-3 md:col-span-1">
-				<label class="block mb-2 font-medium">Contact Number</label>
-				<input pInputText formControlName="ContactNumber" placeholder="Contact number" />
+				<label class="block mb-2 font-medium">Middle Name</label>
+				<input pInputText formControlName="MiddleName" placeholder="Middle name" />
+			</div>
+
+			<div class="field col-span-3 md:col-span-1">
+				<label class="block mb-2 font-medium">Last Name</label>
+				<input pInputText formControlName="LastName" placeholder="Last name" />
+			</div>
+
+			<div class="field col-span-3 md:col-span-1">
+				<label class="block mb-2 font-medium">Contact Number <span class="text-red-500 ml-1">*</span></label>
+				<input pInputText formControlName="ContactNumber" placeholder="Contact number" inputmode="numeric" maxlength="15" [class.border-red-500]="fieldInvalid('ContactNumber')" />
+				<small class="text-red-500" [class.invisible]="!fieldInvalid('ContactNumber')" style="min-height:1rem;display:block">Enter at least 10 digits</small>
+			</div>
+
+			<div class="field col-span-3 md:col-span-1">
+				<label class="block mb-2 font-medium">Father Name <span class="text-red-500 ml-1">*</span></label>
+				<input pInputText formControlName="FatherName" placeholder="Father's name" [class.border-red-500]="fieldInvalid('FatherName')" />
+				<small class="text-red-500" [class.invisible]="!fieldInvalid('FatherName')" style="min-height:1rem;display:block">Required</small>
+			</div>
+
+			<div class="field col-span-3 md:col-span-1">
+				<label class="block mb-2 font-medium">Father Contact <span class="text-red-500 ml-1">*</span></label>
+				<input pInputText formControlName="FatherContactNumber" placeholder="Father contact" inputmode="numeric" maxlength="15" [class.border-red-500]="fieldInvalid('FatherContactNumber')" />
+				<small class="text-red-500" [class.invisible]="!fieldInvalid('FatherContactNumber')" style="min-height:1rem;display:block">Enter at least 10 digits</small>
+			</div>
+
+			<div class="field col-span-3 md:col-span-1">
+				<label class="block mb-2 font-medium">Mother Name</label>
+				<input pInputText formControlName="MotherName" placeholder="Mother's name" />
+			</div>
+
+			<div class="field col-span-3 md:col-span-1">
+				<label class="block mb-2 font-medium">Mother Contact</label>
+				<input pInputText formControlName="MotherContactNumber" placeholder="Mother contact" inputmode="numeric" maxlength="15" [class.border-red-500]="fieldInvalid('MotherContactNumber')" />
+				<small class="text-red-500" [class.invisible]="!fieldInvalid('MotherContactNumber')" style="min-height:1rem;display:block">Enter at least 10 digits</small>
+			</div>
+
+			<div class="field col-span-3 md:col-span-1">
+				<label class="block mb-2 font-medium">Subjects</label>
+				<input pInputText formControlName="Subjects" placeholder="Subjects" />
+			</div>
+
+			<div class="field col-span-3 md:col-span-1">
+				<label class="block mb-2 font-medium">Blood Group <span class="text-red-500 ml-1">*</span></label>
+				<input pInputText formControlName="BloodGroup" placeholder="Blood group" [class.border-red-500]="fieldInvalid('BloodGroup')" />
+				<small class="text-red-500" [class.invisible]="!fieldInvalid('BloodGroup')" style="min-height:1rem;display:block">Required</small>
 			</div>
 
 			<div class="field col-span-3 md:col-span-1">
@@ -21,7 +66,8 @@
 
 					<div class="field col-span-3 md:col-span-1">
 						<label class="block mb-2 font-medium">Gender <span class="text-red-500 ml-1">*</span></label>
-						<p-select class="w-full" formControlName="Gender" [options]="genders" optionLabel="label" optionValue="value" appendTo="body" />
+						<p-select class="w-full" formControlName="Gender" [options]="genders" optionLabel="label" optionValue="value" appendTo="body" [class.border-red-500]="fieldInvalid('Gender')" />
+						<small class="text-red-500" [class.invisible]="!fieldInvalid('Gender')" style="min-height:1rem;display:block">Required</small>
 					</div>
 
 			<div class="field col-span-3 md:col-span-1">
@@ -31,24 +77,27 @@
 			</div>
 
 					<div class="field col-span-3 md:col-span-1">
-						<label class="block mb-2 font-medium">Role</label>
-						<p-select class="w-full" formControlName="RoleID" [options]="roleOptions" optionLabel="label" optionValue="value" appendTo="body" placeholder="Select Role" />
+						<label class="block mb-2 font-medium">Role <span class="text-red-500 ml-1">*</span></label>
+						<p-select class="w-full" formControlName="RoleID" [options]="roleOptions" optionLabel="label" optionValue="value" appendTo="body" placeholder="Select Role" [class.border-red-500]="fieldInvalid('RoleID')" />
+						<small class="text-red-500" [class.invisible]="!fieldInvalid('RoleID')" style="min-height:1rem;display:block">Required</small>
 					</div>
 
 			<div class="field col-span-3 md:col-span-1">
-				<label class="block mb-2 font-medium">Joining Date</label>
-				<p-datepicker formControlName="JoiningDate" dateFormat="yy-mm-dd" [showIcon]="true" class="w-full"></p-datepicker>
+				<label class="block mb-2 font-medium">Joining Date <span class="text-red-500 ml-1">*</span></label>
+				<p-datepicker formControlName="JoiningDate" dateFormat="yy-mm-dd" [showIcon]="true" class="w-full" [class.border-red-500]="fieldInvalid('JoiningDate')"></p-datepicker>
+				<small class="text-red-500" [class.invisible]="!fieldInvalid('JoiningDate')" style="min-height:1rem;display:block">Required</small>
 			</div>
 
 					<div class="field col-span-3 md:col-span-1">
-						<label class="block mb-2 font-medium">Salary</label>
-						<input pInputText formControlName="Salary" />
+						<label class="block mb-2 font-medium">Salary <span class="text-red-500 ml-1">*</span></label>
+						<input pInputText formControlName="Salary" [class.border-red-500]="fieldInvalid('Salary')" />
+						<small class="text-red-500" [class.invisible]="!fieldInvalid('Salary')" style="min-height:1rem;display:block">Required</small>
 					</div>
 
 			<div class="col-span-3 flex gap-3 pt-2">
+				<p-button *ngIf="editingId" label="Cancel" icon="pi pi-times" severity="secondary" type="button" (onClick)="cancelEdit()" />
 				<p-button [label]="editingId ? 'Update' : 'Submit'" icon="pi pi-check" [loading]="loading" type="submit" />
-				<p-button [label]="editingId ? 'Reset to Loaded' : 'Reset'" icon="pi pi-refresh" severity="secondary" type="button" (onClick)="editingId ? restoreLoaded() : resetForm()" />
-				<p-button *ngIf="editingId" label="View Profile" icon="pi pi-user" (onClick)="viewProfile()" />
+				<p-button label="Reset" icon="pi pi-refresh" severity="secondary" type="button" (onClick)="editingId ? restoreLoaded() : resetForm()" />
 				<!-- Reset Password moved to Existing Credentials card to avoid duplicate controls -->
 			</div>
 		</form>
@@ -62,11 +111,29 @@
 		</div>
 	</p-card>
 
-	<p-card header="Issued Credentials" *ngIf="issuedCredentials as creds" class="col-span-2">
-		<div class="space-y-2">
-			<p><strong>Username:</strong> {{creds.username}}</p>
-			<p><strong>Password:</strong> {{creds.password}}</p>
-			<p class="text-xs text-gray-500">Provide these to the employee. They should change password at first login.</p>
+
+
+	<p-dialog header="Issued Credentials" [(visible)]="showCredModal" modal="true" [closable]="true" [dismissableMask]="true" breakpoints="{'960px':'75vw','640px':'95vw'}" styleClass="p-fluid">
+		<div class="p-grid p-dir-col">
+			<div class="p-col">
+				<label class="font-medium">Username</label>
+				<div class="flex items-center gap-2">
+					<input pInputText [value]="issuedCredentials?.username" readonly />
+					<button pButton type="button" class="p-button p-component" (click)="copyToClipboard(issuedCredentials?.username, 'Username copied')">Copy</button>
+				</div>
+			</div>
+			<div class="p-col">
+				<label class="font-medium">Password</label>
+				<div class="flex items-center gap-2">
+					<input pInputText [value]="issuedCredentials?.password" readonly />
+					<button pButton type="button" class="p-button p-component" (click)="copyToClipboard(issuedCredentials?.password, 'Password copied')">Copy</button>
+				</div>
+			</div>
+			<div class="p-col">
+				<p class="text-xs text-gray-500">Provide these to the employee. They should change password at first login.</p>
+			</div>
 		</div>
-	</p-card>
+	</p-dialog>
+
+	<p-confirmDialog></p-confirmDialog>
 </div>

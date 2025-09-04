@@ -64,6 +64,8 @@ class Router {
     $this->routes['GET']['/api/employees/{id}'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'get'], 'roles' => true];
     $this->routes['PUT']['/api/employees/{id}'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'update'], 'roles' => true];
     $this->routes['DELETE']['/api/employees/{id}'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'delete'], 'roles' => true];
+    // Reset password for an employee (admin action)
+    $this->routes['POST']['/api/employees/{id}/reset-password'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'resetPassword'], 'roles' => true];
 
     // Roles helper endpoint - lightweight implementation using UserModel's PDO to avoid creating a separate RolesController
     $this->routes['GET']['/api/roles'] = ['handler' => function($params = []) {

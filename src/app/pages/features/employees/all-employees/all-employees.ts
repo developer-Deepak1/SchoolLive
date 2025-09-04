@@ -127,7 +127,7 @@ export class AllEmployees implements OnInit {
   delete(emp: Employee) {
     if (!emp.EmployeeID) return;
     this.confirm.confirm({
-      message: `Delete ${emp.EmployeeName}?`,
+      message: `Are you sure you want to delete ${emp.EmployeeName}?`,
       header: 'Confirm',
       icon: 'pi pi-exclamation-triangle',
       accept: () => {
