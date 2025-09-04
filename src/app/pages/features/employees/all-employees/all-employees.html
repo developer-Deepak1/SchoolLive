@@ -1,4 +1,4 @@
-<p-table #dt [value]="employees()" dataKey="EmployeeID" [rows]="10" [paginator]="true" [rowsPerPageOptions]="[10,20,30]" [globalFilterFields]="['EmployeeName','RoleName','Gender','JoiningDate']" [tableStyle]="{'min-width':'90rem'}" [rowHover]="true" [showCurrentPageReport]="true" currentPageReportTemplate="Showing {first} to {last} of {totalRecords}">
+<p-table #dt [value]="employees()" dataKey="EmployeeID" [rows]="10" [paginator]="true" [rowsPerPageOptions]="[10,20,30]" [globalFilterFields]="['Username','EmployeeName','RoleName','Gender','JoiningDate']" [tableStyle]="{'min-width':'90rem'}" [rowHover]="true" [showCurrentPageReport]="true" currentPageReportTemplate="Showing {first} to {last} of {totalRecords}">
   <ng-template pTemplate="caption">
         <h3 class="m-0">All Employees</h3>
         <div class="flex items-center justify-between">
@@ -11,6 +11,9 @@
   </ng-template>
   <ng-template pTemplate="header">
     <tr>
+      <th pSortableColumn="Username">
+        Username
+      </th>
       <th pSortableColumn="EmployeeName">
         Name
       </th>
@@ -29,6 +32,7 @@
   </ng-template>
   <ng-template pTemplate="body" let-e>
     <tr>
+      <td>{{e.Username || '-'}}</td>
       <td>{{e.EmployeeName}}</td>
       <td>{{e.Gender}}</td>
       <td>{{e.RoleName || '-'}}</td>
@@ -76,5 +80,5 @@
   </ng-template>
 </p-dialog>
 
-<p-confirmDialog />
-<p-toast />
+<p-confirmDialog></p-confirmDialog>
+<p-toast></p-toast>
