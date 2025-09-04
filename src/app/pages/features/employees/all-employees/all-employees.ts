@@ -28,6 +28,8 @@ import { InputIconModule } from 'primeng/inputicon';
 })
 export class AllEmployees implements OnInit {
   employees = signal<Employee[]>([]);
+  // fields to use for global filtering in the table
+  tableGlobalFilterFields: string[] = ['Username', 'EmployeeName', 'RoleName', 'Gender', 'JoiningDate'];
   selected: Employee[] | null = null;
   employeeDialog = false;
   submitted = false;

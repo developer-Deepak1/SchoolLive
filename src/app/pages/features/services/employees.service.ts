@@ -12,7 +12,7 @@ export class EmployeesService {
   private baseUrl = `${environment.baseURL.replace(/\/+$/,'')}/api/employees`;
   private dashboardSummary = `${environment.baseURL.replace(/\/+$/, '')}/api/dashboard/summary`;
 
-  getEmployees(filters: { role_id?: number; status?: string; search?: string } = {}): Observable<Employee[]> {
+  getEmployees(filters: { role_id?: number; status?: string; search?: string; is_active?: number } = {}): Observable<Employee[]> {
     let params = new HttpParams();
     for (const [k,v] of Object.entries(filters)) {
       if (v !== undefined && v !== null && v !== '') params = params.set(k, String(v));
