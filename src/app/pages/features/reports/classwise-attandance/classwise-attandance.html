@@ -1,90 +1,88 @@
 <div class="mb-6 p-4 rounded-md bg-white">
-	<h5 class="mt-0 mb-4 font-semibold">Classwise Attendance</h5>
-	<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start mb-4">
-		<div>
-			<label class="block font-bold mb-2">Class</label>
-			<p-select [(ngModel)]="selectedClass" [options]="classOptions" placeholder="Select Class" class="w-full"></p-select>
-		</div>
+    <h5 class="mt-0 mb-4 font-semibold">Classwise Attendance</h5>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start mb-4">
+        <div>
+            <label class="block font-bold mb-2">Class</label>
+            <p-select [(ngModel)]="selectedClass" [options]="classOptions" placeholder="Select Class" class="w-full"></p-select>
+        </div>
 
-		<div>
-			<label class="block font-bold mb-2">Month</label>
-			<p-datepicker [(ngModel)]="date" view="month" dateFormat="mm/yy" (onSelect)="updateGrid()" [showButtonBar]="true" class="w-full"></p-datepicker>
-		</div>
+        <div>
+            <label class="block font-bold mb-2">Month</label>
+            <p-datepicker [(ngModel)]="date" view="month" dateFormat="mm/yy" (onSelect)="updateGrid()" [showButtonBar]="true" class="w-full"></p-datepicker>
+        </div>
 
-		<div class="flex items-end">
-			<div class="flex gap-2">
-				<p-button label="Refresh" icon="pi pi-refresh" (onClick)="refresh()"></p-button>
-				<p-button label="Export" icon="pi pi-download" severity="secondary"></p-button>
-			</div>
-		</div>
-	</div>
+        <div class="flex items-end">
+            <div class="flex gap-2">
+                <p-button label="Refresh" icon="pi pi-refresh" (onClick)="refresh()"></p-button>
+                <p-button label="Export" icon="pi pi-download" severity="secondary"></p-button>
+            </div>
+        </div>
+    </div>
 
-	<!-- Desktop: existing p-table kept -->
-	<p-table *ngIf="!isMobile"
-		[value]="rows"
-		[paginator]="true"
-		[rows]="10"
-		dataKey="studentName"
-		[tableStyle]="{ 'min-width': '60rem' }"
-		[responsiveLayout]="'scroll'"
-		[scrollable]="true"
-		scrollHeight="480px">
+    <!-- Desktop: existing p-table kept -->
+    <p-table *ngIf="!isMobile" [value]="rows" [paginator]="true" [rows]="10" dataKey="studentName" [tableStyle]="{ 'min-width': '60rem' }" [responsiveLayout]="'scroll'" [scrollable]="true" scrollHeight="480px">
+        <ng-template pTemplate="caption">
+            <div class="flex items-center justify-between">
+                <h5 class="m-0">Attendance for {{ selectedClass || '—' }} ({{ date | date:'MMMM yyyy' }})</h5>
+            </div>
+        </ng-template>
 
-		<ng-template pTemplate="caption">
-			<div class="flex items-center justify-between">
-				<h5 class="m-0">Attendance for {{ selectedClass || '—' }} ({{ date | date:'MMMM yyyy' }})</h5>
-			</div>
-		</ng-template>
+        <ng-template pTemplate="header">
+            <tr>
+                <th style="position: sticky; left: 0; background: #fff; z-index: 2">Student</th>
+                <th *ngFor="let d of days">{{d}}</th>
+                <th>Total P</th>
+                <th>Total A</th>
+            </tr>
+        </ng-template>
 
-		<ng-template pTemplate="header">
-			<tr>
-				<th style="position:sticky; left:0; background:#fff; z-index:2;">Student</th>
-				<th *ngFor="let d of days">{{d}}</th>
-				<th>Total P</th>
-				<th>Total A</th>
-			</tr>
-		</ng-template>
+        <ng-template pTemplate="body" let-rowData>
+            <tr>
+                <td style="position: sticky; left: 0; background: #fff; z-index: 1; min-width: 220px">{{rowData.studentName}}</td>
+                <td *ngFor="let s of rowData.statuses" class="p-2" style="text-align: center">
+                    <p-tag [value]="s.toUpperCase()" [severity]="getSeverity(s)"></p-tag>
+                </td>
+                <td style="text-align: center; font-weight: 600">{{ getPresentCount(rowData) }}</td>
+                <td style="text-align: center; font-weight: 600">{{ getAbsentCount(rowData) }}</td>
+            </tr>
+        </ng-template>
+    </p-table>
 
-		<ng-template pTemplate="body" let-rowData>
-			<tr>
-				<td style="position:sticky; left:0; background:#fff; z-index:1; min-width:220px;">{{rowData.studentName}}</td>
-				<td *ngFor="let s of rowData.statuses" class="p-2" style="text-align:center;">
-					<p-tag [value]="s.toUpperCase()" [severity]="getSeverity(s)"></p-tag>
-				</td>
-				<td style="text-align:center; font-weight:600;">{{ getPresentCount(rowData) }}</td>
-				<td style="text-align:center; font-weight:600;">{{ getAbsentCount(rowData) }}</td>
-			</tr>
-		</ng-template>
+    <!-- Mobile: list/card view -->
+    <div *ngIf="isMobile" class="mobile-list">
+        <div *ngFor="let r of rows" class="p-card mb-2">
+            <div class="flex justify-between items-center">
+                <div>
+                    <div class="font-semibold">{{ r.studentName }}</div>
+                    <div class="text-sm text-gray-500">{{ r.className }}</div>
+                </div>
+                <div class="text-center">
+                    <div>Total P: <strong>{{ getPresentCount(r) }}</strong></div>
+                    <div>Total A: <strong>{{ getAbsentCount(r) }}</strong></div>
+                </div>
+            </div>
 
-	</p-table>
+            <div class="mt-2">
+                <p-button label="Details" (onClick)="openDetails(r)"></p-button>
+            </div>
+        </div>
+    </div>
 
-	<!-- Mobile: list/card view -->
-	<div *ngIf="isMobile" class="mobile-list">
-		<div *ngFor="let r of rows" class="p-card mb-2">
-			<div class="flex justify-between items-center">
-				<div>
-					<div class="font-semibold">{{ r.studentName }}</div>
-					<div class="text-sm text-gray-500">{{ r.className }}</div>
-				</div>
-				<div class="text-center">
-					<div>Total P: <strong>{{ getPresentCount(r) }}</strong></div>
-					<div>Total A: <strong>{{ getAbsentCount(r) }}</strong></div>
-				</div>
-			</div>
-
-			<div class="mt-2">
-				<p-button label="Details" (onClick)="openDetails(r)"></p-button>
-			</div>
-		</div>
-	</div>
-
-	<!-- Detail dialog (show full day-by-day matrix for the selected student) -->
-	<p-dialog header="{{selected?.studentName}} — Details" [(visible)]="detailDialogVisible" [modal]="true" [style]="{width: '95vw', maxWidth: '720px'}">
-		<div class="overflow-auto">
-			<table class="min-w-full">
-				<thead><tr><th *ngFor="let d of days">{{d}}</th></tr></thead>
-				<tbody><tr><td *ngFor="let s of (selected?.statuses || [])" class="text-center"><p-tag [value]="s.toUpperCase()" [severity]="getSeverity(s)"></p-tag></td></tr></tbody>
-			</table>
-		</div>
-	</p-dialog>
+    <!-- Detail dialog (show full day-by-day matrix for the selected student) -->
+    <p-dialog header="{{selected?.studentName}} — Details" [(visible)]="detailDialogVisible" [modal]="true" [style]="{width: '95vw', maxWidth: '720px'}">
+        <div class="overflow-auto">
+            <table class="min-w-full">
+                <thead>
+                    <tr>
+                        <th *ngFor="let d of days">{{d}}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td *ngFor="let s of (selected?.statuses || [])" class="text-center"><p-tag [value]="s.toUpperCase()" [severity]="getSeverity(s)"></p-tag></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </p-dialog>
 </div>

@@ -29,7 +29,10 @@ export class Login {
 
     error: string | null = null;
 
-    constructor(private auth: AuthService, private router: Router) {}
+    constructor(
+        private auth: AuthService,
+        private router: Router
+    ) {}
 
     signIn() {
         this.error = null;
@@ -39,7 +42,7 @@ export class Login {
         // single "Username / Email" input bound to `username`. If that input
         // contains an @ we treat it as an email and send `email` to the API.
         // If a separate `email` field was used, prefer that.
-        const identifier = (this.email && this.email.trim()) ? this.email.trim() : (this.username && this.username.trim()) ? this.username.trim() : '';
+        const identifier = this.email && this.email.trim() ? this.email.trim() : this.username && this.username.trim() ? this.username.trim() : '';
 
         if (identifier) {
             const isEmail = identifier.includes('@');

@@ -11,7 +11,7 @@ export class LoaderInterceptor implements HttpInterceptor {
     intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
         // Do not show loader for refresh token calls to avoid UI flicker if desired
         const hideFor = ['/api/auth/refresh'];
-        const shouldShow = !hideFor.some(p => req.url.includes(p));
+        const shouldShow = !hideFor.some((p) => req.url.includes(p));
 
         if (shouldShow) this.loader.show();
 

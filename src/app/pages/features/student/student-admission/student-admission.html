@@ -1,96 +1,96 @@
 <p-toast />
 <div class="grid gap-4 md:grid-cols-2">
-	<p-card header="Student Admission" class="col-span-2">
-		<form [formGroup]="form" class="grid gap-4 md:grid-cols-3 pt-4" (ngSubmit)="submit()">
-			<div class="field">
-				<label class="block mb-2 font-medium">First Name <span class="text-red-500 ml-1">*</span></label>
-				<input pInputText formControlName="FirstName" placeholder="First name" />
-				<small class="text-red-500" [class.invisible]="!fieldInvalid('FirstName')" style="min-height:1rem;display:block">Required (min 2 chars)</small>
-			</div>
-			<div class="field">
-				<label class="block mb-2 font-medium">Middle Name</label>
-				<input pInputText formControlName="MiddleName" placeholder="Middle name" />
-			</div>
-			<div class="field">
-				<label class="block mb-2 font-medium">Last Name</label>
-				<input pInputText formControlName="LastName" placeholder="Last name" />
-			</div>
-			<div class="field">
-				<label class="block mb-2 font-medium">Contact Number</label>
-				<input pInputText formControlName="ContactNumber" placeholder="Student contact" />
-			</div>
-			<div class="field">
-				<label class="block mb-2 font-medium">Email</label>
-				<input pInputText formControlName="EmailID" placeholder="Email" />
-				<small class="text-red-500" [class.invisible]="!fieldInvalid('EmailID')" style="min-height:1rem;display:block">Invalid email</small>
-			</div>
-			<div class="field">
-				<label class="block mb-2 font-medium">Gender *</label>
-				<p-select formControlName="Gender" [options]="genders" optionLabel="label" optionValue="value" appendTo="body" />
-			</div>
-					<div class="field">
-						<label class="block mb-2 font-medium">Date of Birth *</label>
-						<p-datepicker formControlName="DOB" dateFormat="yy-mm-dd" [showIcon]="true" class="w-full"></p-datepicker>
-						<small class="text-red-500" [class.invisible]="!fieldInvalid('DOB')" style="min-height:1rem;display:block">Required</small>
-					</div>
-					<div class="field">
-						<label class="block mb-2 font-medium">Academic Year <span class="text-red-500 ml-1">*</span></label>
-						<p-select formControlName="AcademicYearID" [options]="academicYearOptions" optionLabel="label" optionValue="value" appendTo="body" placeholder="Select Year" />
-						<small class="text-red-500" [class.invisible]="!fieldInvalid('AcademicYearID')" style="min-height:1rem;display:block">Required</small>
-					</div>
-					<div class="field">
-						<label class="block mb-2 font-medium">Class *</label>
-						<p-select formControlName="ClassID" [options]="classOptions" optionLabel="label" optionValue="value" appendTo="body" (onChange)="onClassChange($event.value)" placeholder="Select Class" />
-						<small class="text-red-500" [class.invisible]="!fieldInvalid('ClassID')" style="min-height:1rem;display:block">Required</small>
-					</div>
-					<div class="field">
-						<label class="block mb-2 font-medium">Section *</label>
-						<p-select formControlName="SectionID" [options]="sectionOptions" optionLabel="label" optionValue="value" appendTo="body" placeholder="Select Section" />
-						<small class="text-red-500" [class.invisible]="!fieldInvalid('SectionID')" style="min-height:1rem;display:block">Required</small>
-					</div>
-					<div class="field">
-						<label class="block mb-2 font-medium">Admission Date</label>
-						<p-datepicker formControlName="AdmissionDate" dateFormat="yy-mm-dd" [showIcon]="true" class="w-full"></p-datepicker>
-					</div>
-			<div class="field">
-				<label class="block mb-2 font-medium">Father Name <span class="text-red-500 ml-1">*</span></label>
-				<input pInputText formControlName="FatherName" />
-				<small class="text-red-500" [class.invisible]="!fieldInvalid('FatherName')" style="min-height:1rem;display:block">Required</small>
-			</div>
-			<div class="field">
-				<label class="block mb-2 font-medium">Father Contact</label>
-				<input pInputText formControlName="FatherContactNumber" />
-			</div>
-			<div class="field">
-				<label class="block mb-2 font-medium">Mother Name</label>
-				<input pInputText formControlName="MotherName" />
-			</div>
-			<div class="field">
-				<label class="block mb-2 font-medium">Mother Contact</label>
-				<input pInputText formControlName="MotherContactNumber" />
-			</div>
-			<div class="col-span-3 flex gap-3 pt-2">
-				<!-- Show 'Update' when editing -->
-				<p-button [label]="editingId ? 'Update' : 'Submit'" icon="pi pi-check" [loading]="loading" type="submit" />
-				<!-- When editing, Reset should restore loaded student data -->
-				<p-button [label]="editingId ? 'Reset to Loaded' : 'Reset'" icon="pi pi-refresh" severity="secondary" type="button" (onClick)="editingId ? restoreLoaded() : resetForm()" />
-			</div>
-		</form>
-	</p-card>
+    <p-card header="Student Admission" class="col-span-2">
+        <form [formGroup]="form" class="grid gap-4 md:grid-cols-3 pt-4" (ngSubmit)="submit()">
+            <div class="field">
+                <label class="block mb-2 font-medium">First Name <span class="text-red-500 ml-1">*</span></label>
+                <input pInputText formControlName="FirstName" placeholder="First name" />
+                <small class="text-red-500" [class.invisible]="!fieldInvalid('FirstName')" style="min-height: 1rem; display: block">Required (min 2 chars)</small>
+            </div>
+            <div class="field">
+                <label class="block mb-2 font-medium">Middle Name</label>
+                <input pInputText formControlName="MiddleName" placeholder="Middle name" />
+            </div>
+            <div class="field">
+                <label class="block mb-2 font-medium">Last Name</label>
+                <input pInputText formControlName="LastName" placeholder="Last name" />
+            </div>
+            <div class="field">
+                <label class="block mb-2 font-medium">Contact Number</label>
+                <input pInputText formControlName="ContactNumber" placeholder="Student contact" />
+            </div>
+            <div class="field">
+                <label class="block mb-2 font-medium">Email</label>
+                <input pInputText formControlName="EmailID" placeholder="Email" />
+                <small class="text-red-500" [class.invisible]="!fieldInvalid('EmailID')" style="min-height: 1rem; display: block">Invalid email</small>
+            </div>
+            <div class="field">
+                <label class="block mb-2 font-medium">Gender *</label>
+                <p-select formControlName="Gender" [options]="genders" optionLabel="label" optionValue="value" appendTo="body" />
+            </div>
+            <div class="field">
+                <label class="block mb-2 font-medium">Date of Birth *</label>
+                <p-datepicker formControlName="DOB" dateFormat="yy-mm-dd" [showIcon]="true" class="w-full"></p-datepicker>
+                <small class="text-red-500" [class.invisible]="!fieldInvalid('DOB')" style="min-height: 1rem; display: block">Required</small>
+            </div>
+            <div class="field">
+                <label class="block mb-2 font-medium">Academic Year <span class="text-red-500 ml-1">*</span></label>
+                <p-select formControlName="AcademicYearID" [options]="academicYearOptions" optionLabel="label" optionValue="value" appendTo="body" placeholder="Select Year" />
+                <small class="text-red-500" [class.invisible]="!fieldInvalid('AcademicYearID')" style="min-height: 1rem; display: block">Required</small>
+            </div>
+            <div class="field">
+                <label class="block mb-2 font-medium">Class *</label>
+                <p-select formControlName="ClassID" [options]="classOptions" optionLabel="label" optionValue="value" appendTo="body" (onChange)="onClassChange($event.value)" placeholder="Select Class" />
+                <small class="text-red-500" [class.invisible]="!fieldInvalid('ClassID')" style="min-height: 1rem; display: block">Required</small>
+            </div>
+            <div class="field">
+                <label class="block mb-2 font-medium">Section *</label>
+                <p-select formControlName="SectionID" [options]="sectionOptions" optionLabel="label" optionValue="value" appendTo="body" placeholder="Select Section" />
+                <small class="text-red-500" [class.invisible]="!fieldInvalid('SectionID')" style="min-height: 1rem; display: block">Required</small>
+            </div>
+            <div class="field">
+                <label class="block mb-2 font-medium">Admission Date</label>
+                <p-datepicker formControlName="AdmissionDate" dateFormat="yy-mm-dd" [showIcon]="true" class="w-full"></p-datepicker>
+            </div>
+            <div class="field">
+                <label class="block mb-2 font-medium">Father Name <span class="text-red-500 ml-1">*</span></label>
+                <input pInputText formControlName="FatherName" />
+                <small class="text-red-500" [class.invisible]="!fieldInvalid('FatherName')" style="min-height: 1rem; display: block">Required</small>
+            </div>
+            <div class="field">
+                <label class="block mb-2 font-medium">Father Contact</label>
+                <input pInputText formControlName="FatherContactNumber" />
+            </div>
+            <div class="field">
+                <label class="block mb-2 font-medium">Mother Name</label>
+                <input pInputText formControlName="MotherName" />
+            </div>
+            <div class="field">
+                <label class="block mb-2 font-medium">Mother Contact</label>
+                <input pInputText formControlName="MotherContactNumber" />
+            </div>
+            <div class="col-span-3 flex gap-3 pt-2">
+                <!-- Show 'Update' when editing -->
+                <p-button [label]="editingId ? 'Update' : 'Submit'" icon="pi pi-check" [loading]="loading" type="submit" />
+                <!-- When editing, Reset should restore loaded student data -->
+                <p-button [label]="editingId ? 'Reset to Loaded' : 'Reset'" icon="pi pi-refresh" severity="secondary" type="button" (onClick)="editingId ? restoreLoaded() : resetForm()" />
+            </div>
+        </form>
+    </p-card>
 
-	<p-card header="Existing Credentials" *ngIf="editingId && studentUsername" class="col-span-2">
-		<div class="space-y-2">
-			<p><strong>Username:</strong> {{studentUsername}}</p>
-			<p class="text-xs text-gray-500">Password is hidden. Use Reset Password to issue a new one.</p>
-			<p-button label="Reset Password" icon="pi pi-refresh" severity="warn" (onClick)="resetPassword()" [loading]="loading" />
-		</div>
-	</p-card>
+    <p-card header="Existing Credentials" *ngIf="editingId && studentUsername" class="col-span-2">
+        <div class="space-y-2">
+            <p><strong>Username:</strong> {{studentUsername}}</p>
+            <p class="text-xs text-gray-500">Password is hidden. Use Reset Password to issue a new one.</p>
+            <p-button label="Reset Password" icon="pi pi-refresh" severity="warn" (onClick)="resetPassword()" [loading]="loading" />
+        </div>
+    </p-card>
 
-	<p-card header="Issued Credentials" *ngIf="issuedCredentials as creds" class="col-span-2">
-		<div class="space-y-2">
-			<p><strong>Username:</strong> {{creds.username}}</p>
-			<p><strong>Password:</strong> {{creds.password}}</p>
-			<p class="text-xs text-gray-500">Provide these to the student. They should change password at first login.</p>
-		</div>
-	</p-card>
+    <p-card header="Issued Credentials" *ngIf="issuedCredentials as creds" class="col-span-2">
+        <div class="space-y-2">
+            <p><strong>Username:</strong> {{creds.username}}</p>
+            <p><strong>Password:</strong> {{creds.password}}</p>
+            <p class="text-xs text-gray-500">Provide these to the student. They should change password at first login.</p>
+        </div>
+    </p-card>
 </div>

@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
         'name' => 'schoollive/api',
-        'pretty_version' => 'dev-main',
-        'version' => 'dev-main',
-        'reference' => '390ac762f443b6096a6ec206526345c53e679752',
+        'pretty_version' => 'dev-copilot/fix-73e5bc48-1b32-4bad-9009-d98dea23d374',
+        'version' => 'dev-copilot/fix-73e5bc48-1b32-4bad-9009-d98dea23d374',
+        'reference' => 'a9bdb1c48e27c106645d87c3531cb2e161fc04c3',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -119,9 +119,9 @@
             'dev_requirement' => true,
         ),
         'schoollive/api' => array(
-            'pretty_version' => 'dev-main',
-            'version' => 'dev-main',
-            'reference' => '390ac762f443b6096a6ec206526345c53e679752',
+            'pretty_version' => 'dev-copilot/fix-73e5bc48-1b32-4bad-9009-d98dea23d374',
+            'version' => 'dev-copilot/fix-73e5bc48-1b32-4bad-9009-d98dea23d374',
+            'reference' => 'a9bdb1c48e27c106645d87c3531cb2e161fc04c3',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

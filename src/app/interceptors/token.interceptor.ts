@@ -52,7 +52,7 @@ export class TokenInterceptor implements HttpInterceptor {
             );
         } else {
             return this.refreshSubject.pipe(
-                filter(token => token != null),
+                filter((token) => token != null),
                 take(1),
                 switchMap((token) => {
                     const cloned = req.clone({ setHeaders: { Authorization: `Bearer ${token}` } });

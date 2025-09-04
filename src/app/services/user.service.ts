@@ -175,10 +175,10 @@ export class UserService implements OnDestroy {
     getIsFirstLogin(): boolean {
         const u = this.getUser();
         if (!u) return false;
-    const v = u.is_first_login;
-    if (v === undefined || v === null) return false;
-    // normalize to string for safe comparisons
-    const s = String(v).toLowerCase();
-    return s === '1' || s === 'true';
+        const v = u.is_first_login;
+        if (v === undefined || v === null) return false;
+        // normalize to string for safe comparisons
+        const s = String(v).toLowerCase();
+        return s === '1' || s === 'true';
     }
 }
