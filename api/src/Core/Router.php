@@ -38,6 +38,8 @@ class Router {
     $this->routes['GET']['/api/dashboard/summary'] = ['handler' => ['SchoolLive\Controllers\DashboardController', 'summary'], 'roles' => true];
     // Student specific dashboard
     $this->routes['GET']['/api/dashboard/student'] = ['handler' => ['SchoolLive\Controllers\StudentDashboardController', 'summary'], 'roles' => true];
+    // Teacher specific dashboard
+    $this->routes['GET']['/api/dashboard/teacher'] = ['handler' => ['SchoolLive\Controllers\TeacherDashboardController', 'getMonthlyAttendance'], 'roles' => true];
 
     // Academic calendar: weekly offs, holidays, reports
     $this->routes['GET']['/api/academic/getWeeklyOffs'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getWeeklyOffs'], 'roles' => true];
