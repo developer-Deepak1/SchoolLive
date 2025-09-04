@@ -41,3 +41,7 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# PHP
+/api/vendor/
+/api/composer.lock
