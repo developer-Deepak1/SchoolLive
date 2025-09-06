@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { ChartConfiguration, ChartData, ChartType } from 'chart.js';
+import { ChartConfiguration, ChartData, ChartType, Chart } from 'chart.js';
 import { CommonModule } from '@angular/common';
 import { BaseChartDirective } from 'ng2-charts';
 import { TableModule } from 'primeng/table';
@@ -15,6 +15,30 @@ import { AcademicYearService } from '../services/academic-year.service';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { toLocalYMDIST } from '@/utils/date-utils';
 import { AcademicCalendarService } from '../services/academic-calendar.service';
+
+// Simple Chart.js plugin to draw values above bars (no extra dependency)
+Chart.register({
+  id: 'barValueLabels',
+  afterDatasetsDraw: (chart) => {
+    const ctx = chart.ctx;
+    chart.data.datasets.forEach((dataset: any, i: number) => {
+      const meta = chart.getDatasetMeta(i);
+      if (!meta || !meta.data) return;
+      meta.data.forEach((bar: any, index: number) => {
+        const data = dataset.data[index];
+        if (data === null || data === undefined) return;
+        const x = bar.x;
+        const y = bar.y - 6;
+        ctx.save();
+        ctx.font = '600 12px sans-serif';
+        ctx.fillStyle = '#111827';
+        ctx.textAlign = 'center';
+        ctx.fillText(String(data), x, y);
+        ctx.restore();
+      });
+    });
+  }
+});
 
 @Component({
   selector: 'app-academic-calander',
@@ -558,7 +582,7 @@ export class AcademicCalander implements OnInit {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { display: false }
+  legend: { display: false }
     }
     ,
     scales: {
