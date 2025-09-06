@@ -713,4 +713,99 @@ class AcademicModel extends Model {
         $labels = array_map(function($m){ return (new DateTime($m.'-01'))->format('M'); }, $months);
         return ['months' => $months, 'workingDays' => $workingDays, 'labels' => $labels];
     }
+    public function getAttendanceCountsByMonth(int $schoolId, int $employeeId, string $start, string $end, ?int $academicYearId = null): array {
+        // detect attendance table
+        $attendanceTable = null;
+        try {
+            $stmt = $this->conn->prepare("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t LIMIT 1");
+            $stmt->bindValue(':t','Tx_Employee_Attendance'); $stmt->execute();
+            if ($stmt->fetchColumn()) $attendanceTable = 'Tx_Employee_Attendance';
+            else {
+                $stmt->bindValue(':t','Tx_Employees_Attendance');
+                $stmt->execute();
+                if ($stmt->fetchColumn()) $attendanceTable = 'Tx_Employees_Attendance';
+            }
+        } catch (\Throwable $_) { }
+        if (!$attendanceTable) return [];
+
+        $sql = "SELECT DATE_FORMAT(Date,'%Y-%m') ym, SUM(CASE WHEN Status='Present' THEN 1 ELSE 0 END) p
+                FROM " . $attendanceTable . "
+                WHERE SchoolID = :school AND EmployeeID = :eid AND Date >= :start AND Date <= :end" . ($academicYearId?" AND AcademicYearID = :ay":"") . " GROUP BY ym";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindValue(':school',$schoolId,PDO::PARAM_INT);
+        $stmt->bindValue(':eid',$employeeId,PDO::PARAM_INT);
+        $stmt->bindValue(':start',$start);
+        $stmt->bindValue(':end',$end);
+        if ($academicYearId) $stmt->bindValue(':ay',$academicYearId,PDO::PARAM_INT);
+
+        try { $stmt->execute(); } catch (\Throwable $_) { return []; }
+        $map = [];
+        while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) { $map[$r['ym']] = (int)$r['p']; }
+        return $map;
+    }
+
+    public function getMonthlyAttendanceForEmployee(int $schoolId, int $employeeId, ?int $academicYearId = null, ?string $employeeJoinDate = null): array {
+        $range = $this->getAcademicYearRange($academicYearId, $schoolId);
+        if (!$range['start'] || !$range['end']) return ['labels'=>[], 'datasets'=>[]];
+       
+        // Fetch joining date if caller didn't provide
+        if (!$employeeJoinDate) {
+            try {
+                $q = $this->conn->prepare("SELECT JoiningDate FROM Tx_Employees WHERE EmployeeID = :eid LIMIT 1");
+                $q->bindValue(':eid',$employeeId,PDO::PARAM_INT);
+                $q->execute();
+                $r = $q->fetch(PDO::FETCH_ASSOC);
+                $employeeJoinDate = $r['JoiningDate'] ?? null;
+            } catch (\Throwable $_) { $employeeJoinDate = null; }
+        }
+
+        $ayId = $range['academicYearId'];
+        $weeklyOffs = $ayId ? $this->getWeeklyOffs($ayId, $schoolId) : [];
+        $holidaysMap = $ayId ? $this->getHolidays($ayId, $schoolId) : [];
+
+        // Compute the months and base working days for each month
+        $computed = $this->getMonthlyWorkingDays($ayId, $schoolId);
+
+        // If employee joined after academic year start, adjust working days per month: months entirely before joining -> 0; first month partial.
+        if ($employeeJoinDate) {
+            $joinDt = new DateTime($employeeJoinDate);
+            $ayStartDt = new DateTime($range['start']);
+            // iterate months and recompute per-month working days using per-day scan but limited by join date
+            $adjustedWorking = [];
+            foreach ($computed['months'] as $i => $ym) {
+                $monthStart = new DateTime($ym . '-01');
+                $monthEnd = new DateTime($monthStart->format('Y-m-t'));
+                // determine effective day range for this month
+                $effStart = $monthStart < $joinDt ? ($joinDt > $monthEnd ? null : $joinDt) : $monthStart;
+                if ($effStart === null) { $adjustedWorking[] = 0; continue; }
+                $period = new DatePeriod(new DateTime($effStart->format('Y-m-d')), new DateInterval('P1D'), $monthEnd->modify('+1 day'));
+                $wd = 0;
+                foreach ($period as $d) {
+                    $ymd = $d->format('Y-m-d');
+                    $dow = (int)$d->format('N');
+                    // Respect explicit 'WorkingDay' entries: they override weekly offs
+                    $h = $holidaysMap[$ymd] ?? null;
+                    if ($h && (($h['type'] ?? 'Holiday') === 'WorkingDay')) { $wd++; continue; }
+                    $isOff = in_array($dow, $weeklyOffs, true);
+                    $isHoliday = $h && ($h['type'] ?? 'Holiday') === 'Holiday';
+                    if (!$isOff && !$isHoliday) $wd++;
+                }
+                $adjustedWorking[] = $wd;
+            }
+            $computed['workingDays'] = $adjustedWorking;
+        }
+
+        $attendanceMap = $this->getAttendanceCountsByMonth($schoolId, $employeeId, $range['start'], $range['end'], $ayId);
+
+        $present = array_map(function($ym) use ($attendanceMap) { return $attendanceMap[$ym] ?? 0; }, $computed['months']);
+
+        return [
+            'labels' => $computed['labels'],
+            'datasets' => [
+                [ 'label' => 'Working Days', 'data' => $computed['workingDays'], 'backgroundColor' => '#10b981' ],
+                [ 'label' => 'Present', 'data' => $present, 'backgroundColor' => '#92dbc2ff' ],
+            ]
+        ];
+    }
 }
