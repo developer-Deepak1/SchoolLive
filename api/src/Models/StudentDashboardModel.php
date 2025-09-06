@@ -1,7 +1,7 @@
 <?php
 namespace SchoolLive\Models;
 
-use PDO; use DateTime;
+use PDO; use DateTime; use DateInterval; use DatePeriod;
 
 class StudentDashboardModel extends Model {
     private function tableExists(string $table): bool {
@@ -13,15 +13,25 @@ class StudentDashboardModel extends Model {
         } catch (\Throwable $e) { return false; }
     }
 
-    public function resolveStudentIdForUser(int $schoolId, int $userId): ?int {
+    public function resolveStudentIdForUser(int $schoolId, int $studentId): ?int {
     // Only map to active student record by default
-    $sql = "SELECT StudentID FROM Tx_Students WHERE SchoolID=:school AND UserID=:user AND IFNULL(IsActive, TRUE) = 1 LIMIT 1";
+    $sql = "SELECT StudentID FROM Tx_Students WHERE SchoolID=:school AND StudentID=:sid AND IFNULL(IsActive, TRUE) = 1 LIMIT 1";
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':school',$schoolId,PDO::PARAM_INT);
-        $stmt->bindValue(':user',$userId,PDO::PARAM_INT);
+        $stmt->bindValue(':sid',$studentId,PDO::PARAM_INT);
         $stmt->execute();
         $id = $stmt->fetchColumn();
         return $id ? (int)$id : null;
+    }
+
+    public function validateStudentBelongsToSchool(int $schoolId, int $studentId): bool {
+        try {
+            $stmt = $this->conn->prepare("SELECT 1 FROM Tx_Students WHERE SchoolID=:school AND StudentID=:sid LIMIT 1");
+            $stmt->bindValue(':school',$schoolId,PDO::PARAM_INT);
+            $stmt->bindValue(':sid',$studentId,PDO::PARAM_INT);
+            $stmt->execute();
+            return (bool)$stmt->fetchColumn();
+        } catch (\Throwable $e) { return false; }
     }
 
     public function getAverageAttendance(int $schoolId, int $studentId, ?int $academicYearId): float {
@@ -37,39 +47,81 @@ class StudentDashboardModel extends Model {
     }
 
     public function getMonthlyAttendance(int $schoolId, int $studentId, ?int $academicYearId, int $months = 12): array {
-        if (!$this->tableExists('Tx_Students_Attendance')) return ['labels'=>[],'datasets'=>[]];
-        if ($months < 1) $months = 1; if ($months>24) $months=24;
-        $end = new DateTime('first day of this month');
-        $start = (clone $end)->modify('-'.($months-1).' months');
-        // Align start to student admission month if later than calculated window
-        try {
-            $admQ = $this->conn->prepare("SELECT AdmissionDate FROM Tx_Students WHERE SchoolID=:school AND StudentID=:sid LIMIT 1");
-            $admQ->bindValue(':school',$schoolId,PDO::PARAM_INT);
-            $admQ->bindValue(':sid',$studentId,PDO::PARAM_INT);
-            $admQ->execute();
-            $adDate = $admQ->fetchColumn();
-            if ($adDate) {
-                $ad = new DateTime($adDate);
-                // Normalize to first day of admission month
-                $ad->modify('first day of this month');
-                if ($ad > $start && $ad <= $end) {
-                    $start = $ad; // shrink window to admission month onward
+
+        $cal = new AcademicCalendarModel();
+        $range = $cal->getAcademicYearRange( $academicYearId, $schoolId);
+        if (!$range['start'] || !$range['end']) return ['labels'=>[],'datasets'=>[]];
+
+        $ayId = $range['academicYearId'];
+        $weeklyOffs = $ayId ? $cal->getWeeklyOffs($ayId, $schoolId) : [];
+        $holidaysMap = $ayId ? $cal->getHolidays($ayId, $schoolId) : [];
+
+            $computed = $cal->computeWorkingDaysByMonth($range['start'], $range['end'], $weeklyOffs, $holidaysMap);
+
+            // Adjust working days for admission date if present. Clamp admission to academic start when earlier.
+            try {
+                $admQ = $this->conn->prepare("SELECT AdmissionDate FROM Tx_Students WHERE SchoolID=:school AND StudentID=:sid LIMIT 1");
+                $admQ->bindValue(':school',$schoolId,PDO::PARAM_INT);
+                $admQ->bindValue(':sid',$studentId,PDO::PARAM_INT);
+                $admQ->execute();
+                $adDate = $admQ->fetchColumn();
+                if ($adDate) {
+                    $joinDt = new DateTime($adDate);
+                    $rangeStartDt = new DateTime($range['start']);
+                    if ($joinDt < $rangeStartDt) $joinDt = $rangeStartDt;
+
+                    $adjustedWorking = [];
+                    foreach ($computed['months'] as $i => $ym) {
+                        $monthStart = new DateTime($ym . '-01');
+                        $monthEnd = new DateTime($monthStart->format('Y-m-t'));
+                        $effStart = $monthStart < $joinDt ? ($joinDt > $monthEnd ? null : $joinDt) : $monthStart;
+                        if ($effStart === null) { $adjustedWorking[] = 0; continue; }
+                        $period = new DatePeriod(new DateTime($effStart->format('Y-m-d')), new DateInterval('P1D'), $monthEnd->modify('+1 day'));
+                        $wd = 0;
+                        foreach ($period as $d) {
+                            $ymd = $d->format('Y-m-d');
+                            $dow = (int)$d->format('N');
+                            $h = $holidaysMap[$ymd] ?? null;
+                            if ($h && (($h['type'] ?? 'Holiday') === 'WorkingDay')) { $wd++; continue; }
+                            $isOff = in_array($dow, $weeklyOffs, true);
+                            $isHoliday = $h && ($h['type'] ?? 'Holiday') === 'Holiday';
+                            if (!$isOff && !$isHoliday) $wd++;
+                        }
+                        $adjustedWorking[] = $wd;
+                    }
+                    $computed['workingDays'] = $adjustedWorking;
                 }
+            } catch (\Throwable $e) { /* ignore */ }
+
+            // Fetch counts of Present per month for students
+            $sql = "SELECT DATE_FORMAT(Date,'%Y-%m') ym, SUM(CASE WHEN Status='Present' THEN 1 ELSE 0 END) p
+                    FROM Tx_Students_Attendance
+                    WHERE SchoolID=:school AND StudentID=:sid AND Date >= :start AND Date <= :end" . ($ayId?" AND AcademicYearID=:ay":"") . " GROUP BY ym";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->bindValue(':school',$schoolId,PDO::PARAM_INT);
+            $stmt->bindValue(':sid',$studentId,PDO::PARAM_INT);
+            $stmt->bindValue(':start',$range['start']);
+            $stmt->bindValue(':end',$range['end']);
+            if ($ayId) $stmt->bindValue(':ay',$ayId,PDO::PARAM_INT);
+            try { $stmt->execute(); } catch (\Throwable $e) { return ['labels'=>[],'datasets'=>[]]; }
+            $map = []; while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) { $map[$r['ym']] = (int)$r['p']; }
+
+            $present = array_map(function($ym) use ($map) { return $map[$ym] ?? 0; }, $computed['months']);
+
+            $percent = [];
+            foreach ($present as $i => $p) {
+                $wd = $computed['workingDays'][$i] ?? 0;
+                $percent[] = $wd > 0 ? round($p / $wd * 100, 2) : 0;
             }
-        } catch (\Throwable $e) { /* ignore and keep original start */ }
-        $sql = "SELECT DATE_FORMAT(Date,'%Y-%m') ym, SUM(CASE WHEN Status='Present' THEN 1 ELSE 0 END) p, COUNT(*) t
-                FROM Tx_Students_Attendance
-                WHERE SchoolID=:school AND StudentID=:sid AND Date >= :start" . ($academicYearId?" AND AcademicYearID=:ay":"") . "
-                GROUP BY ym";
-        $stmt = $this->conn->prepare($sql);
-        $stmt->bindValue(':school',$schoolId,PDO::PARAM_INT);
-        $stmt->bindValue(':sid',$studentId,PDO::PARAM_INT);
-        $stmt->bindValue(':start',$start->format('Y-m-d'));
-        if ($academicYearId) $stmt->bindValue(':ay',$academicYearId,PDO::PARAM_INT);
-        try { $stmt->execute(); } catch (\Throwable $e) { return ['labels'=>[],'datasets'=>[]]; }
-        $map=[]; while($r=$stmt->fetch(PDO::FETCH_ASSOC)){ $map[$r['ym']]=['p'=>(int)$r['p'],'t'=>(int)$r['t']]; }
-        $labels=[]; $data=[]; $c=$start; while($c<=$end){ $ym=$c->format('Y-m'); $labels[]=$c->format('M'); if(isset($map[$ym])&&$map[$ym]['t']>0){ $data[]=round($map[$ym]['p']/$map[$ym]['t']*100,2);} else { $data[]=0;} $c->modify('+1 month'); }
-        return [ 'labels'=>$labels, 'datasets'=>[[ 'label'=>'Attendance %','data'=>$data,'borderColor'=>'#6366f1','backgroundColor'=>'rgba(99,102,241,0.15)','tension'=>0.35,'fill'=>true,'pointRadius'=>3 ]] ];
+
+            return [
+                'labels' => $computed['labels'],
+                'datasets' => [
+                    [ 'label' => 'Working Days', 'data' => $computed['workingDays'], 'backgroundColor' => '#94a3b8' ],
+                    [ 'label' => 'Present', 'data' => $present, 'backgroundColor' => '#10b981' ],
+                    [ 'label' => 'Attendance %', 'data' => $percent, 'borderColor' => '#6366f1', 'backgroundColor' => 'rgba(99,102,241,0.15)', 'tension' => 0.35, 'fill' => true, 'pointRadius' => 3 ]
+                ]
+            ];
     }
 
     public function getGradeDistribution(int $schoolId, int $studentId, ?int $academicYearId): array {

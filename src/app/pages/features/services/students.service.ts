@@ -12,6 +12,8 @@ export class StudentsService {
   private baseUrl = `${environment.baseURL.replace(/\/+$/,'')}/api/students`;
   private academicBase = `${environment.baseURL.replace(/\/+$/,'')}/api/academic`;
   private studentDashboard = `${environment.baseURL.replace(/\/+$/,'')}/api/dashboard/student`;
+  private studentDashboardMonthly = `${environment.baseURL.replace(/\/+$/,'')}/api/dashboard/student/monthlyAttendance`;
+  private dashboardSummary = `${environment.baseURL.replace(/\/+$/,'')}/api/dashboard/summary`;
 
   getStudents(filters: { class_id?: number; section_id?: number; status?: string; search?: string } = {}): Observable<Student[]> {
     let params = new HttpParams();
@@ -50,8 +52,14 @@ export class StudentsService {
     return this.http.get<any>(`${this.baseUrl}/${id}`).pipe(map(res => res?.data || null));
   }
 
-  // Fetch monthly attendance for a specific student (re-using student dashboard endpoint, ignoring student id mismatch if viewing different student)
-  getStudentMonthlyAttendance(): Observable<{ labels: string[]; datasets: any[] }> {
-    return this.http.get<any>(this.studentDashboard).pipe(map(res => res?.data?.charts?.monthlyAttendance || { labels: [], datasets: [] }));
+  // Primary: fetch student-specific monthly attendance from student dashboard endpoint
+  getStudentMonthlyAttendance(studentId: number): Observable<{ labels: string[]; datasets: any[] }> {
+    const params = new HttpParams().set('student_id', String(studentId));
+    return this.http.get<any>(this.studentDashboardMonthly, { params }).pipe(map(res => res?.data?.charts?.monthlyAttendance || { labels: [], datasets: [] }));
+  }
+
+  // Backward-compatible fallback: use dashboard summary monthlyAttendance chart when a specific API is not available
+  getStudentMonthlyAttendanceFallback(): Observable<{ labels: string[]; datasets: any[] }> {
+    return this.http.get<any>(this.dashboardSummary).pipe(map(res => res?.data?.charts?.monthlyAttendance || { labels: [], datasets: [] }));
   }
 }

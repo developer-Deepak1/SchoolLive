@@ -13,96 +13,14 @@ import { SkeletonModule } from 'primeng/skeleton';
 import { RippleModule } from 'primeng/ripple';
 import { Employee } from '../../model/employee.model';
 import { BaseChartDirective } from 'ng2-charts';
-import { ChartConfiguration, ChartOptions } from 'chart.js';
+import { ChartConfiguration, ChartOptions, Chart, Plugin } from 'chart.js';
 
 @Component({
   selector: 'app-employee-profile',
   standalone: true,
   imports: [CommonModule, CardModule, ButtonModule, ToastModule, TagModule, DividerModule, AvatarModule, SkeletonModule, RippleModule, BaseChartDirective],
   providers: [EmployeesService, MessageService],
-  template: `
-    <p-toast />
-    <div class="flex flex-wrap items-center gap-3 mb-1">
-      <button pButton pRipple type="button" label="Back" icon="pi pi-arrow-left" class="p-button-text" (click)="back()"></button>
-    </div>
-    <h2 class="page-title">Employee Profile</h2>
-
-    <ng-container *ngIf="employee(); else skeletonTpl">
-      <div class="profile-wrapper">
-        <p-card class="profile-hero">
-          <div class="hero-grid">
-            <div class="hero-avatar">
-              <p-avatar *ngIf="employee()!.EmployeeName; else fallbackIcon" [label]="initials(employee()!.EmployeeName)" size="xlarge" shape="circle" styleClass="surface-0 text-primary font-semibold text-lg shadow-2" ></p-avatar>
-              <ng-template #fallbackIcon>
-                <p-avatar icon="pi pi-user" size="xlarge" shape="circle" styleClass="shadow-2" />
-              </ng-template>
-            </div>
-            <div class="hero-main">
-              <div class="hero-name">{{employee()!.EmployeeName}}</div>
-              <div class="hero-sub">ID: {{employee()!.EmployeeID}}</div>
-              <div class="hero-meta flex gap-2 mt-2 items-center">
-                <p-tag *ngIf="employee()!.Status" [severity]="statusSeverity(employee()!.Status)" [value]="employee()!.Status"></p-tag>
-                <p-tag *ngIf="employee()!.RoleName" severity="info" [value]="employee()!.RoleName"></p-tag>
-              </div>
-            </div>
-            <div class="hero-actions">
-              <button pButton pRipple icon="pi pi-pencil" label="Edit" (click)="edit()"></button>
-            </div>
-          </div>
-        </p-card>
-
-        <div class="grid info-grid three">
-          <p-card header="Identity" class="panel">
-            <div class="kv">
-              <div class="row"><span>Username</span><strong>{{employee()!.Username || '-'}}</strong></div>
-              <div class="row"><span>Name</span><strong>{{employee()!.EmployeeName || '-'}}</strong></div>
-              <div class="row"><span>Gender</span><strong>{{employee()!.Gender || '-'}}</strong></div>
-              <div class="row"><span>DOB</span><strong>{{employee()!.DOB ? (employee()!.DOB | date:'dd-MMM-yyyy') : '-'}}</strong></div>
-            </div>
-          </p-card>
-
-          <p-card header="Employment" class="panel">
-            <div class="kv">
-              <div class="row"><span>Role</span><strong>{{employee()!.RoleName || '-'}}</strong></div>
-              <div class="row"><span>Joining</span><strong>{{employee()!.JoiningDate ? (employee()!.JoiningDate | date:'dd-MMM-yyyy') : '-'}}</strong></div>
-              <div class="row"><span>Salary</span><strong>{{employee()!.Salary ? (employee()!.Salary | currency) : '-'}}</strong></div>
-              <div class="row"><span>Status</span><strong>{{employee()!.Status || '-'}}</strong></div>
-            </div>
-          </p-card>
-
-          <p-card header="Contact" class="panel">
-            <div class="kv">
-              <div class="row"><span>Contact</span><strong>{{employee()!.ContactNumber || '-'}}</strong></div>
-              <div class="row"><span>Email</span><strong>{{employee()!.EmailID || '-'}}</strong></div>
-            </div>
-          </p-card>
-        </div>
-        <div class="attendance-row">
-          <p-card header="Monthly Attendance %">
-            <div class="chart-wrapper">
-              <canvas baseChart
-                [data]="attendanceLineData"
-                [options]="attendanceLineOptions"
-                type="line"></canvas>
-            </div>
-          </p-card>
-        </div>
-      </div>
-    </ng-container>
-
-    <ng-template #skeletonTpl>
-      <div class="grid md:grid-cols-3 gap-4">
-        <p-card *ngFor="let i of [0,1,2,3]">
-          <div class="flex flex-col gap-2">
-            <p-skeleton width="60%" height="1.2rem"></p-skeleton>
-            <p-skeleton width="80%" height="0.9rem"></p-skeleton>
-            <p-skeleton width="50%" height="0.9rem"></p-skeleton>
-            <p-skeleton width="70%" height="0.9rem"></p-skeleton>
-          </div>
-        </p-card>
-      </div>
-    </ng-template>
-  `,
+  templateUrl: './employee-profile.html',
   styles: [`
     :host { display:block; }
     .profile-wrapper { display:flex; flex-direction:column; gap:1.5rem; background:#ffffff; padding:1rem 1.25rem 1.5rem; border-radius:12px; box-shadow:0 2px 8px -2px rgba(0,0,0,.08),0 4px 16px -4px rgba(0,0,0,.06); }
@@ -127,29 +45,89 @@ import { ChartConfiguration, ChartOptions } from 'chart.js';
       .hero-grid { grid-template-columns: 1fr; text-align:center; }
       .hero-actions { justify-self:center; }
     }
+  .chart-wrapper { height: 320px; width:100%; }
+  @media (max-width: 640px) { .chart-wrapper { height: 220px; } }
   `]
 })
 export class EmployeeProfile implements OnInit {
   employee = signal<Employee | null>(null);
+  loading = signal<boolean>(true);
   attendanceLineData: ChartConfiguration<'line'>['data'] = { labels: [], datasets: [] };
+  // summary array: { month: string, workingDays: number, present: number, percent: number }
+  attendanceSummary = signal<Array<{ month: string; workingDays: number; present: number; percent: number }>>([]);
   attendanceLineOptions: ChartOptions<'line'> = {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: { legend: { display: true }, title: { display: false } },
-    scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: '%' } } }
+  plugins: { legend: { display: true }, title: { display: false } },
+    scales: {
+      counts: { // left axis for raw counts (hidden labels/ticks)
+        type: 'linear',
+        position: 'left',
+        beginAtZero: true,
+        display: false,
+        title: { display: false }
+      },
+      percent: { // right axis for percentage 0-100
+        type: 'linear',
+        position: 'right',
+        beginAtZero: true,
+        max: 100,
+        grid: { drawOnChartArea: false },
+        title: { display: true, text: '%' }
+      }
+    }
   };
   constructor(private route: ActivatedRoute, private router: Router, private employees: EmployeesService, private msg: MessageService) {}
 
+  // Register a tiny plugin to draw value labels above bars
+  private static _dataLabelPluginRegistered = false;
+
+  private ensureDataLabelPlugin() {
+    if ((EmployeeProfile as any)._dataLabelPluginRegistered) return;
+    const dataLabelPlugin: Plugin<'bar'|'line'> = {
+      id: 'barValueLabels',
+      afterDatasetsDraw: (chart) => {
+        const ctx = chart.ctx;
+        chart.data.datasets.forEach((dataset, dsIndex) => {
+          const meta = chart.getDatasetMeta(dsIndex);
+          if (!meta || meta.type !== 'bar') return;
+          meta.data.forEach((elem: any, index: number) => {
+            const v = dataset.data[index];
+            if (v === null || v === undefined) return;
+            const x = elem.x; // center of bar
+            const y = elem.y; // top of bar
+            ctx.save();
+            ctx.fillStyle = '#374151'; // slate-700
+            ctx.font = '12px system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(String(v), x, y - 4);
+            ctx.restore();
+          });
+        });
+      }
+    };
+    try { Chart.register(dataLabelPlugin); (EmployeeProfile as any)._dataLabelPluginRegistered = true; } catch (e) { /* ignore */ }
+  }
+
   ngOnInit(): void {
+  this.ensureDataLabelPlugin();
     const idParam = this.route.snapshot.queryParamMap.get('id') || this.route.snapshot.paramMap.get('id');
     const id = idParam ? Number(idParam) : NaN;
     if (!id) { this.msg.add({severity:'error', summary:'Error', detail:'Invalid employee id'}); return; }
-    this.employees.getEmployee(id).subscribe({ next: (s:any) => { this.employee.set(s); this.loadAttendance(); }, error: () => this.msg.add({severity:'error', summary:'Error', detail:'Failed to load'}) });
+    this.loading.set(true);
+    this.employees.getEmployee(id).subscribe({
+      next: (s:any) => { this.employee.set(s); this.loading.set(false); if (s) this.loadAttendance(); },
+      error: () => { this.loading.set(false); this.msg.add({severity:'error', summary:'Error', detail:'Failed to load'}); }
+    });
   }
 
   loadAttendance() {
     const emp = this.employee();
-    this.employees.getEmployeeMonthlyAttendance().subscribe({
+  // Prefer employee-specific monthly attendance endpoint
+  const empId = emp?.EmployeeID ?? 0;
+  const attendance$ = empId ? this.employees.getEmployeeMonthlyAttendance(empId) : this.employees.getEmployeeMonthlyAttendanceFallback();
+  attendance$.subscribe({
       next: (chart: any) => {
         if (chart?.labels && chart?.datasets && chart.labels.length) {
           const total = chart.labels.length;
@@ -168,20 +146,70 @@ export class EmployeeProfile implements OnInit {
               chart.datasets = chart.datasets.map((ds: any) => ({ ...ds, data: ds.data.slice(firstIdx) }));
             }
           }
-          chart.datasets = chart.datasets.map((d: any) => ({
-            ...d,
-            borderColor: d.borderColor || 'var(--primary-color)',
-            backgroundColor: d.backgroundColor || 'rgba(99,102,241,0.15)',
-            tension: d.tension ?? 0.35,
-            fill: true,
-            pointRadius: d.pointRadius ?? 3
-          }));
+          // remove any percentage/attendance datasets so chart shows only absolute counts
+          chart.datasets = (chart.datasets || []).filter((d: any) => {
+            const lbl = (d.label || '').toString().toLowerCase();
+            return !(lbl.includes('%') || lbl.includes('attendance'));
+          }).map((d: any) => {
+            const label = ((d.label || '') + '').toLowerCase();
+            // Friendly palette: workingDays -> slate, present -> teal, percent -> indigo
+            let border = d.borderColor || 'var(--primary-color)';
+            let bg = d.backgroundColor || 'rgba(99,102,241,0.15)';
+            if (label.includes('working')) { border = d.borderColor || '#6b7280'; bg = d.backgroundColor || 'rgba(107,114,128,0.12)'; }
+            else if (label.includes('present')) { border = d.borderColor || '#059669'; bg = d.backgroundColor || 'rgba(5,150,105,0.12)'; }
+            else if (label.includes('%') || label.includes('attendance')) { border = d.borderColor || '#4f46e5'; bg = d.backgroundColor || 'rgba(79,70,229,0.12)'; }
+
+            // counts render as bars on the left axis
+            const yAxisId = 'counts';
+            const base: any = {
+              ...d,
+              borderColor: border,
+              backgroundColor: bg,
+              yAxisID: yAxisId
+            };
+            // make counts render as bars
+            base.type = 'bar';
+            base.barThickness = d.barThickness ?? 'flex';
+            base.borderWidth = d.borderWidth ?? 0;
+            return base;
+          });
+          // compute a sensible max for the left counts axis based on available datasets
+          try {
+            const numericDatasets = (chart.datasets || []).filter((d: any) => { const lbl = (d.label||'').toString().toLowerCase(); return !(lbl.includes('%') || lbl.includes('attendance')); });
+            const maxVal = numericDatasets.reduce((acc: number, ds: any) => {
+              const localMax = (ds.data || []).reduce((a: number, v: any) => Math.max(a, Number(v || 0)), 0);
+              return Math.max(acc, localMax);
+            }, 0);
+            // set a small buffer above max (e.g., +1 or 10% whichever larger)
+            const buffer = Math.max(1, Math.ceil(maxVal * 0.1));
+            const suggestedMax = maxVal > 0 ? maxVal + buffer : undefined;
+            if (!this.attendanceLineOptions.scales) this.attendanceLineOptions.scales = {} as any;
+            // keep only counts axis
+            (this.attendanceLineOptions.scales as any).counts = { ...(this.attendanceLineOptions.scales as any).counts, max: suggestedMax };
+          } catch (e) { /* ignore */ }
+          // remove percent axis from options entirely
+          if (this.attendanceLineOptions.scales && (this.attendanceLineOptions.scales as any).percent) delete (this.attendanceLineOptions.scales as any).percent;
           this.attendanceLineData = chart;
+          // build a simple summary mapping for the UI
+          try {
+            const labels: string[] = chart.labels || [];
+            const ds = chart.datasets || [];
+            // heuristics: find dataset named 'workingDays' and 'present' (or use first dataset as present)
+            const workingDs = ds.find((d: any) => (d.label || '').toString().toLowerCase().includes('working'));
+            const presentDs = ds.find((d: any) => (d.label || '').toString().toLowerCase().includes('present')) || ds[0];
+            const summary = labels.map((lab: any, idx: number) => {
+              const working = workingDs ? Number(workingDs.data[idx] ?? 0) : 0;
+              const present = presentDs ? Number(presentDs.data[idx] ?? 0) : 0;
+              const percent = working > 0 ? Math.round((present / working) * 100) : 0;
+              return { month: lab?.toString() || '', workingDays: working, present, percent };
+            });
+            this.attendanceSummary.set(summary);
+          } catch (e) { this.attendanceSummary.set([]); }
         } else {
           this.attendanceLineData = { labels: [], datasets: [] };
         }
       },
-      error: () => { this.attendanceLineData = { labels: [], datasets: [] }; }
+  error: () => { this.attendanceLineData = { labels: [], datasets: [] }; }
     });
   }
 
@@ -199,5 +227,17 @@ export class EmployeeProfile implements OnInit {
 
   initials(name: string) {
     return name.split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join('');
+  }
+
+  // compute display name from first/middle/last if present, fallback to EmployeeName
+  displayName(): string {
+    const e = this.employee();
+    if (!e) return '';
+    const parts: string[] = [];
+    if ((e as any).FirstName) parts.push((e as any).FirstName);
+    if ((e as any).MiddleName) parts.push((e as any).MiddleName);
+    if ((e as any).LastName) parts.push((e as any).LastName);
+    const joined = parts.join(' ').trim();
+    return joined || (e.EmployeeName || '');
   }
 }
