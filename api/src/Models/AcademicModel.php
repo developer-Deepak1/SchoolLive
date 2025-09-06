@@ -318,11 +318,6 @@ class AcademicModel extends Model {
         $existing = $check->fetch();
 
         if ($existing && isset($existing['HolidayID'])) {
-            // If an existing entry is explicitly marked as a WorkingDay, do not overwrite it with a Holiday
-                if (($existing['Type'] ?? null) === 'WorkingDay' && (($type ?? null) !== 'WorkingDay')) {
-                    // preserve explicit working-day designation; no DB changes made so no recompute
-                    return $existing['HolidayID'];
-                }
                 // Update existing row and set IsActive = 1 (reactivate) and update fields
                 $updSql = "UPDATE Tx_Holidays SET Title = :title, Type = :type, IsActive = 1, UpdatedAt = :updated";
                 $params = [':title' => $title, ':type' => $type, ':updated' => $now, ':id' => $existing['HolidayID'], ':school' => $school];
