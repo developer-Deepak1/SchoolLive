@@ -552,7 +552,7 @@ export class AcademicCalander implements OnInit,OnDestroy  {
         const labels = res.labels ?? (res.months ? res.months.map((m: string) => (new Date(m + '-01')).toLocaleString(undefined, { month: 'short' })) : []);
         const data = res.workingDays ?? (res.datasets && res.datasets[0] ? res.datasets[0].data : []);
         if (labels && data) {
-          this.barChartData = { labels, datasets: [{ data, label: 'Working Days' }] };
+          this.barChartData = { labels, datasets: [{ data, label: 'Working Days', backgroundColor: '#10b981' }] };
         }
       }, error: (err) => { console.error('Failed to load monthly working days', err); }
     });
@@ -576,7 +576,7 @@ export class AcademicCalander implements OnInit,OnDestroy  {
   }
   // Chart: monthly working days for selected academic year
   public barChartType: ChartType = 'bar';
-  public barChartData: ChartData<'bar'> = { labels: [], datasets: [{ data: [], label: 'Working Days' }] };
+  public barChartData: ChartData<'bar'> = { labels: [], datasets: [{ data: [], label: 'Working Days', backgroundColor: '#10b981' }] };
   public barChartOptions: ChartConfiguration['options'] = {
     responsive: true,
     maintainAspectRatio: false,
