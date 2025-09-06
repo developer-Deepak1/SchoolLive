@@ -1,5 +1,7 @@
 import { Component, OnInit } from '@angular/core';
+import { ChartConfiguration, ChartData, ChartType } from 'chart.js';
 import { CommonModule } from '@angular/common';
+import { BaseChartDirective } from 'ng2-charts';
 import { TableModule } from 'primeng/table';
 import { CardModule } from 'primeng/card';
 import { ButtonModule } from 'primeng/button';
@@ -19,13 +21,16 @@ import { AcademicCalendarService } from '../services/academic-calendar.service';
   standalone: true,
   imports: [
     CommonModule,
+    BaseChartDirective,
     TableModule,
-  CardModule,
+    // charts
+    // ng2-charts provides ChartDirective via standalone import when needed in template
+    CardModule,
     ButtonModule,
     SelectModule,
-  DatePickerModule,
-  ToastModule,
-  ConfirmDialogModule,
+    DatePickerModule,
+    ToastModule,
+    ConfirmDialogModule,
     InputTextModule,
     FormsModule
   ],
@@ -34,7 +39,7 @@ import { AcademicCalendarService } from '../services/academic-calendar.service';
   styleUrls: ['./academic-calander.scss']
 })
 export class AcademicCalander implements OnInit {
- // Academic Years
+  // Academic Years
   academicYears: any[] = [];
   selectedAcademicYear: any = null;
 
@@ -43,7 +48,7 @@ export class AcademicCalander implements OnInit {
     private calendarService: AcademicCalendarService,
     private msg: MessageService,
     private confirmationService: ConfirmationService
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.loadAcademicYears();
@@ -80,16 +85,16 @@ export class AcademicCalander implements OnInit {
   }
 
   onAcademicYearChange(e: any) {
-  this.selectedAcademicYear = e;
-  // update cached bounds for datepicker
-  this.setAcademicYearBounds(e?.value || e);
-  // Reset holiday add/edit form when user switches academic year
-  this.cancelEditHoliday();
-  // Reload year-specific data
-  this.loadWeeklyOffs();
-  this.loadHolidays();
+    this.selectedAcademicYear = e;
+    // update cached bounds for datepicker
+    this.setAcademicYearBounds(e?.value || e);
+    // Reset holiday add/edit form when user switches academic year
+    this.cancelEditHoliday();
+    // Reload year-specific data
+    this.loadWeeklyOffs();
+    this.loadHolidays();
   }
- // Weekly Off
+  // Weekly Off
   daysOfWeek = [
     { label: 'Monday', value: 1 },
     { label: 'Tuesday', value: 2 },
@@ -112,8 +117,8 @@ export class AcademicCalander implements OnInit {
       this.weeklyOffSet.add(val);
       this.weeklyOffs.push(day);
     }
-  // update server-side selection
-  this.saveWeeklyOffs();
+    // update server-side selection
+    this.saveWeeklyOffs();
   }
 
   isDayOff(day: any) {
@@ -123,7 +128,7 @@ export class AcademicCalander implements OnInit {
   removeWeeklyOff(off: any) {
     this.weeklyOffSet.delete(off.value);
     this.weeklyOffs = this.weeklyOffs.filter(o => o.value !== off.value);
-  this.saveWeeklyOffs();
+    this.saveWeeklyOffs();
   }
 
   // Holidays
@@ -217,10 +222,10 @@ export class AcademicCalander implements OnInit {
   }
 
   cancelEditHoliday() {
-  this.editingHoliday = null;
-  this.holidayDate = null;
-  this.holidayTitle = '';
-  this.holidayType = null;
+    this.editingHoliday = null;
+    this.holidayDate = null;
+    this.holidayTitle = '';
+    this.holidayType = null;
   }
 
   saveEditHoliday() {
@@ -257,7 +262,7 @@ export class AcademicCalander implements OnInit {
       if (typeof rawDate === 'string') {
         date = rawDate.split('T')[0].split(' ')[0];
       } else {
-        try { date = toLocalYMDIST(new Date(rawDate)); } catch(e) { date = String(rawDate); }
+        try { date = toLocalYMDIST(new Date(rawDate)); } catch (e) { date = String(rawDate); }
       }
     }
     const title = h.Title ?? h.title ?? '';
@@ -316,8 +321,8 @@ export class AcademicCalander implements OnInit {
         if (min && endDate < min) { this.msg.add({ severity: 'warn', summary: 'Invalid Date', detail: `End date must be on or after ${min.toISOString().split('T')[0]}` }); return; }
         if (max && endDate > max) { this.msg.add({ severity: 'warn', summary: 'Invalid Date', detail: `End date must be on or before ${max.toISOString().split('T')[0]}` }); return; }
 
-  const formattedStart = toLocalYMDIST(pickedDate);
-  const formattedEnd = toLocalYMDIST(endDate);
+        const formattedStart = toLocalYMDIST(pickedDate);
+        const formattedEnd = toLocalYMDIST(endDate);
         const payloadRange = {
           AcademicYearID: this.selectedAcademicYear?.value?.AcademicYearID || null,
           StartDate: formattedStart,
@@ -331,11 +336,11 @@ export class AcademicCalander implements OnInit {
             if (res && res.success) {
               const created = res.data?.createdDates?.length ?? 0;
               const skipped = res.data?.skippedDates?.length ?? 0;
-              this.showToast('success','Range created', `${created} created, ${skipped} skipped`);
+              this.showToast('success', 'Range created', `${created} created, ${skipped} skipped`);
               this.loadHolidays();
             } else {
               const detail = res?.message ?? 'Unexpected server response';
-              this.showToast('warn','Range create', detail);
+              this.showToast('warn', 'Range create', detail);
             }
             // reset form
             this.holidayDate = null; this.holidayEndDate = null; this.holidayTitle = ''; this.holidayType = null; this.rangePreview = [];
@@ -343,7 +348,7 @@ export class AcademicCalander implements OnInit {
           error: (err: any) => {
             console.error('Create holiday range failed', err);
             const detail = err?.error?.message ?? err?.message ?? 'Server error';
-            this.showToast('error','Range create failed', detail, 6000);
+            this.showToast('error', 'Range create failed', detail, 6000);
             // reset form even on error to avoid stale input
             this.holidayDate = null;
             this.holidayEndDate = null;
@@ -357,7 +362,7 @@ export class AcademicCalander implements OnInit {
         return;
       }
 
-  const formattedDate = toLocalYMDIST(pickedDate) || (typeof this.holidayDate === 'string' ? this.holidayDate.split('T')[0] : null);
+      const formattedDate = toLocalYMDIST(pickedDate) || (typeof this.holidayDate === 'string' ? this.holidayDate.split('T')[0] : null);
       const payload = {
         AcademicYearID: this.selectedAcademicYear?.value?.AcademicYearID || null,
         Date: formattedDate,
@@ -409,7 +414,7 @@ export class AcademicCalander implements OnInit {
             if (res && res.success && res.data) {
               if (res.data && (res.data.HolidayID || res.data.id)) {
                 const norm = this.normalizeHoliday(res.data);
-                if (norm) this.holidays = [ ...this.holidays, norm ];
+                if (norm) this.holidays = [...this.holidays, norm];
               } else {
                 this.loadHolidays();
               }
@@ -491,6 +496,8 @@ export class AcademicCalander implements OnInit {
           this.weeklyOffs.push({ label, value: val });
           this.weeklyOffSet.add(val);
         });
+        // recompute chart after weekly offs change
+        try { this.computeMonthlyWorkingDays(); } catch (e) { console.error('computeMonthlyWorkingDays failed', e); }
       },
       error: (err) => { console.error('Failed to load weekly offs', err); }
     });
@@ -503,25 +510,29 @@ export class AcademicCalander implements OnInit {
     this.calendarService.setWeeklyOffs(ay, days).subscribe({
       next: (ok) => {
         if (ok) {
-          this.showToast('success','Weekly Offs','Weekly offs updated');
+          this.showToast('success', 'Weekly Offs', 'Weekly offs updated');
         } else {
           // service maps to boolean; inform user that server responded negatively
-          this.showToast('warn','Weekly Offs','Server did not confirm update');
+          this.showToast('warn', 'Weekly Offs', 'Server did not confirm update');
         }
       },
       error: (err) => {
         console.error('Failed to save weekly offs', err);
         const detail = err?.error?.message ?? err?.message ?? 'Server error';
-        this.showToast('error','Weekly Offs save failed', detail, 6000);
+        this.showToast('error', 'Weekly Offs save failed', detail, 6000);
       }
     });
   }
 
   loadHolidays() {
     const ay = this.selectedAcademicYear?.value?.AcademicYearID;
-    this.calendarService.getHolidays(ay).subscribe({ next: (data: any[]) => {
+    this.calendarService.getHolidays(ay).subscribe({
+      next: (data: any[]) => {
         this.holidays = (data || []).map(d => this.normalizeHoliday(d)).filter(x => x !== null);
-      }, error: (err) => console.error('Failed to load holidays', err) });
+        // recompute chart after holidays change
+        try { this.computeMonthlyWorkingDays(); } catch (e) { console.error('computeMonthlyWorkingDays failed', e); }
+      }, error: (err) => console.error('Failed to load holidays', err)
+    });
   }
 
   loadWeeklyReport(start: string, end: string) {
@@ -544,6 +555,97 @@ export class AcademicCalander implements OnInit {
       // Fallback log if MessageService is not available for some reason
       console.error('showToast failed', e, { severity, summary, detail, life });
     }
+  }
+  // Chart: monthly working days for selected academic year
+  public barChartType: ChartType = 'bar';
+  public barChartData: ChartData<'bar'> = { labels: [], datasets: [{ data: [], label: 'Working Days' }] };
+  public barChartOptions: ChartConfiguration['options'] = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false }
+    }
+    ,
+    scales: {
+      // hide default left axis (counts)
+      y: { display: false },
+      x: { display: true }
+    }
+  };
+
+
+  // Compute working days per month based on academic year bounds, weekly offs and holidays
+  computeMonthlyWorkingDays() {
+    const ay = this.selectedAcademicYear?.value;
+    if (!ay) {
+      this.barChartData = { labels: [], datasets: [{ data: [], label: 'Working Days' }] };
+      return;
+    }
+
+    const start = this.minHolidayDate;
+    const end = this.maxHolidayDate;
+    if (!start || !end) return;
+
+    // Prepare a set of holiday dates (strings YYYY-MM-DD) that are holidays (type !== 'WorkingDay')
+    const holidaySet = new Set<string>();
+    const workingDayOverrides = new Set<string>();
+    this.holidays.forEach(h => {
+      if (!h || !h.date) return;
+      if (String(h.type).toLowerCase() === 'workingday') {
+        workingDayOverrides.add(h.date);
+      } else {
+        holidaySet.add(h.date);
+      }
+    });
+
+    // Weekly offs set contains numeric day-of-week values where 1=Monday .. 7=Sunday
+    const weeklyOffs = new Set<number>(Array.from(this.weeklyOffSet));
+
+    // iterate days and count working days per month
+    const labels: string[] = [];
+    const counts: number[] = [];
+
+    // build month buckets from start to end
+    const cur = new Date(start.getFullYear(), start.getMonth(), 1);
+    const last = new Date(end.getFullYear(), end.getMonth(), 1);
+    while (cur <= last) {
+      const mLabel = cur.toLocaleString(undefined, { month: 'short', year: 'numeric' });
+      labels.push(mLabel);
+      counts.push(0);
+      cur.setMonth(cur.getMonth() + 1);
+    }
+
+    // iterate each day between start and end
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      // local date string YYYY-MM-DD
+      const y = d.getFullYear();
+      const m = d.getMonth();
+      const dd = ('0' + d.getDate()).slice(-2);
+      const mm = ('0' + (m + 1)).slice(-2);
+      const key = `${y}-${mm}-${dd}`;
+
+      // check if explicitly marked as WorkingDay
+      if (workingDayOverrides.has(key)) {
+        // count as working day
+      } else {
+        // if holiday, skip
+        if (holidaySet.has(key)) continue;
+        // check weekly off
+        // JS: getDay() returns 0=Sun .. 6=Sat; map to 1..7 where Monday=1
+        const jsDay = d.getDay();
+        const normalized = jsDay === 0 ? 7 : jsDay; // Sunday => 7
+        if (weeklyOffs.has(normalized)) continue;
+      }
+
+      // increment appropriate month bucket
+      const bucketIndex = labels.findIndex(l => l.includes(d.toLocaleString(undefined, { month: 'short' })) && l.includes(String(d.getFullYear())));
+      if (bucketIndex >= 0) counts[bucketIndex] += 1;
+    }
+
+    this.barChartData = {
+      labels,
+      datasets: [{ data: counts, label: 'Working Days' }]
+    };
   }
   // Compute and cache min/max date bounds for the currently selected academic year
   private setAcademicYearBounds(yearObj: any) {
