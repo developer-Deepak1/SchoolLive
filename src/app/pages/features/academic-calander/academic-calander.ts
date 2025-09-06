@@ -25,15 +25,32 @@ Chart.register({
       const meta = chart.getDatasetMeta(i);
       if (!meta || !meta.data) return;
       meta.data.forEach((bar: any, index: number) => {
-        const data = dataset.data[index];
-        if (data === null || data === undefined) return;
+        const value = dataset.data[index];
+        if (value === null || value === undefined) return;
+        // bar dimensions
+        const barTop = Math.min(bar.y, bar.base || 0);
+        const barBottom = Math.max(bar.y, bar.base || 0);
+        const barHeight = Math.abs(barBottom - barTop);
         const x = bar.x;
-        const y = bar.y - 6;
+        // choose inside vs above depending on available space
+        const padding = 6;
         ctx.save();
         ctx.font = '600 12px sans-serif';
-        ctx.fillStyle = '#111827';
         ctx.textAlign = 'center';
-        ctx.fillText(String(data), x, y);
+        const text = String(value);
+        const textMetrics = ctx.measureText(text);
+        const textHeight = (textMetrics.actualBoundingBoxAscent || 8) + (textMetrics.actualBoundingBoxDescent || 2);
+        if (barHeight > textHeight + padding * 2) {
+          // draw inside bar (centered vertically) with contrasting color
+          const y = barTop + textHeight + padding;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(text, x, y);
+        } else {
+          // draw above the bar with dark color
+          const y = barTop - padding;
+          ctx.fillStyle = '#111827';
+          ctx.fillText(text, x, y);
+        }
         ctx.restore();
       });
     });
