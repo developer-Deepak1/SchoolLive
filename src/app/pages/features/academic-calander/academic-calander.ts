@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { ChartConfiguration, ChartData, ChartType, Chart } from 'chart.js';
 import { CommonModule } from '@angular/common';
 import { BaseChartDirective } from 'ng2-charts';
@@ -62,7 +62,7 @@ Chart.register({
   templateUrl: './academic-calander.html',
   styleUrls: ['./academic-calander.scss']
 })
-export class AcademicCalander implements OnInit {
+export class AcademicCalander implements OnInit,OnDestroy  {
   // Academic Years
   academicYears: any[] = [];
   selectedAcademicYear: any = null;
@@ -93,6 +93,7 @@ export class AcademicCalander implements OnInit {
           // load year-specific data
           this.loadWeeklyOffs();
           this.loadHolidays();
+          this.loadMonthlyWorkingDays();
         }
       },
       error: (err) => {
@@ -107,7 +108,7 @@ export class AcademicCalander implements OnInit {
     this.cancelEditHoliday();
     this.loadWeeklyOffs();
     this.loadHolidays();
-    this.scheduleLoadMonthlyWorkingDays();
+    this.loadMonthlyWorkingDays();
   }
   // Weekly Off
   daysOfWeek = [
@@ -382,6 +383,7 @@ export class AcademicCalander implements OnInit {
               this.loadHolidays();
             }
             this.cancelEditHoliday();
+            this.loadMonthlyWorkingDays();
           },
           error: (err) => {
             console.error('Update holiday failed', err);
@@ -402,7 +404,6 @@ export class AcademicCalander implements OnInit {
               } else {
                   this.loadHolidays();
                 // refresh chart after server-created entries
-                this.scheduleLoadMonthlyWorkingDays();
               }
               this.msg.add({ severity: 'success', summary: 'Created', detail: (res && res.message) ? res.message : 'Holiday created' });
             } else {
@@ -411,8 +412,8 @@ export class AcademicCalander implements OnInit {
               const detail = (res && res.message) ? res.message : 'Unexpected response from server';
               this.msg.add({ severity: 'warn', summary: 'Notice', detail });
               // ensure chart refresh even on unusual responses
-              this.scheduleLoadMonthlyWorkingDays();
             }
+            this.loadMonthlyWorkingDays();
           },
           error: (err) => {
             console.error('Create holiday failed', err);
@@ -421,7 +422,7 @@ export class AcademicCalander implements OnInit {
             const detail = err?.error?.message ?? err?.message ?? 'Server error';
             this.msg.add({ severity: 'error', summary: 'Create failed', detail });
             // attempt chart refresh after error (server may have partial changes)
-            this.scheduleLoadMonthlyWorkingDays();
+            this.loadMonthlyWorkingDays();
           }
         });
         this.holidayDate = null;
@@ -463,7 +464,7 @@ export class AcademicCalander implements OnInit {
       accept: () => {
         if (id) {
           this.calendarService.deleteHoliday(id).subscribe({
-            next: (res) => { this.msg.add({ severity: 'success', summary: 'Deleted', detail: (res && res.message) ? res.message : 'Holiday deleted' }); this.loadHolidays(); },
+            next: (res) => { this.msg.add({ severity: 'success', summary: 'Deleted', detail: (res && res.message) ? res.message : 'Holiday deleted' }); this.loadHolidays(); this.loadMonthlyWorkingDays();},
             error: (err) => { console.error('Delete holiday failed', err); this.holidays = this.holidays.filter(x => x !== h); const detail = err?.error?.message ?? err?.message ?? 'Server error'; this.msg.add({ severity: 'error', summary: 'Delete failed', detail }); }
           });
         } else {
@@ -486,8 +487,6 @@ export class AcademicCalander implements OnInit {
           this.weeklyOffs.push({ label, value: val });
           this.weeklyOffSet.add(val);
         });
-  // schedule loading monthly working days (debounced)
-  this.scheduleLoadMonthlyWorkingDays();
       },
       error: (err) => { console.error('Failed to load weekly offs', err); }
     });
@@ -502,13 +501,12 @@ export class AcademicCalander implements OnInit {
         if (ok) {
           this.showToast('success', 'Weekly Offs', 'Weekly offs updated');
           // refresh chart data after weekly offs change
-          this.scheduleLoadMonthlyWorkingDays();
         } else {
           // service maps to boolean; inform user that server responded negatively
           this.showToast('warn', 'Weekly Offs', 'Server did not confirm update');
           // still attempt to refresh chart
-          this.scheduleLoadMonthlyWorkingDays();
         }
+        this.loadMonthlyWorkingDays();
       },
       error: (err) => {
         console.error('Failed to save weekly offs', err);
@@ -523,8 +521,6 @@ export class AcademicCalander implements OnInit {
     this.calendarService.getHolidays(ay).subscribe({
       next: (data: any[]) => {
         this.holidays = (data || []).map(d => this.normalizeHoliday(d)).filter(x => x !== null);
-  // schedule loading monthly working days (debounced)
-  this.scheduleLoadMonthlyWorkingDays();
       }, error: (err) => console.error('Failed to load holidays', err)
     });
   }
@@ -543,20 +539,6 @@ export class AcademicCalander implements OnInit {
         }
       }, error: (err) => { console.error('Failed to load monthly working days', err); }
     });
-  }
-
-  // Debounce helper: prevent multiple rapid calls to loadMonthlyWorkingDays()
-  private _monthlyLoadTimer: any = null;
-  scheduleLoadMonthlyWorkingDays(delayMs: number = 200) {
-    try {
-      if (this._monthlyLoadTimer) clearTimeout(this._monthlyLoadTimer);
-      this._monthlyLoadTimer = setTimeout(() => {
-        try { this.loadMonthlyWorkingDays(); } catch (err) { console.error('loadMonthlyWorkingDays failed', err); }
-      }, delayMs);
-    } catch (e) {
-      // fallback to direct call if timers aren't available for some reason
-      try { this.loadMonthlyWorkingDays(); } catch (err) { console.error('loadMonthlyWorkingDays failed', err); }
-    }
   }
 
   // Exception Working Days
@@ -582,7 +564,7 @@ export class AcademicCalander implements OnInit {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-  legend: { display: false }
+      legend: { display: false }
     }
     ,
     scales: {
@@ -613,4 +595,8 @@ export class AcademicCalander implements OnInit {
       this.maxHolidayDate = null;
     }
 
-}}
+}
+  ngOnDestroy(): void {
+  }
+
+}

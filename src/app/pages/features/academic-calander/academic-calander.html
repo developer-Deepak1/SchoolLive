@@ -16,6 +16,16 @@
     </div>
   </div>
 </p-card>
+<p-card>
+  <!-- Monthly working days bar chart -->
+  <div class="mb-4">
+    <div class="font-semibold mb-4">Monthly Working Days</div>
+    <div style="height:280px;">
+      <canvas baseChart [data]="barChartData" [type]="barChartType" [options]="barChartOptions">
+      </canvas>
+    </div>
+  </div>
+</p-card>
 <p-card header="Weekly Offs">
   <hr class="border-t border-gray-200 my-3" />
   <div class="flex flex-wrap gap-2 mb-4">
@@ -25,17 +35,6 @@
         {{ d.label }}
       </button>
     </ng-container>
-  </div>
-</p-card>
-
-<p-card>
-  <!-- Monthly working days bar chart -->
-  <div class="mb-4">
-    <div class="font-semibold mb-2">Monthly Working Days</div>
-    <div style="height:260px;">
-      <canvas baseChart [data]="barChartData" [type]="barChartType" [options]="barChartOptions">
-      </canvas>
-    </div>
   </div>
 </p-card>
 
