@@ -38,6 +38,8 @@ class Router {
     $this->routes['GET']['/api/dashboard/summary'] = ['handler' => ['SchoolLive\Controllers\DashboardController', 'summary'], 'roles' => true];
     // Student specific dashboard
     $this->routes['GET']['/api/dashboard/student'] = ['handler' => ['SchoolLive\Controllers\StudentDashboardController', 'summary'], 'roles' => true];
+    // Student monthly attendance lightweight endpoint
+    $this->routes['GET']['/api/dashboard/student/monthlyAttendance'] = ['handler' => ['SchoolLive\Controllers\StudentDashboardController', 'getMonthlyAttendance'], 'roles' => true];
     // Teacher specific dashboard
     $this->routes['GET']['/api/dashboard/teacher'] = ['handler' => ['SchoolLive\Controllers\TeacherDashboardController', 'getMonthlyAttendance'], 'roles' => true];
 
