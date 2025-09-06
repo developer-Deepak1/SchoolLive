@@ -59,21 +59,14 @@ export class AcademicCalander implements OnInit {
       next: (data: any[]) => {
         this.academicYears = data.map(y => ({ label: y.AcademicYearName, value: y }));
         const active = data.find(y => y.Status && String(y.Status).toLowerCase() === 'active');
-        if (active) {
-          this.selectedAcademicYear = { label: active.AcademicYearName, value: active };
-          // compute bounds for the active academic year
-          this.setAcademicYearBounds(active);
-          // reset holiday form when switching years
+        // prefer active academic year, otherwise default to first
+        const sel = active ? active : (this.academicYears.length > 0 ? this.academicYears[0].value : null);
+        if (sel) {
+          this.selectedAcademicYear = { label: sel.AcademicYearName, value: sel };
+          // compute bounds and reset UI state
+          this.setAcademicYearBounds(sel);
           this.cancelEditHoliday();
-          // load data for the active year
-          this.loadWeeklyOffs();
-          this.loadHolidays();
-        } else if (this.academicYears.length > 0) {
-          // default to first year and load
-          this.selectedAcademicYear = this.academicYears[0];
-          this.setAcademicYearBounds(this.selectedAcademicYear.value);
-          // reset holiday form when switching years
-          this.cancelEditHoliday();
+          // load year-specific data
           this.loadWeeklyOffs();
           this.loadHolidays();
         }
@@ -86,15 +79,11 @@ export class AcademicCalander implements OnInit {
 
   onAcademicYearChange(e: any) {
     this.selectedAcademicYear = e;
-    // update cached bounds for datepicker
     this.setAcademicYearBounds(e?.value || e);
-    // Reset holiday add/edit form when user switches academic year
     this.cancelEditHoliday();
-    // Reload year-specific data
-  this.loadWeeklyOffs();
-  this.loadHolidays();
-  // schedule loading monthly working days for chart (debounced)
-  this.scheduleLoadMonthlyWorkingDays();
+    this.loadWeeklyOffs();
+    this.loadHolidays();
+    this.scheduleLoadMonthlyWorkingDays();
   }
   // Weekly Off
   daysOfWeek = [
@@ -230,29 +219,7 @@ export class AcademicCalander implements OnInit {
     this.holidayType = null;
   }
 
-  saveEditHoliday() {
-    if (!this.editingHoliday) return;
-    const id = this.editingHoliday.id;
-    const payload = {
-      AcademicYearID: this.selectedAcademicYear?.value?.AcademicYearID || null,
-      Date: this.editingHoliday.date,
-      Title: this.editingHoliday.title,
-      Type: this.editingHoliday.type
-    };
-    this.calendarService.updateHoliday(id, payload).subscribe({
-      next: (res) => {
-        // refresh list from server
-        this.loadHolidays();
-        this.editingHoliday = null;
-      },
-      error: (err) => {
-        console.error('Update holiday failed', err);
-        // optimistic local update fallback
-        this.holidays = this.holidays.map(h => h.id === id ? { ...h, date: payload.Date, title: payload.Title, type: payload.Type } : h);
-        this.editingHoliday = null;
-      }
-    });
-  }
+  // saveEditHoliday removed — editing is handled inline via addHoliday/update flows
 
   // normalize backend holiday object to UI-friendly shape
   private normalizeHoliday(h: any) {
@@ -306,7 +273,7 @@ export class AcademicCalander implements OnInit {
       }
 
       // If in range mode, validate end date and call range API
-      if (this.rangeMode) {
+  if (this.rangeMode) {
         if (!this.holidayEndDate) {
           this.msg.add({ severity: 'warn', summary: 'End date required', detail: 'Please select an end date for the range' });
           return;
@@ -341,24 +308,15 @@ export class AcademicCalander implements OnInit {
               this.showToast('success', 'Range created', `${created} created, ${skipped} skipped`);
               this.loadHolidays();
             } else {
-              const detail = res?.message ?? 'Unexpected server response';
-              this.showToast('warn', 'Range create', detail);
+              this.showToast('warn', 'Range create', res?.message ?? 'Unexpected server response');
             }
-            // reset form
             this.holidayDate = null; this.holidayEndDate = null; this.holidayTitle = ''; this.holidayType = null; this.rangePreview = [];
           },
           error: (err: any) => {
             console.error('Create holiday range failed', err);
-            const detail = err?.error?.message ?? err?.message ?? 'Server error';
-            this.showToast('error', 'Range create failed', detail, 6000);
-            // reset form even on error to avoid stale input
-            this.holidayDate = null;
-            this.holidayEndDate = null;
-            this.holidayTitle = '';
-            this.holidayType = null;
-            this.rangePreview = [];
-            this.previewCollapsed = false;
-            this.editingHoliday = null;
+            this.showToast('error', 'Range create failed', err?.error?.message ?? err?.message ?? 'Server error', 6000);
+            this.holidayDate = null; this.holidayEndDate = null; this.holidayTitle = ''; this.holidayType = null; this.rangePreview = [];
+            this.previewCollapsed = false; this.editingHoliday = null;
           }
         });
         return;
@@ -387,8 +345,8 @@ export class AcademicCalander implements OnInit {
           return;
         }
       }
-      // If editingHoliday is set, perform update instead of create
-      if (this.editingHoliday && this.editingHoliday.id) {
+  // If editingHoliday is set, perform update instead of create
+  if (this.editingHoliday && this.editingHoliday.id) {
         this.calendarService.updateHoliday(this.editingHoliday.id, payload).subscribe({
           next: (res) => {
             const message = (res && res.message) ? res.message : (res && res.success ? 'Holiday updated' : 'Holiday update response');
@@ -577,11 +535,6 @@ export class AcademicCalander implements OnInit {
     }
   }
 
-  loadWeeklyReport(start: string, end: string) {
-    const ay = this.selectedAcademicYear?.value?.AcademicYearID;
-    this.calendarService.getWeeklyReport(start, end, ay).subscribe({ next: (data: any[]) => { console.log('Weekly report', data); }, error: (err) => console.error('Weekly report failed', err) });
-  }
-
   // Exception Working Days
   // Exception Working Days removed; use holiday.type === 'WorkingDay' instead
 
@@ -635,5 +588,5 @@ export class AcademicCalander implements OnInit {
     } catch (err) {
       this.maxHolidayDate = null;
     }
-  }
-}
+
+}}
