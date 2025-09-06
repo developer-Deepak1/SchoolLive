@@ -808,4 +808,80 @@ class AcademicModel extends Model {
             ]
         ];
     }
+    public function getMonthlyAttendance(int $schoolId, int $studentId, ?int $academicYearId, int $months = 12): array {
+
+        $range = $this->getAcademicYearRange( $academicYearId, $schoolId);
+        if (!$range['start'] || !$range['end']) return ['labels'=>[],'datasets'=>[]];
+
+        $ayId = $range['academicYearId'];
+        $weeklyOffs = $ayId ? $this->getWeeklyOffs($ayId, $schoolId) : [];
+        $holidaysMap = $ayId ? $this->getHolidays($ayId, $schoolId) : [];
+
+        // Compute the months and base working days for each month
+        $computed = $this->getMonthlyWorkingDays($ayId, $schoolId);
+
+            // Adjust working days for admission date if present. Clamp admission to academic start when earlier.
+            try {
+                $admQ = $this->conn->prepare("SELECT AdmissionDate FROM Tx_Students WHERE SchoolID=:school AND StudentID=:sid LIMIT 1");
+                $admQ->bindValue(':school',$schoolId,PDO::PARAM_INT);
+                $admQ->bindValue(':sid',$studentId,PDO::PARAM_INT);
+                $admQ->execute();
+                $adDate = $admQ->fetchColumn();
+                if ($adDate) {
+                    $joinDt = new DateTime($adDate);
+                    $rangeStartDt = new DateTime($range['start']);
+                    if ($joinDt < $rangeStartDt) $joinDt = $rangeStartDt;
+
+                    $adjustedWorking = [];
+                    foreach ($computed['months'] as $i => $ym) {
+                        $monthStart = new DateTime($ym . '-01');
+                        $monthEnd = new DateTime($monthStart->format('Y-m-t'));
+                        $effStart = $monthStart < $joinDt ? ($joinDt > $monthEnd ? null : $joinDt) : $monthStart;
+                        if ($effStart === null) { $adjustedWorking[] = 0; continue; }
+                        $period = new DatePeriod(new DateTime($effStart->format('Y-m-d')), new DateInterval('P1D'), $monthEnd->modify('+1 day'));
+                        $wd = 0;
+                        foreach ($period as $d) {
+                            $ymd = $d->format('Y-m-d');
+                            $dow = (int)$d->format('N');
+                            $h = $holidaysMap[$ymd] ?? null;
+                            if ($h && (($h['type'] ?? 'Holiday') === 'WorkingDay')) { $wd++; continue; }
+                            $isOff = in_array($dow, $weeklyOffs, true);
+                            $isHoliday = $h && ($h['type'] ?? 'Holiday') === 'Holiday';
+                            if (!$isOff && !$isHoliday) $wd++;
+                        }
+                        $adjustedWorking[] = $wd;
+                    }
+                    $computed['workingDays'] = $adjustedWorking;
+                }
+            } catch (\Throwable $e) { /* ignore */ }
+
+            // Fetch counts of Present per month for students
+            $sql = "SELECT DATE_FORMAT(Date,'%Y-%m') ym, SUM(CASE WHEN Status='Present' THEN 1 ELSE 0 END) p
+                    FROM Tx_Students_Attendance
+                    WHERE SchoolID=:school AND StudentID=:sid AND Date >= :start AND Date <= :end" . ($ayId?" AND AcademicYearID=:ay":"") . " GROUP BY ym";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->bindValue(':school',$schoolId,PDO::PARAM_INT);
+            $stmt->bindValue(':sid',$studentId,PDO::PARAM_INT);
+            $stmt->bindValue(':start',$range['start']);
+            $stmt->bindValue(':end',$range['end']);
+            if ($ayId) $stmt->bindValue(':ay',$ayId,PDO::PARAM_INT);
+            try { $stmt->execute(); } catch (\Throwable $e) { return ['labels'=>[],'datasets'=>[]]; }
+            $map = []; while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) { $map[$r['ym']] = (int)$r['p']; }
+
+            $present = array_map(function($ym) use ($map) { return $map[$ym] ?? 0; }, $computed['months']);
+
+            $percent = [];
+            foreach ($present as $i => $p) {
+                $wd = $computed['workingDays'][$i] ?? 0;
+                $percent[] = $wd > 0 ? round($p / $wd * 100, 2) : 0;
+            }
+
+            return [
+                'labels' => $computed['labels'],
+                'datasets' => [
+                    [ 'label' => 'Working Days', 'data' => $computed['workingDays'], 'backgroundColor' => '#6366f1' ],
+                    [ 'label' => 'Present', 'data' => $present, 'backgroundColor' => '#10b981' ]
+                ]
+            ];
+    }
 }
