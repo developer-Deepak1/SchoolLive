@@ -202,219 +202,7 @@ class AcademicModel extends Model {
         }
     }
 
-    // Classes Methods
-    public function createClass($data) {
-        $data['created_at'] = date('Y-m-d H:i:s');
-        // Ensure UpdatedAt uses PascalCase DB column
-        if (isset($data['updated_at']) && !isset($data['UpdatedAt'])) {
-            $data['UpdatedAt'] = $data['updated_at'];
-            unset($data['updated_at']);
-        }
-        $data['UpdatedAt'] = $data['UpdatedAt'] ?? date('Y-m-d H:i:s');
-
-        // New schema: Tx_Classes table stores class metadata. Teacher assignment lives in Tx_ClassTeachers table.
-        // Accept incoming keys in either PascalCase (ClassName) or snake_case (class_name) for compatibility.
-        $className = $data['ClassName'];
-        $classCode = $data['ClassCode'];
-        $stream = $data['Stream'] ;
-        $academicYearId = $data['AcademicYearID'];
-        $maxStrength = $data['MaxStrength'] ?? 50;
-        $schoolId = $data['SchoolID'] ?? null;
-        $createdBy = $data['Username'] ?? null;
-
-        // Include IsActive when provided to allow creating disabled/enabled explicitly. Otherwise DB default applies.
-        $query = "INSERT INTO Tx_Classes (ClassName, ClassCode, Stream, AcademicYearID, MaxStrength, SchoolID, CreatedAt, CreatedBy";
-        if (isset($data['IsActive']) || isset($data['is_active'])) {
-            $query .= ", IsActive";
-        }
-        $query .= ") VALUES (:class_name, :class_code, :stream, :academic_year_id, :max_strength, :school_id, :created_at, :created_by";
-        if (isset($data['IsActive']) || isset($data['is_active'])) {
-            $query .= ", :is_active";
-        }
-        $query .= ")";
-
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':class_name', $className);
-        $stmt->bindParam(':class_code', $classCode);
-        $stmt->bindParam(':stream', $stream);
-        $stmt->bindParam(':academic_year_id', $academicYearId);
-        $stmt->bindParam(':max_strength', $maxStrength);
-        $stmt->bindParam(':school_id', $schoolId);
-        $stmt->bindParam(':created_at', $data['created_at']);
-        $stmt->bindParam(':created_by', $createdBy);
-        if (isset($data['IsActive']) || isset($data['is_active'])) {
-            $isActiveVal = isset($data['IsActive']) ? $data['IsActive'] : $data['is_active'];
-            $stmt->bindParam(':is_active', $isActiveVal);
-        }
-
-        if ($stmt->execute()) {
-            return $this->conn->lastInsertId();
-        }
-        return false;
-    }
-
-    public function updateClass($id, $data) {
-        $data['UpdatedAt'] = date('Y-m-d H:i:s');
-        // Allow IsActive to be updated if provided (snake_case or PascalCase)
-        if (isset($data['is_active']) && !isset($data['IsActive'])) {
-            $data['IsActive'] = $data['is_active'];
-            unset($data['is_active']);
-        }
-
-        $fields = array_keys($data);
-        $setClause = array_map(function($field) { return $field . ' = :' . $field; }, $fields);
-
-        $query = "UPDATE Tx_Classes SET " . implode(', ', $setClause) . " WHERE ClassID = :id";
-
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':id', $id);
-
-        foreach ($data as $field => $value) {
-            $stmt->bindParam(':' . $field, $data[$field]);
-        }
-
-        return $stmt->execute();
-    }
-
-    /**
-     * Check if a teacher (employee) is assigned to the given class.
-     * Returns true if assigned, false otherwise.
-     */
-    public function isTeacherAssigned($class_id, $teacher_id) {
-    $query = "SELECT COUNT(*) as cnt FROM Tx_ClassTeachers WHERE ClassID = :class_id AND EmployeeID = :teacher_id";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':class_id', $class_id);
-        $stmt->bindParam(':teacher_id', $teacher_id);
-        $stmt->execute();
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return (!empty($row) && $row['cnt'] > 0);
-    }
-
-    public function getAllClasses($academic_year_id = null, $school_id = null, $active = 1) {
-    $query = "SELECT c.ClassID,c.ClassName,c.ClassCode,c.Stream,c.MaxStrength,c.SchoolID,c.Status, ay.AcademicYearName, IFNULL(c.IsActive, TRUE) AS IsActive
-          FROM Tx_Classes c
-          INNER JOIN Tm_AcademicYears ay ON c.AcademicYearID = ay.AcademicYearID";
-
-        $clauses = [];
-        if ($academic_year_id) {
-            $clauses[] = "c.AcademicYearID = :academic_year_id";
-        }
-        if ($school_id) {
-            $clauses[] = "c.SchoolID = :school_id";
-        }
-        if ($active !== null) {
-            $clauses[] = "IFNULL(c.IsActive, TRUE) = :active";
-        }
-
-        if (!empty($clauses)) {
-            $query .= " WHERE " . implode(' AND ', $clauses);
-        }
-
-    $query .= " ORDER BY c.ClassName, c.ClassCode";
-        
-        $stmt = $this->conn->prepare($query);
-        
-        if ($academic_year_id) {
-            $stmt->bindParam(':academic_year_id', $academic_year_id);
-        }
-        if ($school_id) {
-            $stmt->bindParam(':school_id', $school_id);
-        }
-        if ($active !== null) {
-            $stmt->bindParam(':active', $active);
-        }
-
-        $stmt->execute();
-        return $stmt->fetchAll();
-    }
-
-    public function getClassById($id, $active = 1) {
-    $query = "SELECT c.ClassID,c.ClassName,c.ClassCode,c.Stream,c.MaxStrength,c.SchoolID,c.Status, ay.AcademicYearName, IFNULL(c.IsActive, TRUE) AS IsActive
-          FROM Tx_Classes c
-          INNER JOIN Tm_AcademicYears ay ON c.AcademicYearID = ay.AcademicYearID
-          WHERE c.ClassID = :id";
-          if ($active !== null) {
-              $query .= " AND IFNULL(c.IsActive, TRUE) = :active";
-          }
-          $query .= " LIMIT 1";
-        
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':id', $id);
-        if ($active !== null) $stmt->bindParam(':active', $active);
-        $stmt->execute();
-        return $stmt->fetch();
-    }
-
-    public function deleteClass($id, $deletedBy = null) {
-    // soft-delete the class
-    $query = "UPDATE Tx_Classes SET IsActive = 0, UpdatedAt = :updated_at";
-    $params = [':id' => $id, ':updated_at' => date('Y-m-d H:i:s')];
-    if ($deletedBy) {
-        $query .= ", UpdatedBy = :updated_by";
-        $params[':updated_by'] = $deletedBy;
-    }
-    $query .= " WHERE ClassID = :id";
-
-        $stmt = $this->conn->prepare($query);
-        return $stmt->execute($params);
-    }
-
-    public function getClassesByTeacher($teacher_id) {
-    // Use class_teachers mapping to find classes assigned to the given teacher (employee)
-    $query = "SELECT c.*, ay.AcademicYearName FROM Tx_Classes c
-          INNER JOIN Tx_ClassTeachers ct ON ct.ClassID = c.ClassID
-          LEFT JOIN Tm_AcademicYears ay ON c.AcademicYearID = ay.AcademicYearID
-          WHERE ct.EmployeeID = :teacher_id
-          ORDER BY c.ClassName, c.ClassCode";
-
-    $stmt = $this->conn->prepare($query);
-    $stmt->bindParam(':teacher_id', $teacher_id);
-    $stmt->execute();
-    return $stmt->fetchAll();
-    }
-
-    // Sections methods
-    public function getAllSections($academic_year_id = null, $class_id = null, $school_id = null) {
-        $query = "SELECT s.*, ay.AcademicYearName, IFNULL(s.IsActive, TRUE) AS IsActive FROM Tx_Sections s
-            LEFT JOIN Tm_AcademicYears ay ON s.AcademicYearID = ay.AcademicYearID";
-
-        $clauses = [];
-        if ($academic_year_id) {
-            $clauses[] = "s.AcademicYearID = :academic_year_id";
-        }
-        if ($class_id) {
-            $clauses[] = "s.ClassID = :class_id";
-        }
-        if ($school_id) {
-            $clauses[] = "s.SchoolID = :school_id";
-        }
-        // default to active records when not explicitly requested otherwise
-        $active = 1;
-        $clauses[] = "IFNULL(s.IsActive, TRUE) = :active";
-
-        if (!empty($clauses)) {
-            $query .= " WHERE " . implode(' AND ', $clauses);
-        }
-
-        $query .= " ORDER BY s.SectionName";
-
-        $stmt = $this->conn->prepare($query);
-        if ($academic_year_id) {
-            $stmt->bindParam(':academic_year_id', $academic_year_id);
-        }
-        if ($class_id) {
-            $stmt->bindParam(':class_id', $class_id);
-        }
-        if ($school_id) {
-            $stmt->bindParam(':school_id', $school_id);
-        }
-        $stmt->bindParam(':active', $active);
-
-        $stmt->execute();
-        return $stmt->fetchAll();
-    }
-
-    // Weekly Offs and Holidays
+    // Weekly Offs and Holidays Methods
     public function getWeeklyOffsByAcademicYear($schoolId, $academicYearId = null, $active = 1) {
         $query = "SELECT WeeklyOffID, AcademicYearID, DayOfWeek, IFNULL(IsActive, TRUE) AS IsActive FROM Tx_WeeklyOffs WHERE SchoolID = :school_id";
         if ($academicYearId) $query .= " AND AcademicYearID = :academic_year_id";
@@ -478,6 +266,15 @@ class AcademicModel extends Model {
                 $deact->execute($params);
             }
             $this->conn->commit();
+
+            // Recompute and persist working days for this academic year & school
+            try {
+                $computed = $this->getcomputeWorkingDaysByMonth($this->getAcademicYearRange($academicYearId, $schoolId)['start'], $this->getAcademicYearRange($academicYearId, $schoolId)['end'], $desired, $this->getHolidays($academicYearId, $schoolId));
+                if ($computed && isset($computed['months']) && isset($computed['workingDays'])) {
+                    $this->upsertWorkingDaysForAcademicYear($academicYearId, $schoolId, $computed['months'], $computed['workingDays'], $username);
+                }
+            } catch (\Throwable $_) { /* non-fatal */ }
+
             return true;
         } catch (\Throwable $e) {
             try { $this->conn->rollBack(); } catch (\Throwable $ee) {}
@@ -511,8 +308,8 @@ class AcademicModel extends Model {
         $user = $data['CreatedBy'] ?? null;
         $now = date('Y-m-d H:i:s');
 
-        // Look for existing holiday
-        $checkSql = "SELECT HolidayID, IFNULL(IsActive, TRUE) AS IsActive FROM Tx_Holidays WHERE SchoolID = :school AND AcademicYearID = :ay AND Date = :date LIMIT 1";
+        // Look for existing holiday (include Type to avoid overwriting explicit WorkingDay entries)
+        $checkSql = "SELECT HolidayID, Type, IFNULL(IsActive, TRUE) AS IsActive FROM Tx_Holidays WHERE SchoolID = :school AND AcademicYearID = :ay AND Date = :date LIMIT 1";
         $check = $this->conn->prepare($checkSql);
         $check->bindValue(':school', $school);
         $check->bindValue(':ay', $ay);
@@ -521,17 +318,43 @@ class AcademicModel extends Model {
         $existing = $check->fetch();
 
         if ($existing && isset($existing['HolidayID'])) {
-            // Update existing row and set IsActive = 1 (reactivate) and update fields
-            $updSql = "UPDATE Tx_Holidays SET Title = :title, Type = :type, IsActive = 1, UpdatedAt = :updated";
-            $params = [':title' => $title, ':type' => $type, ':updated' => $now, ':id' => $existing['HolidayID'], ':school' => $school];
-            if ($user) {
-                $updSql .= ", UpdatedBy = :user";
-                $params[':user'] = $user;
-            }
-            $updSql .= " WHERE HolidayID = :id AND SchoolID = :school";
-            $upd = $this->conn->prepare($updSql);
-            if ($upd->execute($params)) return $existing['HolidayID'];
-            return false;
+            // If an existing entry is explicitly marked as a WorkingDay, do not overwrite it with a Holiday
+                if (($existing['Type'] ?? null) === 'WorkingDay' && (($type ?? null) !== 'WorkingDay')) {
+                    // preserve explicit working-day designation; no DB changes made so no recompute
+                    return $existing['HolidayID'];
+                }
+                // Update existing row and set IsActive = 1 (reactivate) and update fields
+                $updSql = "UPDATE Tx_Holidays SET Title = :title, Type = :type, IsActive = 1, UpdatedAt = :updated";
+                $params = [':title' => $title, ':type' => $type, ':updated' => $now, ':id' => $existing['HolidayID'], ':school' => $school];
+                if ($user) {
+                    $updSql .= ", UpdatedBy = :user";
+                    $params[':user'] = $user;
+                }
+                $updSql .= " WHERE HolidayID = :id AND SchoolID = :school";
+                $upd = $this->conn->prepare($updSql);
+                // If update succeeds, we did mutate DB and should recompute; otherwise return false
+                if ($upd->execute($params)) {
+                    // Recompute and persist working days because we changed an existing holiday
+                    try {
+                        // If this change marks the date as a WorkingDay, recompute only that month for efficiency
+                        if (($type ?? null) === 'WorkingDay' && $date) {
+                            $mStart = (new DateTime($date))->format('Y-m-01');
+                            $mEnd = (new DateTime($date))->format('Y-m-t');
+                            $computed = $this->getcomputeWorkingDaysByMonth($mStart, $mEnd, $this->getWeeklyOffs($ay, $school), $this->getHolidays($ay, $school));
+                            if ($computed && isset($computed['months']) && isset($computed['workingDays'])) {
+                                $this->upsertWorkingDaysForAcademicYear($ay, $school, $computed['months'], $computed['workingDays'], $user);
+                            }
+                        } else {
+                            $range = $this->getAcademicYearRange($ay, $school);
+                            $computed = $this->getcomputeWorkingDaysByMonth($range['start'], $range['end'], $this->getWeeklyOffs($ay, $school), $this->getHolidays($ay, $school));
+                            if ($computed && isset($computed['months']) && isset($computed['workingDays'])) {
+                                $this->upsertWorkingDaysForAcademicYear($ay, $school, $computed['months'], $computed['workingDays'], $user);
+                            }
+                        }
+                    } catch (\Throwable $_) {}
+                    return $existing['HolidayID'];
+                }
+                return false;
         }
 
         // No existing holiday - insert a new one
@@ -544,7 +367,28 @@ class AcademicModel extends Model {
         $ins->bindValue(':type', $type);
         $ins->bindValue(':user', $user);
         $ins->bindValue(':created', $now);
-        if ($ins->execute()) return $this->conn->lastInsertId();
+        if ($ins->execute()) {
+            $lastId = $this->conn->lastInsertId();
+            // Recompute working days for this academic year & school
+            try {
+                // If inserted holiday was marked as WorkingDay, recompute only that month for efficiency
+                if (($type ?? null) === 'WorkingDay' && $date) {
+                    $mStart = (new DateTime($date))->format('Y-m-01');
+                    $mEnd = (new DateTime($date))->format('Y-m-t');
+                    $computed = $this->getcomputeWorkingDaysByMonth($mStart, $mEnd, $this->getWeeklyOffs($ay, $school), $this->getHolidays($ay, $school));
+                    if ($computed && isset($computed['months']) && isset($computed['workingDays'])) {
+                        $this->upsertWorkingDaysForAcademicYear($ay, $school, $computed['months'], $computed['workingDays'], $user);
+                    }
+                } else {
+                    $range = $this->getAcademicYearRange($ay, $school);
+                    $computed = $this->getcomputeWorkingDaysByMonth($range['start'], $range['end'], $this->getWeeklyOffs($ay, $school), $this->getHolidays($ay, $school));
+                    if ($computed && isset($computed['months']) && isset($computed['workingDays'])) {
+                        $this->upsertWorkingDaysForAcademicYear($ay, $school, $computed['months'], $computed['workingDays'], $user);
+                    }
+                }
+            } catch (\Throwable $_) {}
+            return $lastId;
+        }
         return false;
     }
 
@@ -566,7 +410,22 @@ class AcademicModel extends Model {
         $query .= " WHERE HolidayID = :id AND SchoolID = :school_id";
         $params[':school_id'] = $schoolId;
         $stmt = $this->conn->prepare($query);
-        return $stmt->execute($params);
+        $ok = $stmt->execute($params);
+        if ($ok) {
+            // Recompute working days for academic year(s) affected. Try to fetch academic year of this holiday
+            try {
+                $h = $this->getHolidayById($id);
+                $ay = $h['AcademicYearID'] ?? null;
+                if ($ay) {
+                    $range = $this->getAcademicYearRange($ay, $schoolId);
+                    $computed = $this->getcomputeWorkingDaysByMonth($range['start'], $range['end'], $this->getWeeklyOffs($ay, $schoolId), $this->getHolidays($ay, $schoolId));
+                    if ($computed && isset($computed['months']) && isset($computed['workingDays'])) {
+                        $this->upsertWorkingDaysForAcademicYear($ay, $schoolId, $computed['months'], $computed['workingDays'], $deletedBy);
+                    }
+                }
+            } catch (\Throwable $_) {}
+        }
+        return $ok;
     }
 
     public function updateHoliday($id, $data, $schoolId) {
@@ -587,7 +446,22 @@ class AcademicModel extends Model {
 
         $query = "UPDATE Tx_Holidays SET " . implode(', ', $set) . " WHERE HolidayID = :id AND SchoolID = :school_id";
         $stmt = $this->conn->prepare($query);
-        return $stmt->execute($params);
+        $ok = $stmt->execute($params);
+        if ($ok) {
+            // Recompute working days for the affected academic year
+            try {
+                $h = $this->getHolidayById($id);
+                $ay = $h['AcademicYearID'] ?? null;
+                if ($ay) {
+                    $range = $this->getAcademicYearRange($ay, $schoolId);
+                    $computed = $this->getcomputeWorkingDaysByMonth($range['start'], $range['end'], $this->getWeeklyOffs($ay, $schoolId), $this->getHolidays($ay, $schoolId));
+                    if ($computed && isset($computed['months']) && isset($computed['workingDays'])) {
+                        $this->upsertWorkingDaysForAcademicYear($ay, $schoolId, $computed['months'], $computed['workingDays'], $data['UpdatedBy'] ?? null);
+                    }
+                }
+            } catch (\Throwable $_) {}
+        }
+        return $ok;
     }
 
     public function getWeeklyReport($schoolId, $academicYearId, $start, $end) {
@@ -655,6 +529,18 @@ class AcademicModel extends Model {
             }
 
             $this->conn->commit();
+
+            // Recompute and persist working days only if we actually created any new holiday rows
+            if (!empty($createdDates)) {
+                try {
+                    $range = $this->getAcademicYearRange($ay, $schoolId);
+                    $computed = $this->getcomputeWorkingDaysByMonth($range['start'], $range['end'], $this->getWeeklyOffs($ay, $schoolId), $this->getHolidays($ay, $schoolId));
+                    if ($computed && isset($computed['months']) && isset($computed['workingDays'])) {
+                        $this->upsertWorkingDaysForAcademicYear($ay, $schoolId, $computed['months'], $computed['workingDays'], $createdBy);
+                    }
+                } catch (\Throwable $_) {}
+            }
+
             return ['createdDates' => $createdDates, 'skippedDates' => $skippedDates];
         } catch (\Throwable $e) {
             try { $this->conn->rollBack(); } catch (\Throwable $ee) {}
@@ -674,97 +560,11 @@ class AcademicModel extends Model {
         return $stmt->fetch();
     }
 
-    public function createSection($data) {
-        // Use PascalCase timestamp keys to match DB columns (CreatedAt, UpdatedAt)
-        $data['CreatedAt'] = date('Y-m-d H:i:s');
-        $data['UpdatedAt'] = date('Y-m-d H:i:s');
-
-        // allow MaxStrength to be provided as PascalCase or snake_case
-        $maxStrength = $data['MaxStrength'] ?? $data['max_strength'] ?? null;
-
-        $query = "INSERT INTO Tx_Sections (SectionName, SchoolID, AcademicYearID, ClassID, MaxStrength, Status, CreatedAt, CreatedBy, UpdatedAt)
-            VALUES (:section_name, :school_id, :academic_year_id, :class_id, :max_strength, :status, :created_at, :created_by, :updated_at)";
-
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':section_name', $data['section_name']);
-        $stmt->bindParam(':school_id', $data['school_id']);
-        $stmt->bindParam(':academic_year_id', $data['academic_year_id']);
-        $stmt->bindParam(':class_id', $data['class_id']);
-        $stmt->bindParam(':max_strength', $maxStrength);
-        $status = $data['status'] ?? 'Active';
-        $stmt->bindParam(':status', $status);
-    $stmt->bindParam(':created_at', $data['CreatedAt']);
-    $created_by = $data['created_by'] ?? $data['CreatedBy'] ?? 'System';
-    $stmt->bindParam(':created_by', $created_by);
-    $stmt->bindParam(':updated_at', $data['UpdatedAt']);
-
-        if ($stmt->execute()) {
-            return $this->conn->lastInsertId();
-        }
-        return false;
-    }
-
-    public function updateSection($id, $data) {
-        // Map snake_case updated_at to PascalCase UpdatedAt if present
-        if (isset($data['updated_at']) && !isset($data['UpdatedAt'])) {
-            $data['UpdatedAt'] = $data['updated_at'];
-            unset($data['updated_at']);
-        }
-        // Ensure UpdatedAt is always set
-        $data['UpdatedAt'] = $data['UpdatedAt'] ?? date('Y-m-d H:i:s');
-
-        // Normalize incoming snake_case keys to PascalCase column names so the
-        // dynamic SET clause uses real DB column names like SectionName, ClassID, etc.
-        $mapping = [
-            'section_name' => 'SectionName',
-            'class_id' => 'ClassID',
-            'max_strength' => 'MaxStrength',
-            'academic_year_id' => 'AcademicYearID',
-            'school_id' => 'SchoolID',
-            'status' => 'Status'
-        ];
-        $keysToUnset = [];
-        foreach ($mapping as $snake => $pascal) {
-            if (isset($data[$snake]) && !isset($data[$pascal])) {
-                $data[$pascal] = $data[$snake];
-            }
-            if (isset($data[$snake])) $keysToUnset[] = $snake;
-        }
-        foreach ($keysToUnset as $key) {
-            unset($data[$key]);
-        }
-
-        $fields = array_keys($data);
-        if (empty($fields)) {
-            return false; // nothing to update
-        }
-
-        $setClause = array_map(function($field) { return $field . ' = :' . $field; }, $fields);
-
-        $query = "UPDATE Tx_Sections SET " . implode(', ', $setClause) . " WHERE SectionID = :id";
-
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':id', $id);
-        foreach ($data as $field => $value) {
-            $stmt->bindParam(':' . $field, $data[$field]);
-        }
-
-        return $stmt->execute();
-    }
-
-    public function deleteSection($id) {
-    $query = "UPDATE Tx_Sections SET IsActive = 0, UpdatedAt = :updated_at WHERE SectionID = :id";
-    $stmt = $this->conn->prepare($query);
-    $updatedAt = date('Y-m-d H:i:s');
-    $stmt->bindParam(':updated_at', $updatedAt);
-    $stmt->bindParam(':id', $id);
-    return $stmt->execute();
-    }
     public function getAcademicYearRange(?int $academicYearId, int $schoolId): array {
         $start = null; $end = null; $ayId = $academicYearId;
         if ($academicYearId) {
             $q = $this->conn->prepare("SELECT AcademicYearID, StartDate, EndDate FROM Tm_AcademicYears WHERE AcademicYearID = :ay LIMIT 1");
-            $q->bindValue(param: ':ay',$academicYearId,type: PDO::PARAM_INT);
+            $q->bindValue(':ay', $academicYearId, PDO::PARAM_INT);
             $q->execute();
             if ($r = $q->fetch(PDO::FETCH_ASSOC)) { $start = $r['StartDate']; $end = $r['EndDate']; $ayId = (int)$r['AcademicYearID']; }
         }
@@ -838,14 +638,84 @@ class AcademicModel extends Model {
 
                 $h = $holidaysMap[$ymd] ?? null;
 
+                // If a date is explicitly marked as a 'WorkingDay', it overrides weekly offs
+                $isWorkingDay = $h && (($h['type'] ?? 'Holiday') === 'WorkingDay');
                 $isOff = in_array($dow, $weeklyOffs, true);
                 $isHoliday = $h && (($h['type'] ?? 'Holiday') === 'Holiday');
-                if (!$isOff && !$isHoliday) $wd++;
+
+                if ($isWorkingDay) {
+                    $wd++;
+                } else if (!$isOff && !$isHoliday) {
+                    $wd++;
+                }
             }
             $workingDays[] = $wd;
             $c->modify('+1 month');
         }
 
         return ['months' => $months, 'labels' => $labels, 'workingDays' => $workingDays];
+    }
+
+    /**
+     * Upsert computed working days into Tx_WorkingDays for the given academic year and school.
+     * $months: array of YYYY-MM
+     * $workingDays: parallel array of ints
+     */
+    private function upsertWorkingDaysForAcademicYear(int $academicYearId, int $schoolId, array $months, array $workingDays, $username = null) {
+        if (count($months) !== count($workingDays)) return false;
+        try {
+            $this->conn->beginTransaction();
+            $sel = $this->conn->prepare("SELECT WorkingDaysID FROM Tx_WorkingDays WHERE AcademicYearID = :ay AND SchoolID = :school AND Month = :month LIMIT 1");
+            $ins = $this->conn->prepare("INSERT INTO Tx_WorkingDays (AcademicYearID, SchoolID, Month, WorkingDays, CreatedBy, CreatedAt) VALUES (:ay, :school, :month, :wd, :user, :created)");
+            $upd = $this->conn->prepare("UPDATE Tx_WorkingDays SET WorkingDays = :wd, UpdatedBy = :user, UpdatedAt = :updated WHERE WorkingDaysID = :id");
+            $now = date('Y-m-d H:i:s');
+            foreach ($months as $i => $m) {
+                $wd = (int)($workingDays[$i] ?? 0);
+                $sel->execute([':ay' => $academicYearId, ':school' => $schoolId, ':month' => $m]);
+                $row = $sel->fetch();
+                if ($row && isset($row['WorkingDaysID'])) {
+                    $upd->execute([':wd' => $wd, ':user' => $username, ':updated' => $now, ':id' => $row['WorkingDaysID']]);
+                } else {
+                    $ins->execute([':ay' => $academicYearId, ':school' => $schoolId, ':month' => $m, ':wd' => $wd, ':user' => $username, ':created' => $now]);
+                }
+            }
+            $this->conn->commit();
+            return true;
+        } catch (\Throwable $e) {
+            try { $this->conn->rollBack(); } catch (\Throwable $_) {}
+            error_log('[AcademicModel::upsertWorkingDaysForAcademicYear] ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Get monthly working days for an academic year & school.
+     * Returns array with keys: 'months' => ["YYYY-MM"], 'workingDays' => [ints], 'labels' => [short month names]
+     * Will try to read from Tx_WorkingDays; if rows missing, will compute fallback via getcomputeWorkingDaysByMonth
+     */
+    public function getMonthlyWorkingDays(int $academicYearId, int $schoolId): array {
+        // Try to read persisted rows
+        $months = [];
+        $workingDays = [];
+        try {
+            $q = $this->conn->prepare("SELECT Month, WorkingDays FROM Tx_WorkingDays WHERE AcademicYearID = :ay AND SchoolID = :school AND IFNULL(IsActive,TRUE)=1 ORDER BY Month");
+            $q->execute([':ay' => $academicYearId, ':school' => $schoolId]);
+            while ($r = $q->fetch(PDO::FETCH_ASSOC)) {
+                $months[] = $r['Month'];
+                $workingDays[] = (int)$r['WorkingDays'];
+            }
+        } catch (\Throwable $_) { }
+
+        // If persisted data not available, compute full range
+        if (empty($months)) {
+            $range = $this->getAcademicYearRange($academicYearId, $schoolId);
+            if (!$range['start'] || !$range['end']) return ['months' => [], 'workingDays' => [], 'labels' => []];
+            $computed = $this->getcomputeWorkingDaysByMonth($range['start'], $range['end'], $this->getWeeklyOffs($academicYearId, $schoolId), $this->getHolidays($academicYearId, $schoolId));
+            return $computed;
+        }
+
+        // Build labels (short month names)
+        $labels = array_map(function($m){ return (new DateTime($m.'-01'))->format('M'); }, $months);
+        return ['months' => $months, 'workingDays' => $workingDays, 'labels' => $labels];
     }
 }

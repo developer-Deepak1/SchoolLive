@@ -110,195 +110,6 @@ class AcademicController extends BaseController {
     else { $this->fail('Failed to update academic year',500); }
     }
 
-    // Classes Methods
-    public function getClasses($params = []) {
-    $currentUser = $this->currentUser(); if(!$currentUser) return;
-    // Accept AcademicYearID via query param (camelCase or snake_case) or fall back to current user
-    $academicYearId = $_GET['AcademicYearID'] ?? $_GET['academic_year_id'] ?? $currentUser['AcademicYearID'] ?? null;
-    // default to active classes; accept is_active=0 to list inactive
-    $isActive = isset($_GET['is_active']) ? (int)$_GET['is_active'] : 1;
-    $classes = $this->academicModel->getAllClasses($academicYearId, $currentUser['school_id'], $isActive);
-    $this->ok('Classes retrieved successfully', $classes);
-    }
-
-    // Sections Methods
-    public function getSections($params = []) {
-    // Accept both snake_case and camelCase query params
-    $academic_year_id = $_GET['academic_year_id'] ?? $_GET['AcademicYearID'] ?? null;
-    $class_id = $_GET['class_id'] ?? $_GET['ClassID'] ?? null;
-
-    // Determine school context: prefer explicit query param but fall back to current user's school when available
-    $currentUser = $this->currentUser(); // may be null if unauthenticated
-    $school_id = $_GET['school_id'] ?? $_GET['SchoolID'] ?? ($currentUser['school_id'] ?? null);
-
-    // default to active sections; accept is_active=0 to return inactive sections
-    $isActive = isset($_GET['is_active']) ? (int)$_GET['is_active'] : 1;
-    $sections = $this->academicModel->getAllSections($academic_year_id, $class_id, $school_id);
-    $this->ok('Sections retrieved successfully', $sections);
-    }
-
-    public function getSection($params = []) {
-    $id = $this->requireKey($params,'id','Section ID'); if($id===null) return;
-    // default: return only active sections
-    $section = $this->academicModel->getSectionById($id);
-
-    if (!$section) { $this->fail('Section not found',404); return; }
-    $this->ok('Section retrieved successfully', $section);
-    }
-
-    public function createSection($params = []) {
-    if (!$this->requireMethod('POST')) return;
-    $input = $this->input();
-
-    // Normalize common camelCase keys to snake_case to be flexible for clients
-    if (isset($input['SectionName']) && !isset($input['section_name'])) $input['section_name'] = $input['SectionName'];
-    if (isset($input['ClassID']) && !isset($input['class_id'])) $input['class_id'] = $input['ClassID'];
-    if (isset($input['MaxStrength']) && !isset($input['max_strength'])) $input['max_strength'] = $input['MaxStrength'];
-    if (isset($input['AcademicYearID']) && !isset($input['academic_year_id'])) $input['academic_year_id'] = $input['AcademicYearID'];
-    if (isset($input['SchoolID']) && !isset($input['school_id'])) $input['school_id'] = $input['SchoolID'];
-
-    $currentUser = $this->currentUser(); if(!$currentUser) return;
-    // Default missing school/academic year to current user's context
-    if (!isset($input['school_id'])) $input['school_id'] = $currentUser['school_id'];
-    if (!isset($input['academic_year_id'])) $input['academic_year_id'] = $currentUser['AcademicYearID'];
-
-    if (!$this->ensure($input, ['section_name','school_id','academic_year_id','class_id'])) return;
-
-        $sectionId = $this->academicModel->createSection($input);
-
-    if ($sectionId) { $section = $this->academicModel->getSectionById($sectionId); $this->ok('Section created successfully',['section'=>$section]); }
-    else { $this->fail('Failed to create section',500); }
-    }
-
-    public function updateSection($params = []) {
-    if (!$this->requireMethod('PUT')) return;
-    $id = $this->requireKey($params,'id','Section ID'); if($id===null) return;
-    $input = $this->input();
-
-        $existing = $this->academicModel->getSectionById($id);
-    if (!$existing) { $this->fail('Section not found',404); return; }
-
-    // Normalize camelCase keys
-    if (isset($input['SectionName']) && !isset($input['section_name'])) $input['section_name'] = $input['SectionName'];
-    if (isset($input['ClassID']) && !isset($input['class_id'])) $input['class_id'] = $input['ClassID'];
-    if (isset($input['MaxStrength']) && !isset($input['max_strength'])) $input['max_strength'] = $input['MaxStrength'];
-    if (isset($input['AcademicYearID']) && !isset($input['academic_year_id'])) $input['academic_year_id'] = $input['AcademicYearID'];
-    if (isset($input['SchoolID']) && !isset($input['school_id'])) $input['school_id'] = $input['SchoolID'];
-
-    // Ensure update uses the database column names (PascalCase). If client sent snake_case
-    // convert them to PascalCase and remove snake_case keys so the dynamic SET clause
-    // doesn't try to update non-existent snake_case columns.
-    $mapping = [
-        'section_name' => 'SectionName',
-        'class_id' => 'ClassID',
-        'max_strength' => 'MaxStrength',
-        'academic_year_id' => 'AcademicYearID',
-        'school_id' => 'SchoolID'
-    ];
-    foreach ($mapping as $snake => $pascal) {
-        if (isset($input[$snake]) && !isset($input[$pascal])) {
-            $input[$pascal] = $input[$snake];
-        }
-        if (isset($input[$snake])) {
-            unset($input[$snake]);
-        }
-    }
-
-    $result = $this->academicModel->updateSection($id, $input);
-
-    if ($result) { $section = $this->academicModel->getSectionById($id); $this->ok('Section updated successfully',['section'=>$section]); }
-    else { $this->fail('Failed to update section',500); }
-    }
-
-    public function deleteSection($params = []) {
-    if (!$this->requireMethod('DELETE')) return;
-    $id = $this->requireKey($params,'id','Section ID'); if($id===null) return;
-
-        $existing = $this->academicModel->getSectionById($id);
-    if (!$existing) { $this->fail('Section not found',404); return; }
-
-    $result = $this->academicModel->deleteSection($id);
-
-    if ($result) { $this->ok('Section deleted successfully'); }
-    else { $this->fail('Failed to delete section',500); }
-    }
-
-    public function getClass($params = []) {
-    $id = $this->requireKey($params,'id','Class ID'); if($id===null) return;
-
-    $class = $this->academicModel->getClassById($id);
-
-    if (!$class) { $this->fail('Class not found',404); return; }
-
-        $currentUser = AuthMiddleware::getCurrentUser();
-
-        // If authenticated and a teacher, ensure they are assigned to this class via class_teachers mapping
-        if ($currentUser && isset($currentUser['role']) && $currentUser['role'] === 'teacher') {
-                $isAssigned = $this->academicModel->isTeacherAssigned($id, $currentUser['id']);
-                if (!$isAssigned) {
-        $this->fail('Access denied to this class',403); return;
-            }
-        }
-    $this->ok('Class retrieved successfully', $class);
-    }
-
-    public function createClass($params = []) {
-    if (!$this->requireMethod('POST')) return;
-    $input = $this->input();
-
-    // Validate required fields - adapted to new class schema
-    $requiredFields = ['ClassName', 'Stream', 'ClassCode'];
-    if (!$this->ensure($input, $requiredFields)) return;
-    $currentUser = AuthMiddleware::getCurrentUser();
-    // Set default values
-    if (!isset($input['AcademicYearID'])) {
-        $input['AcademicYearID'] = $currentUser['AcademicYearID'];
-    }
-    if (!isset($input['SchoolID'])) {
-        $input['SchoolID'] = $currentUser['school_id'];
-    }
-    if (!isset($input['Username'])) {
-        $input['Username'] = $currentUser['username'];
-    }
-
-        $classId = $this->academicModel->createClass($input);
-
-    if ($classId) { $class = $this->academicModel->getClassById($classId); $this->ok('Class created successfully',$class); }
-    else { $this->fail('Failed to create class',500); }
-    }
-
-    public function updateClass($params = []) {
-    if (!$this->requireMethod('PUT')) return;
-    $id = $this->requireKey($params,'id','Class ID'); if($id===null) return;
-    $input = $this->input();
-
-        // Check if class exists
-        $existingClass = $this->academicModel->getClassById($id);
-    if (!$existingClass) { $this->fail('Class not found',404); return; }
-        $currentUser = AuthMiddleware::getCurrentUser();
-        if (!isset($input['UpdatedBy'])) {
-            $input['UpdatedBy'] = $currentUser['username'];
-        }
-
-    $result = $this->academicModel->updateClass($id, $input);
-
-    if ($result) { $class = $this->academicModel->getClassById($id); $this->ok('Class updated successfully',$class); }
-    else { $this->fail('Failed to update class',500); }
-    }
-
-    public function deleteClass($params = []) {
-    if (!$this->requireMethod('DELETE')) return;
-    $id = $this->requireKey($params,'id','Class ID'); if($id===null) return;
-
-        // Check if class exists
-        $class = $this->academicModel->getClassById($id);
-    if (!$class) { $this->fail('Class not found',404); return; }
-
-    $result = $this->academicModel->deleteClass($id);
-
-    if ($result) { $this->ok('Class deleted successfully'); }
-    else { $this->fail('Failed to delete class',500); }
-    }
 
     public function getCurrentAcademicYear($params = []) {
     $currentUser = $this->currentUser(); if(!$currentUser) return;
@@ -332,7 +143,7 @@ class AcademicController extends BaseController {
 
         $ok = $this->academicModel->setWeeklyOffs($currentUser['school_id'], $input['AcademicYearID'], $days, $currentUser['username']);
         if ($ok){
-            
+
             $this->ok('Weekly offs updated');
         } else {
             $this->fail('Failed to update weekly offs',500);
@@ -431,5 +242,15 @@ class AcademicController extends BaseController {
 
         $report = $this->academicModel->getWeeklyReport($currentUser['school_id'], $academicYearId, $start, $end);
         $this->ok('Weekly report generated', $report);
+    }
+
+    // Monthly working days (for chart)
+    public function getMonthlyWorkingDays($params = []) {
+        $currentUser = $this->currentUser(); if(!$currentUser) return;
+        $academicYearId = $_GET['academic_year_id'] ?? $currentUser['AcademicYearID'] ?? null;
+        if (!$academicYearId) { $this->fail('academic_year_id is required',400); return; }
+        $data = $this->academicModel->getMonthlyWorkingDays((int)$academicYearId, (int)$currentUser['school_id']);
+        // Return data in chart-friendly shape
+        $this->ok('Monthly working days', $data);
     }
 }

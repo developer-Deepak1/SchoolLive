@@ -83,6 +83,23 @@ CREATE TABLE Tx_Holidays (
     INDEX idx_holidays_ay_date (AcademicYearID, Date,IsActive)
 );
 
+-- Table to store computed working days per month for an academic year and school
+CREATE TABLE Tx_WorkingDays (
+    WorkingDaysID BIGINT AUTO_INCREMENT PRIMARY KEY,
+    AcademicYearID INT NOT NULL,
+    SchoolID INT NOT NULL,
+    Month VARCHAR(7) NOT NULL, -- YYYY-MM
+    WorkingDays INT NOT NULL DEFAULT 0,
+    IsActive BOOLEAN NOT NULL DEFAULT TRUE,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CreatedBy VARCHAR(100),
+    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UpdatedBy VARCHAR(100),
+    FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID) ON DELETE CASCADE,
+    FOREIGN KEY (SchoolID) REFERENCES Tm_Schools(SchoolID) ON DELETE CASCADE,
+    UNIQUE KEY ux_workingdays_ay_school_month (AcademicYearID, SchoolID, Month)
+);
+
 
 
 -- Set auto-increment start value

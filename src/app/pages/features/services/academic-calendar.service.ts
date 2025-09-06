@@ -46,4 +46,9 @@ export class AcademicCalendarService {
     const url = `${this.baseUrl}/getWeeklyReport?${params.toString()}`;
     return this.http.get<any>(url).pipe(map(res => res && res.success && res.data ? res.data : []));
   }
+
+  getMonthlyWorkingDays(academicYearId?: any): Observable<any> {
+    const url = `${this.baseUrl}/monthlyWorkingDays` + (academicYearId ? `?academic_year_id=${encodeURIComponent(academicYearId)}` : '');
+    return this.http.get<any>(url).pipe(map(res => res && res.success && res.data ? res.data : res));
+  }
 }

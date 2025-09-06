@@ -91,8 +91,10 @@ export class AcademicCalander implements OnInit {
     // Reset holiday add/edit form when user switches academic year
     this.cancelEditHoliday();
     // Reload year-specific data
-    this.loadWeeklyOffs();
-    this.loadHolidays();
+  this.loadWeeklyOffs();
+  this.loadHolidays();
+  // schedule loading monthly working days for chart (debounced)
+  this.scheduleLoadMonthlyWorkingDays();
   }
   // Weekly Off
   daysOfWeek = [
@@ -416,7 +418,9 @@ export class AcademicCalander implements OnInit {
                 const norm = this.normalizeHoliday(res.data);
                 if (norm) this.holidays = [...this.holidays, norm];
               } else {
-                this.loadHolidays();
+                  this.loadHolidays();
+                // refresh chart after server-created entries
+                this.scheduleLoadMonthlyWorkingDays();
               }
               this.msg.add({ severity: 'success', summary: 'Created', detail: (res && res.message) ? res.message : 'Holiday created' });
             } else {
@@ -424,6 +428,8 @@ export class AcademicCalander implements OnInit {
               this.holidays.push(fallback);
               const detail = (res && res.message) ? res.message : 'Unexpected response from server';
               this.msg.add({ severity: 'warn', summary: 'Notice', detail });
+              // ensure chart refresh even on unusual responses
+              this.scheduleLoadMonthlyWorkingDays();
             }
           },
           error: (err) => {
@@ -432,6 +438,8 @@ export class AcademicCalander implements OnInit {
             this.holidays.push(fallback);
             const detail = err?.error?.message ?? err?.message ?? 'Server error';
             this.msg.add({ severity: 'error', summary: 'Create failed', detail });
+            // attempt chart refresh after error (server may have partial changes)
+            this.scheduleLoadMonthlyWorkingDays();
           }
         });
         this.holidayDate = null;
@@ -496,8 +504,8 @@ export class AcademicCalander implements OnInit {
           this.weeklyOffs.push({ label, value: val });
           this.weeklyOffSet.add(val);
         });
-        // recompute chart after weekly offs change
-        try { this.computeMonthlyWorkingDays(); } catch (e) { console.error('computeMonthlyWorkingDays failed', e); }
+  // schedule loading monthly working days (debounced)
+  this.scheduleLoadMonthlyWorkingDays();
       },
       error: (err) => { console.error('Failed to load weekly offs', err); }
     });
@@ -511,9 +519,13 @@ export class AcademicCalander implements OnInit {
       next: (ok) => {
         if (ok) {
           this.showToast('success', 'Weekly Offs', 'Weekly offs updated');
+          // refresh chart data after weekly offs change
+          this.scheduleLoadMonthlyWorkingDays();
         } else {
           // service maps to boolean; inform user that server responded negatively
           this.showToast('warn', 'Weekly Offs', 'Server did not confirm update');
+          // still attempt to refresh chart
+          this.scheduleLoadMonthlyWorkingDays();
         }
       },
       error: (err) => {
@@ -529,10 +541,40 @@ export class AcademicCalander implements OnInit {
     this.calendarService.getHolidays(ay).subscribe({
       next: (data: any[]) => {
         this.holidays = (data || []).map(d => this.normalizeHoliday(d)).filter(x => x !== null);
-        // recompute chart after holidays change
-        try { this.computeMonthlyWorkingDays(); } catch (e) { console.error('computeMonthlyWorkingDays failed', e); }
+  // schedule loading monthly working days (debounced)
+  this.scheduleLoadMonthlyWorkingDays();
       }, error: (err) => console.error('Failed to load holidays', err)
     });
+  }
+
+  // Load monthly working days from server (falls back to compute if server side has no persisted copy)
+  loadMonthlyWorkingDays() {
+    const ay = this.selectedAcademicYear?.value?.AcademicYearID;
+    this.calendarService.getMonthlyWorkingDays(ay).subscribe({
+      next: (res: any) => {
+        if (!res) return;
+        // API returns either { months:[], workingDays:[], labels:[] } or computed shape
+        const labels = res.labels ?? (res.months ? res.months.map((m: string) => (new Date(m + '-01')).toLocaleString(undefined, { month: 'short' })) : []);
+        const data = res.workingDays ?? (res.datasets && res.datasets[0] ? res.datasets[0].data : []);
+        if (labels && data) {
+          this.barChartData = { labels, datasets: [{ data, label: 'Working Days' }] };
+        }
+      }, error: (err) => { console.error('Failed to load monthly working days', err); }
+    });
+  }
+
+  // Debounce helper: prevent multiple rapid calls to loadMonthlyWorkingDays()
+  private _monthlyLoadTimer: any = null;
+  scheduleLoadMonthlyWorkingDays(delayMs: number = 200) {
+    try {
+      if (this._monthlyLoadTimer) clearTimeout(this._monthlyLoadTimer);
+      this._monthlyLoadTimer = setTimeout(() => {
+        try { this.loadMonthlyWorkingDays(); } catch (err) { console.error('loadMonthlyWorkingDays failed', err); }
+      }, delayMs);
+    } catch (e) {
+      // fallback to direct call if timers aren't available for some reason
+      try { this.loadMonthlyWorkingDays(); } catch (err) { console.error('loadMonthlyWorkingDays failed', err); }
+    }
   }
 
   loadWeeklyReport(start: string, end: string) {
@@ -574,79 +616,6 @@ export class AcademicCalander implements OnInit {
   };
 
 
-  // Compute working days per month based on academic year bounds, weekly offs and holidays
-  computeMonthlyWorkingDays() {
-    const ay = this.selectedAcademicYear?.value;
-    if (!ay) {
-      this.barChartData = { labels: [], datasets: [{ data: [], label: 'Working Days' }] };
-      return;
-    }
-
-    const start = this.minHolidayDate;
-    const end = this.maxHolidayDate;
-    if (!start || !end) return;
-
-    // Prepare a set of holiday dates (strings YYYY-MM-DD) that are holidays (type !== 'WorkingDay')
-    const holidaySet = new Set<string>();
-    const workingDayOverrides = new Set<string>();
-    this.holidays.forEach(h => {
-      if (!h || !h.date) return;
-      if (String(h.type).toLowerCase() === 'workingday') {
-        workingDayOverrides.add(h.date);
-      } else {
-        holidaySet.add(h.date);
-      }
-    });
-
-    // Weekly offs set contains numeric day-of-week values where 1=Monday .. 7=Sunday
-    const weeklyOffs = new Set<number>(Array.from(this.weeklyOffSet));
-
-    // iterate days and count working days per month
-    const labels: string[] = [];
-    const counts: number[] = [];
-
-    // build month buckets from start to end
-    const cur = new Date(start.getFullYear(), start.getMonth(), 1);
-    const last = new Date(end.getFullYear(), end.getMonth(), 1);
-    while (cur <= last) {
-      const mLabel = cur.toLocaleString(undefined, { month: 'short', year: 'numeric' });
-      labels.push(mLabel);
-      counts.push(0);
-      cur.setMonth(cur.getMonth() + 1);
-    }
-
-    // iterate each day between start and end
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      // local date string YYYY-MM-DD
-      const y = d.getFullYear();
-      const m = d.getMonth();
-      const dd = ('0' + d.getDate()).slice(-2);
-      const mm = ('0' + (m + 1)).slice(-2);
-      const key = `${y}-${mm}-${dd}`;
-
-      // check if explicitly marked as WorkingDay
-      if (workingDayOverrides.has(key)) {
-        // count as working day
-      } else {
-        // if holiday, skip
-        if (holidaySet.has(key)) continue;
-        // check weekly off
-        // JS: getDay() returns 0=Sun .. 6=Sat; map to 1..7 where Monday=1
-        const jsDay = d.getDay();
-        const normalized = jsDay === 0 ? 7 : jsDay; // Sunday => 7
-        if (weeklyOffs.has(normalized)) continue;
-      }
-
-      // increment appropriate month bucket
-      const bucketIndex = labels.findIndex(l => l.includes(d.toLocaleString(undefined, { month: 'short' })) && l.includes(String(d.getFullYear())));
-      if (bucketIndex >= 0) counts[bucketIndex] += 1;
-    }
-
-    this.barChartData = {
-      labels,
-      datasets: [{ data: counts, label: 'Working Days' }]
-    };
-  }
   // Compute and cache min/max date bounds for the currently selected academic year
   private setAcademicYearBounds(yearObj: any) {
     if (!yearObj) {
