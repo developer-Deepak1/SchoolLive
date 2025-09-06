@@ -21,6 +21,16 @@ class Router {
     $this->routes['PUT']['/api/academic/UpdateAcademicYears/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'updateAcademicYear'], 'roles' => true];
     $this->routes['DELETE']['/api/academic/DeleteAcademicYears/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'deleteAcademicYear'], 'roles' => true];
 
+    // Academic calendar: weekly offs, holidays, reports
+    $this->routes['GET']['/api/academic/getWeeklyOffs'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getWeeklyOffs'], 'roles' => true];
+    $this->routes['POST']['/api/academic/setWeeklyOffs'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'setWeeklyOffs'], 'roles' => true];
+    $this->routes['GET']['/api/academic/getHolidays'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getHolidays'], 'roles' => true];
+    $this->routes['POST']['/api/academic/createHoliday'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createHoliday'], 'roles' => true];
+    $this->routes['POST']['/api/academic/createHolidayRange'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createHolidayRange'], 'roles' => true];
+    $this->routes['DELETE']['/api/academic/deleteHoliday/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'deleteHoliday'], 'roles' => true];
+    $this->routes['PUT']['/api/academic/updateHoliday/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'updateHoliday'], 'roles' => true];
+    $this->routes['GET']['/api/academic/getWeeklyReport'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getWeeklyReport'], 'roles' => true];
+
     $this->routes['GET']['/api/academic/getClasses'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getClasses'], 'roles' => true];
     $this->routes['POST']['/api/academic/CreateClasses'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createClass'], 'roles' => true];
     $this->routes['GET']['/api/academic/classes/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getClass'], 'roles' => null];
@@ -42,16 +52,6 @@ class Router {
     $this->routes['GET']['/api/dashboard/student/monthlyAttendance'] = ['handler' => ['SchoolLive\Controllers\StudentDashboardController', 'getMonthlyAttendance'], 'roles' => true];
     // Teacher specific dashboard
     $this->routes['GET']['/api/dashboard/teacher'] = ['handler' => ['SchoolLive\Controllers\TeacherDashboardController', 'getMonthlyAttendance'], 'roles' => true];
-
-    // Academic calendar: weekly offs, holidays, reports
-    $this->routes['GET']['/api/academic/getWeeklyOffs'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getWeeklyOffs'], 'roles' => true];
-    $this->routes['POST']['/api/academic/setWeeklyOffs'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'setWeeklyOffs'], 'roles' => true];
-    $this->routes['GET']['/api/academic/getHolidays'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getHolidays'], 'roles' => true];
-    $this->routes['POST']['/api/academic/createHoliday'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createHoliday'], 'roles' => true];
-    $this->routes['POST']['/api/academic/createHolidayRange'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createHolidayRange'], 'roles' => true];
-    $this->routes['DELETE']['/api/academic/deleteHoliday/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'deleteHoliday'], 'roles' => true];
-    $this->routes['PUT']['/api/academic/updateHoliday/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'updateHoliday'], 'roles' => true];
-    $this->routes['GET']['/api/academic/getWeeklyReport'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getWeeklyReport'], 'roles' => true];
 
     // Students routes
     $this->routes['GET']['/api/students'] = ['handler' => ['SchoolLive\Controllers\StudentController', 'list'], 'roles' => true];

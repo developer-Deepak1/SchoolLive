@@ -15,11 +15,14 @@ class AcademicController extends BaseController {
 
     // Academic Years Methods
     public function getAcademicYears($params = []) {
-    $currentUser = $this->currentUser(); if(!$currentUser) return;
-    // Default behavior: return only active records. Pass is_active=0 to fetch inactive records.
-    $isActive = isset($_GET['is_active']) ? (int)$_GET['is_active'] : 1;
-    $academicYears = $this->academicModel->getAcademicYearsBySchoolId($currentUser['school_id'], $isActive);
-    $this->ok('Academic years retrieved successfully', $academicYears);
+        $currentUser = $this->currentUser(); if(!$currentUser) return;
+
+        // Default behavior: return only active records. Pass is_active=0 to fetch inactive records.
+        $isActive = isset($_GET['is_active']) ? (int)$_GET['is_active'] : 1;
+
+        $academicYears = $this->academicModel->getAcademicYearsBySchoolId($currentUser['school_id'], $isActive);
+
+        $this->ok('Academic years retrieved successfully', $academicYears);
     }
 
     public function createAcademicYear($params = []) {
@@ -328,7 +331,12 @@ class AcademicController extends BaseController {
         }
 
         $ok = $this->academicModel->setWeeklyOffs($currentUser['school_id'], $input['AcademicYearID'], $days, $currentUser['username']);
-        if ($ok) $this->ok('Weekly offs updated'); else $this->fail('Failed to update weekly offs',500);
+        if ($ok){
+            
+            $this->ok('Weekly offs updated');
+        } else {
+            $this->fail('Failed to update weekly offs',500);
+        }
     }
 
     // Holidays

@@ -90,11 +90,6 @@ class AcademicCalendarModel extends Model {
                 $dow = (int)$d->format('N');
 
                 $h = $holidaysMap[$ymd] ?? null;
-                // If a holiday entry explicitly marks this date as a working day, count it once and skip further checks
-                // if ($h && (($h['type'] ?? 'Holiday') === 'WorkingDay')) {
-                //     $wd++;
-                //     continue;
-                // }
 
                 $isOff = in_array($dow, $weeklyOffs, true);
                 $isHoliday = $h && (($h['type'] ?? 'Holiday') === 'Holiday');

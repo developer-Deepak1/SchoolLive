@@ -1,7 +1,7 @@
 <?php
 namespace SchoolLive\Models;
 
-use PDO;
+use DateTime; use DateInterval; use DatePeriod; use PDO;
 
 class AcademicModel extends Model {
     protected $table = 'Tm_AcademicYears';
@@ -593,7 +593,7 @@ class AcademicModel extends Model {
     public function getWeeklyReport($schoolId, $academicYearId, $start, $end) {
         // Build a list of dates between start and end and mark weekly offs and holidays
         $report = [];
-        $period = new \DatePeriod(new \DateTime($start), new \DateInterval('P1D'), (new \DateTime($end))->modify('+1 day'));
+        $period = new DatePeriod(new DateTime($start), new DateInterval('P1D'), (new DateTime($end))->modify('+1 day'));
 
         // Load weekly offs and holidays to minimize queries
         $offs = $this->getWeeklyOffsByAcademicYear($schoolId, $academicYearId);
@@ -759,5 +759,93 @@ class AcademicModel extends Model {
     $stmt->bindParam(':updated_at', $updatedAt);
     $stmt->bindParam(':id', $id);
     return $stmt->execute();
+    }
+    public function getAcademicYearRange(?int $academicYearId, int $schoolId): array {
+        $start = null; $end = null; $ayId = $academicYearId;
+        if ($academicYearId) {
+            $q = $this->conn->prepare("SELECT AcademicYearID, StartDate, EndDate FROM Tm_AcademicYears WHERE AcademicYearID = :ay LIMIT 1");
+            $q->bindValue(param: ':ay',$academicYearId,type: PDO::PARAM_INT);
+            $q->execute();
+            if ($r = $q->fetch(PDO::FETCH_ASSOC)) { $start = $r['StartDate']; $end = $r['EndDate']; $ayId = (int)$r['AcademicYearID']; }
+        }
+
+        if (!$start || !$end) {
+            $q = $this->conn->prepare("SELECT AcademicYearID, StartDate, EndDate FROM Tm_AcademicYears WHERE SchoolID = :school AND Status = 'Active' LIMIT 1");
+            $q->bindValue(':school',$schoolId,PDO::PARAM_INT);
+            $q->execute();
+            if ($r = $q->fetch(PDO::FETCH_ASSOC)) { $start = $start ?? $r['StartDate']; $end = $end ?? $r['EndDate']; $ayId = $ayId ?? (int)$r['AcademicYearID']; }
+        }
+
+        return ['start' => $start, 'end' => $end, 'academicYearId' => $ayId];
+    }
+    public function getWeeklyOffs(int $academicYearId, int $schoolId): array {
+        $out = [];
+        try {
+            $q = $this->conn->prepare("SELECT DayOfWeek FROM Tx_WeeklyOffs WHERE AcademicYearID = :ay AND SchoolID = :school AND IsActive=1");
+            $q->bindValue(':ay',$academicYearId,PDO::PARAM_INT);
+            $q->bindValue(':school',$schoolId,PDO::PARAM_INT);
+            $q->execute();
+            while ($r = $q->fetch(PDO::FETCH_ASSOC)) $out[] = (int)$r['DayOfWeek'];
+        } catch (\Throwable $_) { }
+        return $out;
+    }
+
+    public function getHolidays(int $academicYearId, int $schoolId): array {
+        $map = [];
+        try {
+            $q = $this->conn->prepare("SELECT Date, Title, Type FROM Tx_Holidays WHERE AcademicYearID = :ay AND SchoolID = :school AND IFNULL(IsActive,TRUE)=1");
+            $q->bindValue(':ay',$academicYearId,PDO::PARAM_INT);
+            $q->bindValue(':school',$schoolId,PDO::PARAM_INT);
+            $q->execute();
+            while ($r = $q->fetch(PDO::FETCH_ASSOC)) {
+                $map[$r['Date']] = ['type' => $r['Type'] ?? 'Holiday', 'title' => $r['Title'] ?? ''];
+            }
+        } catch (\Throwable $_) { }
+        return $map;
+    }
+
+    public function computeWorkingDaysByMonth($schoolId, $academicYearId)
+    {
+       $range = $this->getAcademicYearRange($academicYearId, $schoolId);
+       if (!$range['start'] || !$range['end']) return ['labels'=>[], 'datasets'=>[]];
+        $weeklyOffs = $academicYearId ? $this->getWeeklyOffs($academicYearId, $schoolId) : [];
+        $holidaysMap = $academicYearId ? $this->getHolidays($academicYearId, $schoolId) : [];
+        $computed = $this->getcomputeWorkingDaysByMonth($range['start'], $range['end'], $weeklyOffs, $holidaysMap);
+        return [$computed];
+
+    }
+    public function getcomputeWorkingDaysByMonth(string $start, string $end, array $weeklyOffs = [], array $holidaysMap = []): array {
+        $startDt = new DateTime($start);
+        $startDt->modify('first day of this month')->setTime(0,0,0);
+        $endDt = new DateTime($end);
+        $endDt->modify('first day of this month')->setTime(0,0,0);
+
+        $months = [];
+        $labels = [];
+        $workingDays = [];
+
+        $c = clone $startDt;
+        while ($c <= $endDt) {
+            $ym = $c->format('Y-m');
+            $months[] = $ym;
+            $labels[] = $c->format('M');
+
+            $period = new DatePeriod(new DateTime($c->format('Y-m-01')), new DateInterval('P1D'), (new DateTime($c->format('Y-m-t')))->modify('+1 day'));
+            $wd = 0;
+            foreach ($period as $d) {
+                $ymd = $d->format('Y-m-d');
+                $dow = (int)$d->format('N');
+
+                $h = $holidaysMap[$ymd] ?? null;
+
+                $isOff = in_array($dow, $weeklyOffs, true);
+                $isHoliday = $h && (($h['type'] ?? 'Holiday') === 'Holiday');
+                if (!$isOff && !$isHoliday) $wd++;
+            }
+            $workingDays[] = $wd;
+            $c->modify('+1 month');
+        }
+
+        return ['months' => $months, 'labels' => $labels, 'workingDays' => $workingDays];
     }
 }
