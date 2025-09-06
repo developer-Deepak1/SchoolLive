@@ -117,9 +117,19 @@ export class EmployeeProfile implements OnInit {
     if (!id) { this.msg.add({severity:'error', summary:'Error', detail:'Invalid employee id'}); return; }
     this.loading.set(true);
     this.employees.getEmployee(id).subscribe({
-      next: (s:any) => { this.employee.set(s); this.loading.set(false); if (s) this.loadAttendance(); },
+      next: (s:any) => { const withParents = this.ensureParentFields(s); this.employee.set(withParents); this.loading.set(false); if (withParents) this.loadAttendance(); },
       error: () => { this.loading.set(false); this.msg.add({severity:'error', summary:'Error', detail:'Failed to load'}); }
     });
+  }
+
+  // Helper to ensure dynamic parent/contact fields exist on the employee object
+  private ensureParentFields(e: any) {
+    if (!e) return e;
+    if (e.FatherName === undefined) e.FatherName = '';
+    if (e.FatherContact === undefined) e.FatherContact = '';
+    if (e.MotherName === undefined) e.MotherName = '';
+    if (e.MotherContact === undefined) e.MotherContact = '';
+    return e;
   }
 
   loadAttendance() {

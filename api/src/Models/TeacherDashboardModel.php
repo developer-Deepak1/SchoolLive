@@ -19,8 +19,8 @@ class TeacherDashboardModel extends Model {
     }
 
     public function getMonthlyAttendance(int $schoolId, int $employeeId, ?int $academicYearId): array {
-        // Delegate calendar and attendance computations to AcademicCalendarModel for reuse
-        $cal = new AcademicCalendarModel();
+        // Delegate calendar and attendance computations to AcademicModel for reuse
+        $cal = new AcademicModel();
         return $cal->getMonthlyAttendanceForEmployee($schoolId, $employeeId, $academicYearId);
     }
 }

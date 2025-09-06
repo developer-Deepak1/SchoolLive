@@ -21,28 +21,6 @@ class Router {
     $this->routes['PUT']['/api/academic/UpdateAcademicYears/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'updateAcademicYear'], 'roles' => true];
     $this->routes['DELETE']['/api/academic/DeleteAcademicYears/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'deleteAcademicYear'], 'roles' => true];
 
-    $this->routes['GET']['/api/academic/getClasses'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getClasses'], 'roles' => true];
-    $this->routes['POST']['/api/academic/CreateClasses'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createClass'], 'roles' => true];
-    $this->routes['GET']['/api/academic/classes/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getClass'], 'roles' => null];
-    $this->routes['PUT']['/api/academic/classes/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'updateClass'], 'roles' => true];
-    $this->routes['DELETE']['/api/academic/classes/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'deleteClass'], 'roles' => true];
-
-    // Sections routes
-    $this->routes['GET']['/api/academic/sections'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getSections'], 'roles' => true];
-    $this->routes['POST']['/api/academic/sections'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createSection'], 'roles' => true];
-    $this->routes['GET']['/api/academic/sections/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getSection'], 'roles' => true];
-    $this->routes['PUT']['/api/academic/sections/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'updateSection'], 'roles' => true];
-    $this->routes['DELETE']['/api/academic/sections/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'deleteSection'], 'roles' => true];
-
-    // Dashboard summary (authenticated)
-    $this->routes['GET']['/api/dashboard/summary'] = ['handler' => ['SchoolLive\Controllers\DashboardController', 'summary'], 'roles' => true];
-    // Student specific dashboard
-    $this->routes['GET']['/api/dashboard/student'] = ['handler' => ['SchoolLive\Controllers\StudentDashboardController', 'summary'], 'roles' => true];
-    // Student monthly attendance lightweight endpoint
-    $this->routes['GET']['/api/dashboard/student/monthlyAttendance'] = ['handler' => ['SchoolLive\Controllers\StudentDashboardController', 'getMonthlyAttendance'], 'roles' => true];
-    // Teacher specific dashboard
-    $this->routes['GET']['/api/dashboard/teacher'] = ['handler' => ['SchoolLive\Controllers\TeacherDashboardController', 'getMonthlyAttendance'], 'roles' => true];
-
     // Academic calendar: weekly offs, holidays, reports
     $this->routes['GET']['/api/academic/getWeeklyOffs'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getWeeklyOffs'], 'roles' => true];
     $this->routes['POST']['/api/academic/setWeeklyOffs'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'setWeeklyOffs'], 'roles' => true];
@@ -52,6 +30,29 @@ class Router {
     $this->routes['DELETE']['/api/academic/deleteHoliday/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'deleteHoliday'], 'roles' => true];
     $this->routes['PUT']['/api/academic/updateHoliday/{id}'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'updateHoliday'], 'roles' => true];
     $this->routes['GET']['/api/academic/getWeeklyReport'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getWeeklyReport'], 'roles' => true];
+    $this->routes['GET']['/api/academic/monthlyWorkingDays'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getMonthlyWorkingDays'], 'roles' => true];
+
+    $this->routes['GET']['/api/academic/getClasses'] = ['handler' => ['SchoolLive\Controllers\ClassSectionController', 'getClasses'], 'roles' => true];
+    $this->routes['POST']['/api/academic/CreateClasses'] = ['handler' => ['SchoolLive\Controllers\ClassSectionController', 'createClass'], 'roles' => true];
+    $this->routes['GET']['/api/academic/classes/{id}'] = ['handler' => ['SchoolLive\Controllers\ClassSectionController', 'getClass'], 'roles' => null];
+    $this->routes['PUT']['/api/academic/classes/{id}'] = ['handler' => ['SchoolLive\Controllers\ClassSectionController', 'updateClass'], 'roles' => true];
+    $this->routes['DELETE']['/api/academic/classes/{id}'] = ['handler' => ['SchoolLive\Controllers\ClassSectionController', 'deleteClass'], 'roles' => true];
+
+    // Sections routes
+    $this->routes['GET']['/api/academic/sections'] = ['handler' => ['SchoolLive\Controllers\ClassSectionController', 'getSections'], 'roles' => true];
+    $this->routes['POST']['/api/academic/sections'] = ['handler' => ['SchoolLive\Controllers\ClassSectionController', 'createSection'], 'roles' => true];
+    $this->routes['GET']['/api/academic/sections/{id}'] = ['handler' => ['SchoolLive\Controllers\ClassSectionController', 'getSection'], 'roles' => true];
+    $this->routes['PUT']['/api/academic/sections/{id}'] = ['handler' => ['SchoolLive\Controllers\ClassSectionController', 'updateSection'], 'roles' => true];
+    $this->routes['DELETE']['/api/academic/sections/{id}'] = ['handler' => ['SchoolLive\Controllers\ClassSectionController', 'deleteSection'], 'roles' => true];
+
+    // Dashboard summary (authenticated)
+    $this->routes['GET']['/api/dashboard/summary'] = ['handler' => ['SchoolLive\Controllers\DashboardController', 'summary'], 'roles' => true];
+    // Student specific dashboard
+    $this->routes['GET']['/api/dashboard/student'] = ['handler' => ['SchoolLive\Controllers\StudentDashboardController', 'summary'], 'roles' => true];
+    // Student monthly attendance lightweight endpoint
+    $this->routes['GET']['/api/dashboard/student/monthlyAttendance'] = ['handler' => ['SchoolLive\Controllers\StudentDashboardController', 'getMonthlyAttendance'], 'roles' => true];
+    // Teacher specific dashboard
+    $this->routes['GET']['/api/dashboard/teacher'] = ['handler' => ['SchoolLive\Controllers\TeacherDashboardController', 'getMonthlyAttendance'], 'roles' => true];
 
     // Students routes
     $this->routes['GET']['/api/students'] = ['handler' => ['SchoolLive\Controllers\StudentController', 'list'], 'roles' => true];
@@ -232,7 +233,8 @@ class Router {
                     'GET /api/academic/classes' => 'Get classes',
                     'POST /api/academic/classes' => 'Create class (Admin only)',
                     'PUT /api/academic/classes/{id}' => 'Update class (Admin only)',
-                    'DELETE /api/academic/classes/{id}' => 'Delete class (Admin only)'
+                    'DELETE /api/academic/classes/{id}' => 'Delete class (Admin only)',
+                    'GET /api/academic/monthlyWorkingDays' => 'Monthly Working Days (chart data)'
                 ],
                 'Attendance' => [
                     'GET /api/attendance' => 'Get attendance records',

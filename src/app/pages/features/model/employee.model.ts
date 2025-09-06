@@ -11,4 +11,9 @@ export interface Employee {
   Username?: string;
   ContactNumber?: string;
   EmailID?: string;
+  // Optional parent / emergency contact fields
+  FatherName?: string;
+  FatherContact?: string;
+  MotherName?: string;
+  MotherContact?: string;
 }
