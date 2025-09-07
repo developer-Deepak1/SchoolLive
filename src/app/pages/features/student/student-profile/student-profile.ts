@@ -121,7 +121,7 @@ export class StudentProfile implements OnInit {
     if(!this.profileSetting){
       this.loadProfile(id);
     }
-    else{
+    else {
       this.students.getStudentId().subscribe({
         next: (res: any) => {
           const id = res?.data?.student_id ? Number(res.data.student_id) : NaN;
