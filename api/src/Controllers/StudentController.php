@@ -222,4 +222,13 @@ class StudentController extends BaseController {
             return;
         }
     }
+    public function getStudentId(){
+        if (!$this->requireMethod('GET')) return;
+        $current = $this->currentUser(); if(!$current) return;
+        $userId = $current['id'];
+        $student = $this->students->getStudentByUserId($userId, $current['school_id']);
+        if (!$student) { $this->fail('Student not found',404); return; }
+        $this->ok('Student ID retrieved', ['student_id' => $student['StudentID']]);
+        return;
+    }
 }

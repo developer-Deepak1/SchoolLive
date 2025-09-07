@@ -62,4 +62,7 @@ export class StudentsService {
   getStudentMonthlyAttendanceFallback(): Observable<{ labels: string[]; datasets: any[] }> {
     return this.http.get<any>(this.dashboardSummary).pipe(map(res => res?.data?.charts?.monthlyAttendance || { labels: [], datasets: [] }));
   }
+  getStudentId(): Observable<number|null> {
+    return this.http.get<any>(`${environment.baseURL}/api/students/getStudentId`);
+  }
 }

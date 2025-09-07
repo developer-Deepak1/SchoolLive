@@ -64,13 +64,14 @@ class Router {
     $this->routes['PUT']['/api/students/{id}'] = ['handler' => ['SchoolLive\Controllers\StudentController', 'update'], 'roles' => true];
     $this->routes['DELETE']['/api/students/{id}'] = ['handler' => ['SchoolLive\Controllers\StudentController', 'delete'], 'roles' => true];
     $this->routes['POST']['/api/students/{id}/reset-password'] = ['handler' => ['SchoolLive\\Controllers\\StudentController', 'resetPassword'], 'roles' => true];
-
+    $this->routes['GET']['/api/students/getStudentId'] = ['handler' => ['SchoolLive\\Controllers\\StudentController', 'getStudentId'], 'roles' => true];
     // Employees routes
     $this->routes['GET']['/api/employees'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'list'], 'roles' => true];
     $this->routes['POST']['/api/employees'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'create'], 'roles' => true];
     $this->routes['GET']['/api/employees/{id}'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'get'], 'roles' => true];
     $this->routes['PUT']['/api/employees/{id}'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'update'], 'roles' => true];
     $this->routes['DELETE']['/api/employees/{id}'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'delete'], 'roles' => true];
+    $this->routes['GET']['/api/getEmployeeId'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'getEmployeeId'], 'roles' => true];
     // Reset password for an employee (admin action)
     $this->routes['POST']['/api/employees/{id}/reset-password'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'resetPassword'], 'roles' => true];
 

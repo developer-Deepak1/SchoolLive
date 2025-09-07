@@ -200,4 +200,10 @@ class EmployeesController extends BaseController {
             return;
         }
     }
+    public function getEmployeeId() {
+        $current = $this->currentUser(); if(!$current) return;
+        $emp = $this->employees->getEmployeeId(id: $current['id'], schoolId: $current['school_id']);
+        if (!$emp) { $this->fail('Employee not found',404); return; }
+        $this->ok('Employee found', ['EmployeeID' => $emp]);
+    }
 }

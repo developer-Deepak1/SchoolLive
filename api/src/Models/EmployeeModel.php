@@ -146,4 +146,12 @@ class EmployeeModel extends Model {
             return false;
         }
     }
+    public function getEmployeeId($id, $schoolId) {
+        $sql = "SELECT EmployeeID FROM Tx_Employees WHERE UserID = :id AND SchoolID = :school LIMIT 1";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':school', $schoolId, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchColumn();
+    }
 }

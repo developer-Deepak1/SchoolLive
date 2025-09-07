@@ -1,8 +1,11 @@
 <p-toast></p-toast>
-<div class="flex flex-wrap items-center gap-3 mb-1">
-  <button pButton pRipple type="button" label="Back" icon="pi pi-arrow-left" class="p-button-text" (click)="back()"></button>
-</div>
-<h2 class="page-title">Employee Profile</h2>
+@if (!profileSetting) {
+  <div class="flex flex-wrap items-center gap-3 mb-1">
+    <button pButton pRipple type="button" label="Back" icon="pi pi-arrow-left" class="p-button-text" (click)="back()"></button>
+  </div>
+}
+
+<h2 class="page-title">{{profileSetting ? 'My Profile' : 'Employee Profile'}}</h2>
 
 <ng-container *ngIf="!loading()">
   <ng-container *ngIf="employee(); else notFoundTpl">
@@ -22,9 +25,11 @@
               <p-tag *ngIf="employee()!.RoleName" severity="info" [value]="employee()!.RoleName"></p-tag>
             </div>
           </div>
-          <div class="hero-actions">
-            <button pButton pRipple icon="pi pi-pencil" label="Edit" (click)="edit()"></button>
-          </div>
+          @if (!profileSetting) {
+            <div class="hero-actions">
+              <button pButton pRipple icon="pi pi-pencil" label="Edit" (click)="edit()"></button>
+            </div>
+          }
         </div>
       </p-card>
 

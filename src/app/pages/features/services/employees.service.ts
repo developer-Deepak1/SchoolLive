@@ -47,4 +47,7 @@ export class EmployeesService {
   getEmployeeMonthlyAttendanceFallback(): Observable<{ labels: string[]; datasets: any[] }> {
     return this.http.get<any>(this.dashboardSummary).pipe(map(res => res?.data?.charts?.monthlyAttendance || { labels: [], datasets: [] }));
   }
+  getEmployeeId(): Observable<number|null> {
+    return this.http.get<any>(`${environment.baseURL}/api/getEmployeeId`);
+  }
 }

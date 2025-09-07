@@ -1,197 +1,48 @@
-<p-toast></p-toast>
-<div class="p-4">
-	<h2 class="page-title">My Profile</h2>
-
-	<ng-container *ngIf="loading()">
-		<p-skeleton width="100%" height="200px"></p-skeleton>
-	</ng-container>
-
-	<ng-container *ngIf="!loading()">
-		<ng-container *ngIf="student || employee || user; else notFound">
-			<div class="p-grid">
-				<div class="p-col-12 p-md-4">
-					<p-card>
-						<ng-template pTemplate="title">
-							<div class="profile-header">
-								<p-avatar label="{{ initials(displayName()) }}"></p-avatar>
-								<div class="profile-meta">
-									<div class="profile-name">{{ displayName() }}</div>
-								</div>
-							</div>
-						</ng-template>
-						<ng-template pTemplate="content">
-							<div *ngIf="student">
-								<p-card header="Identity" class="panel">
-									<div class="kv">
-										<div class="row"><span>Name</span><strong>{{ displayName() || '-' }}</strong>
-										</div>
-										<div class="row"><span>Username</span><strong>{{ student?.Username || '-'
-												}}</strong></div>
-										<div class="row"><span>Gender</span><strong>{{ student?.Gender || '-'
-												}}</strong></div>
-										<div class="row"><span>DOB</span><strong>{{ getDob() ? (getDob() |
-												date:'dd-MMM-yyyy') : '-' }}</strong></div>
-									</div>
-								</p-card>
-								<p-card header="Academic" class="panel">
-									<div class="kv">
-										<div class="row"><span>Class</span><strong>{{ getClassName() }}</strong></div>
-										<div class="row"><span>Section</span><strong>{{ getSectionName() }}</strong>
-										</div>
-										<div class="row"><span>Admission</span><strong>{{ student?.AdmissionDate ?
-												(student.AdmissionDate | date:'dd-MMM-yyyy') : '-' }}</strong></div>
-										<div class="row"><span>Status</span><strong>{{ student?.Status || '-'
-												}}</strong></div>
-									</div>
-								</p-card>
-								<p-card header="Parent & Contact" class="panel">
-									<div class="kv">
-										<div class="row"><span>Father</span><strong>{{ student?.FatherName || '-'
-												}}</strong></div>
-										<div class="row"><span>Father Contact</span><strong>{{
-												student?.FatherContactNumber || '-' }}</strong></div>
-										<div class="row"><span>Mother</span><strong>{{ student?.MotherName || '-'
-												}}</strong></div>
-										<div class="row"><span>Mother Contact</span><strong>{{
-												student?.MotherContactNumber || '-' }}</strong></div>
-										<div class="row"><span>Student Contact</span><strong>{{ getContact() }}</strong>
-										</div>
-										<div class="row"><span>Email</span><strong>{{ getEmail() }}</strong></div>
-									</div>
-								</p-card>
-							</div>
-							<div *ngIf="employee">
-								<p-card header="Identity" class="panel">
-									<div class="kv">
-										<div class="row"><span>Username</span><strong>{{ employee?.Username || '-'
-												}}</strong></div>
-										<div class="row"><span>Name</span><strong>{{ displayName() || '-' }}</strong>
-										</div>
-										<div class="row"><span>Gender</span><strong>{{ employee?.Gender || '-'
-												}}</strong></div>
-										<div class="row"><span>DOB</span><strong>{{ getDob() ? (getDob() |
-												date:'dd-MMM-yyyy') : '-' }}</strong></div>
-									</div>
-								</p-card>
-								<p-card header="Employment" class="panel">
-									<div class="kv">
-										<div class="row"><span>Role</span><strong>{{ getRoleName() }}</strong></div>
-										<div class="row"><span>Joining</span><strong>{{ employee?.JoiningDate ?
-												(employee.JoiningDate | date:'dd-MMM-yyyy') : '-' }}</strong></div>
-										<div class="row"><span>Salary</span><strong>{{ employee?.Salary ?
-												(employee.Salary | currency:'INR':'symbol') : '-' }}</strong></div>
-										<div class="row"><span>Status</span><strong>{{ employee?.Status || '-'
-												}}</strong></div>
-									</div>
-								</p-card>
-								<p-card header="Contact" class="panel">
-									<div class="kv">
-										<div class="row"><span>Contact</span><strong>{{ getContact() }}</strong></div>
-										<div class="row"><span>Email</span><strong>{{ getEmail() }}</strong></div>
-									</div>
-								</p-card>
-							</div>
-							<div *ngIf="!student && !employee">
-								<div class="grid info-grid three">
-									<p-card header="Identity" class="panel">
-										<div class="kv">
-											<div class="row"><span>Username</span><strong>{{ user?.username ||
-													user?.Username || '-' }}</strong></div>
-											<div class="row"><span>Name</span><strong>{{ displayName() || '-'
-													}}</strong></div>
-											<div class="row"><span>DOB</span><strong>{{ getDob() ? (getDob() |
-													date:'dd-MMM-yyyy') : '-' }}</strong></div>
-											<div class="row"><span>Status</span><strong>{{ user?.Status || '-'
-													}}</strong></div>
-										</div>
-									</p-card>
-
-									<!-- Employment intentionally hidden for plain tx-user -->
-
-									<p-card header="Contact" class="panel">
-										<div class="kv">
-											<div class="row"><span>Contact</span><strong>{{ getContact() }}</strong>
-											</div>
-											<div class="row"><span>Email</span><strong>{{ getEmail() }}</strong></div>
-											<div class="row"><span>Role</span><strong>{{ user?.role || user?.RoleName ||
-													'-' }}</strong></div>
-										</div>
-									</p-card>
-
-									<p-card header="Other" class="panel">
-										<div class="kv">
-											<div class="row"><span>Last Login</span><strong>{{ user?.last_login ?
-													(user.last_login | date:'dd-MMM-yyyy') : '-' }}</strong></div>
-											<div class="row"><span>School</span><strong>{{ user?.schoolName ||
-													user?.school_name || '-' }}</strong></div>
-											<div class="row"><span>Notes</span><strong>{{ user?.notes || '-' }}</strong>
-											</div>
-										</div>
-									</p-card>
-								</div>
-							</div>
-						</ng-template>
-					</p-card>
-					<p-card header="Change Password" class="panel change-password-card">
-						<div class="change-pass">
-							<form [formGroup]="changePasswordForm" class="p-grid p-fluid">
-								<div class="p-col-12 p-md-4">
-									<label for="oldPassword" class="p-d-block">Old password</label>
-									<p-password id="oldPassword" formControlName="oldPassword" [toggleMask]="true" [feedback]="false" inputStyleClass="w-100"></p-password>
-									<div *ngIf="changePasswordForm.get('oldPassword')?.touched && changePasswordForm.get('oldPassword')?.invalid" class="p-error">Old password is required.</div>
-								</div>
-								<div class="p-col-12 p-md-4">
-									<label for="newPassword" class="p-d-block">New password</label>
-									<p-password id="newPassword" formControlName="newPassword" [toggleMask]="true" [feedback]="false" inputStyleClass="w-100"></p-password>
-									<div *ngIf="changePasswordForm.get('newPassword')?.touched && changePasswordForm.get('newPassword')?.errors" class="p-error">
-										<div *ngIf="changePasswordForm.get('newPassword')?.errors?.['required']">New password is required.</div>
-										<div *ngIf="changePasswordForm.get('newPassword')?.errors?.['minlength']">New password must be at least 6 characters.</div>
-									</div>
-								</div>
-								<div class="p-col-12 p-md-4 p-d-flex p-ai-center">
-									<div style="width:100%">
-										<label for="confirmPassword" class="p-d-block">Confirm password</label>
-										<p-password id="confirmPassword" formControlName="confirmPassword" [toggleMask]="true" [feedback]="false" inputStyleClass="w-100"></p-password>
-										<div *ngIf="changePasswordForm.get('confirmPassword')?.touched && changePasswordForm.get('confirmPassword')?.invalid" class="p-error">Confirmation is required.</div>
-										<div *ngIf="changePasswordForm.touched && changePasswordForm.errors?.['passwordMismatch']" class="p-error">Passwords do not match.</div>
-									</div>
-								</div>
-								<div class="p-col-12 p-md-12 p-d-flex p-jc-end p-pt-2">
-									<button pButton type="button" label="Change" (click)="changePassword()"></button>
-								</div>
-							</form>
-						</div>
-					</p-card>
-				</div>
-
-				<div class="p-col-12 p-md-8" *ngIf="attendanceLineData?.datasets?.length">
-					<p-card>
-						<ng-template pTemplate="title">Attendance</ng-template>
-						<ng-template pTemplate="content">
-							<div style="height:260px;">
-								<canvas baseChart [data]="attendanceLineData" [options]="attendanceLineOptions"
-									chartType="bar"></canvas>
-							</div>
-							<div class="attendance-summary">
-								<div *ngFor="let s of attendanceSummary()" class="summary-item">
-									<div class="month">{{ s.month }}</div>
-									<div class="stats">Present: {{ s.present }} / {{ s.workingDays }} ({{ s.percent }}%)
-									</div>
-								</div>
-							</div>
-						</ng-template>
-					</p-card>
+@if (userRoles.ROLE_TEACHER==RoleId){
+<app-employee-profile [profileSetting]="true"></app-employee-profile>
+}
+@if (userRoles.ROLE_STUDENT==RoleId) {
+<app-student-profile [profileSetting]="true"></app-student-profile>
+}
+@if (userRoles.ROLE_SCHOOLADMIN==RoleId) {
+<app-school-admin-profile></app-school-admin-profile>
+}
+<p-card header="Change Password" class="panel change-password-card">
+	<div class="change-pass">
+		<form [formGroup]="changePasswordForm" class="p-grid p-fluid">
+			<div class="p-col-12 p-md-4">
+				<label for="oldPassword" class="p-d-block">Old password</label>
+				<p-password id="oldPassword" formControlName="oldPassword" [toggleMask]="true" [feedback]="false"
+					inputStyleClass="w-100"></p-password>
+				<div *ngIf="changePasswordForm.get('oldPassword')?.touched && changePasswordForm.get('oldPassword')?.invalid"
+					class="p-error">Old password is required.</div>
+			</div>
+			<div class="p-col-12 p-md-4">
+				<label for="newPassword" class="p-d-block">New password</label>
+				<p-password id="newPassword" formControlName="newPassword" [toggleMask]="true" [feedback]="false"
+					inputStyleClass="w-100"></p-password>
+				<div *ngIf="changePasswordForm.get('newPassword')?.touched && changePasswordForm.get('newPassword')?.errors"
+					class="p-error">
+					<div *ngIf="changePasswordForm.get('newPassword')?.errors?.['required']">New password is required.
+					</div>
+					<div *ngIf="changePasswordForm.get('newPassword')?.errors?.['minlength']">New password must be at
+						least 6 characters.</div>
 				</div>
 			</div>
-		</ng-container>
-        
-		<ng-template #notFound>
-			<div class="p-d-flex p-jc-center p-ai-center" style="min-height:200px">
-				<div>
-					<h3>No profile found</h3>
-					<p>Please ensure your account is linked to a student or employee record.</p>
+			<div class="p-col-12 p-md-4 p-d-flex p-ai-center">
+				<div style="width:100%">
+					<label for="confirmPassword" class="p-d-block">Confirm password</label>
+					<p-password id="confirmPassword" formControlName="confirmPassword" [toggleMask]="true"
+						[feedback]="false" inputStyleClass="w-100"></p-password>
+					<div *ngIf="changePasswordForm.get('confirmPassword')?.touched && changePasswordForm.get('confirmPassword')?.invalid"
+						class="p-error">Confirmation is required.</div>
+					<div *ngIf="changePasswordForm.touched && changePasswordForm.errors?.['passwordMismatch']"
+						class="p-error">Passwords do not match.</div>
 				</div>
 			</div>
-		</ng-template>
-	</ng-container>
-</div>
+			<div class="p-col-12 p-md-12 p-d-flex p-jc-end p-pt-2">
+				<button pButton type="button" label="Change" (click)="changePassword()"></button>
+			</div>
+		</form>
+	</div>
+</p-card>
