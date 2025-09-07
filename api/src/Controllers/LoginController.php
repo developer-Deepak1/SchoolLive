@@ -110,8 +110,8 @@ class LoginController extends BaseController {
     if (!$user || $user['IsActive'] != 1) { $this->fail('User account is no longer valid',401); return; }
 
     // Ensure current academic id is present and up-to-date in the token payload
-    $academicModel = new AcademicModel();
-    $currentAcademic = $academicModel->getCurrentAcademicYear($user['SchoolID']);
+    $academicModel = new AcademicModel(); 
+    $currentAcademic = $academicModel->getCurrentAcademicYear($userData['school_id']);
     $userData['AcademicYearID'] = ($currentAcademic && isset($currentAcademic['AcademicYearID'])) ? $currentAcademic['AcademicYearID'] : null;
 
     // Generate new tokens
