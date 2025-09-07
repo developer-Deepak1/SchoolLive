@@ -142,7 +142,7 @@ class Router {
 
         // Route not found
         http_response_code(404);
-        echo json_encode(value: ['success' => false, 'message' => 'Endpoint not found']);
+        echo json_encode(['success' => false, 'message' => 'Endpoint not found']);
     }
 
     /**
