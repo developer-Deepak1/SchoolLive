@@ -6,6 +6,50 @@
 .change-pass .p-col-12.p-md-4 { padding-bottom: 0.5rem; }
 .change-pass .p-col-12.p-md-12 { padding-top: 0.5rem; }
 
+/* Prevent p-password from overflowing its parent column */
+.change-pass .p-col-12 { overflow: hidden; }
+.change-pass ::ng-deep p-password { display:block; width:100%; max-width:100%; box-sizing:border-box; }
+.change-pass ::ng-deep p-password .p-password,
+.change-pass ::ng-deep p-password .p-inputtext { width:100% !important; box-sizing:border-box !important; }
+.change-pass ::ng-deep p-password .p-password-input { padding-right:2.6rem !important; }
+.change-pass ::ng-deep p-password .p-password-reveal { position:absolute !important; right:0.6rem !important; top:50% !important; transform:translateY(-50%) !important; }
+
+/* Ensure p-password does not overflow its column on small screens */
+.change-pass ::ng-deep p-password {
+	display: block;
+ 	max-width: 100%;
+ 	box-sizing: border-box;
+}
+.change-pass ::ng-deep p-password input,
+.change-pass ::ng-deep p-password .p-password-input {
+ 	width: 100% !important;
+ 	max-width: 100% !important;
+ 	box-sizing: border-box !important;
+}
+
+/* Ensure the toggleMask button (eye icon) sits inside the input area */
+.change-pass ::ng-deep p-password {
+	position: relative;
+}
+.change-pass ::ng-deep p-password .p-password {
+ 	width: 100%;
+}
+.change-pass ::ng-deep p-password .p-password .p-password-input {
+ 	width: calc(100% - 2.6rem) !important; /* reserve space for toggle */
+ 	padding-right: 0.6rem !important; /* small inner padding */
+ 	box-sizing: border-box !important;
+}
+.change-pass ::ng-deep p-password .p-password .p-password-reveal {
+ 	position: absolute !important;
+ 	right: 0.5rem !important;
+ 	top: 50% !important;
+ 	transform: translateY(-50%) !important;
+ 	z-index: 2 !important;
+}
+
+/* Error styling inside change-pass */
+.change-pass .p-error { color: #c53030; font-size: .875rem; margin-top: .25rem; }
+
 /* Force a three-column layout for the change-password block on medium+ screens */
 @media (min-width: 768px) {
 	.change-pass .p-grid { display:flex; flex-wrap:wrap; gap:0.5rem; }
@@ -37,3 +81,11 @@
 	.chart-wrapper { height:260px; }
 }
 .chart-wrapper { position:relative; width:100%; height:320px; }
+
+/* Fallback for very small screens to avoid p-password overflow */
+@media (max-width: 420px) {
+	.change-pass :deep(p-password),
+	.change-pass :deep(.p-password) {
+		max-width: calc(100% - 0.6rem) !important;
+	}
+}

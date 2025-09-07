@@ -15,14 +15,14 @@ import { UserService } from '@/services/user.service';
 import { StudentsService } from '../services/students.service';
 import { EmployeesService } from '../services/employees.service';
 import { USER_ROLES } from '../../common/constant';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { InputTextModule } from 'primeng/inputtext';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
-
+import { PasswordModule } from 'primeng/password';
 @Component({
   selector: 'app-profile-setting',
   standalone: true,
-  imports: [CommonModule, CardModule, ButtonModule, ToastModule, TagModule, DividerModule, AvatarModule, SkeletonModule, RippleModule, BaseChartDirective, FormsModule, InputTextModule, HttpClientModule],
+  imports: [CommonModule, CardModule, ButtonModule, ToastModule, TagModule, DividerModule, AvatarModule, SkeletonModule, RippleModule, BaseChartDirective, FormsModule, ReactiveFormsModule, InputTextModule, HttpClientModule, PasswordModule],
   providers: [MessageService],
   templateUrl: './profile-setting.html',
   styleUrls: ['./profile-setting.scss']
@@ -40,15 +40,30 @@ export class ProfileSetting implements OnInit {
   private static _dataLabelPluginRegistered = false;
 
   // change password fields
-  oldPassword = '';
-  newPassword = '';
-  confirmPassword = '';
+  // reactive form for change password
+  changePasswordForm!: FormGroup;
 
   constructor(private userService: UserService, private students: StudentsService, private employees: EmployeesService, private msg: MessageService, private http: HttpClient) {}
 
   ngOnInit(): void {
     this.registerDataLabelPlugin();
     this.loadProfile();
+    this.initForm();
+  }
+
+  private initForm() {
+    this.changePasswordForm = new FormBuilder().group({
+      oldPassword: ['', Validators.required],
+      newPassword: ['', [Validators.required, Validators.minLength(6)]],
+      confirmPassword: ['', Validators.required]
+    }, { validators: this.passwordsMatchValidator });
+  }
+
+  private passwordsMatchValidator(group: AbstractControl): ValidationErrors | null {
+    const np = group.get('newPassword')?.value;
+    const cp = group.get('confirmPassword')?.value;
+    if (np && cp && np !== cp) return { passwordMismatch: true };
+    return null;
   }
 
   private registerDataLabelPlugin() {
@@ -148,12 +163,10 @@ export class ProfileSetting implements OnInit {
   changePassword() {
     const uid = this.userService.getUserId();
     if (!uid) { this.msg.add({ severity: 'error', summary: 'Error', detail: 'User not available' }); return; }
-    if (!this.oldPassword || !this.newPassword || !this.confirmPassword) { this.msg.add({ severity: 'warn', summary: 'Validation', detail: 'Please fill all password fields' }); return; }
-    if (this.newPassword !== this.confirmPassword) { this.msg.add({ severity: 'warn', summary: 'Validation', detail: 'New password and confirmation do not match' }); return; }
+    if (!this.changePasswordForm.valid) { this.msg.add({ severity: 'warn', summary: 'Validation', detail: 'Please correct the form errors' }); this.changePasswordForm.markAllAsTouched(); return; }
 
-    // Backend provides a UserModel::updatePassword($userId, $newPassword) — call update user endpoint with password
-    const payload: any = { password: this.newPassword };
-    // Use PUT /api/users/{id}
-    this.http.put(`/api/users/${uid}`, payload).subscribe({ next: (res:any) => { this.msg.add({ severity: 'success', summary: 'Success', detail: 'Password changed' }); this.oldPassword = this.newPassword = this.confirmPassword = ''; }, error: (err:any) => { const detail = err?.error?.message || err?.message || 'Failed to change password'; this.msg.add({ severity: 'error', summary: 'Error', detail }); } });
+    const vals = this.changePasswordForm.value;
+    const payload: any = { password: vals.newPassword };
+    this.http.put(`/api/users/${uid}`, payload).subscribe({ next: (res:any) => { this.msg.add({ severity: 'success', summary: 'Success', detail: 'Password changed' }); this.changePasswordForm.reset(); }, error: (err:any) => { const detail = err?.error?.message || err?.message || 'Failed to change password'; this.msg.add({ severity: 'error', summary: 'Error', detail }); } });
   }
 }
