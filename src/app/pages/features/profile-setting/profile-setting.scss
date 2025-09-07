@@ -1,0 +1,91 @@
+:host { display:block; }
+.profile-wrapper { display:flex; flex-direction:column; gap:1.5rem; background:#ffffff; padding:1rem 1.25rem 1.5rem; border-radius:12px; box-shadow:0 2px 8px -2px rgba(0,0,0,.08),0 4px 16px -4px rgba(0,0,0,.06); }
+.page-title { margin:0 0 1rem; font-size:1.4rem; font-weight:600; }
+.change-pass { padding-top: 0.5rem; }
+.change-pass input[pinputtext] { width: 100%; }
+.change-pass .p-col-12.p-md-4 { padding-bottom: 0.5rem; }
+.change-pass .p-col-12.p-md-12 { padding-top: 0.5rem; }
+
+/* Prevent p-password from overflowing its parent column */
+.change-pass .p-col-12 { overflow: hidden; }
+.change-pass ::ng-deep p-password { display:block; width:100%; max-width:100%; box-sizing:border-box; }
+.change-pass ::ng-deep p-password .p-password,
+.change-pass ::ng-deep p-password .p-inputtext { width:100% !important; box-sizing:border-box !important; }
+.change-pass ::ng-deep p-password .p-password-input { padding-right:2.6rem !important; }
+.change-pass ::ng-deep p-password .p-password-reveal { position:absolute !important; right:0.6rem !important; top:50% !important; transform:translateY(-50%) !important; }
+
+/* Ensure p-password does not overflow its column on small screens */
+.change-pass ::ng-deep p-password {
+	display: block;
+ 	max-width: 100%;
+ 	box-sizing: border-box;
+}
+.change-pass ::ng-deep p-password input,
+.change-pass ::ng-deep p-password .p-password-input {
+ 	width: 100% !important;
+ 	max-width: 100% !important;
+ 	box-sizing: border-box !important;
+}
+
+/* Ensure the toggleMask button (eye icon) sits inside the input area */
+.change-pass ::ng-deep p-password {
+	position: relative;
+}
+.change-pass ::ng-deep p-password .p-password {
+ 	width: 100%;
+}
+.change-pass ::ng-deep p-password .p-password .p-password-input {
+ 	width: calc(100% - 2.6rem) !important; /* reserve space for toggle */
+ 	padding-right: 0.6rem !important; /* small inner padding */
+ 	box-sizing: border-box !important;
+}
+.change-pass ::ng-deep p-password .p-password .p-password-reveal {
+ 	position: absolute !important;
+ 	right: 0.5rem !important;
+ 	top: 50% !important;
+ 	transform: translateY(-50%) !important;
+ 	z-index: 2 !important;
+}
+
+/* Error styling inside change-pass */
+.change-pass .p-error { color: #c53030; font-size: .875rem; margin-top: .25rem; }
+
+/* Force a three-column layout for the change-password block on medium+ screens */
+@media (min-width: 768px) {
+	.change-pass .p-grid { display:flex; flex-wrap:wrap; gap:0.5rem; }
+	.change-pass .p-col-12.p-md-4 { flex: 0 0 calc(33.333% - 0.5rem); max-width: calc(33.333% - 0.5rem); display:block; }
+	.change-pass .p-col-12.p-md-12 { flex: 0 0 100%; max-width:100%; }
+}
+
+.change-password-card { margin-top: 1rem; }
+.profile-hero { background: linear-gradient(135deg,var(--primary-50),var(--surface-card)); border:1px solid var(--surface-border); }
+.hero-grid { display:grid; grid-template-columns: auto 1fr auto; align-items:center; gap:1.25rem; }
+.hero-avatar :deep(.p-avatar) { box-shadow:0 2px 6px rgba(0,0,0,.15); }
+.hero-name { font-size:1.25rem; font-weight:600; line-height:1.2; }
+.hero-sub { font-size:.75rem; opacity:.7; letter-spacing:.5px; text-transform:uppercase; }
+.hero-actions button { white-space:nowrap; }
+.info-grid { display:grid; gap:1rem; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); }
+.info-grid.three { grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); }
+.panel { position:relative; }
+.panel.wide { grid-column:1 / -1; }
+.kv { display:flex; flex-direction:column; gap:.5rem; }
+.kv.two .row { display:grid; grid-template-columns: 130px 1fr auto; align-items:center; }
+.row { display:grid; grid-template-columns: 110px 1fr; gap:.5rem; font-size:.85rem; }
+.row span { color: var(--text-color-secondary); font-weight:500; }
+.row strong { font-weight:600; }
+.row small { font-size:.65rem; background:var(--surface-200); padding:2px 6px; border-radius:10px; }
+@media (max-width: 640px) {
+	.hero-grid { grid-template-columns: 1fr; text-align:center; }
+	.hero-actions { justify-self:center; }
+	.kv.two .row { grid-template-columns: 110px 1fr; }
+	.chart-wrapper { height:260px; }
+}
+.chart-wrapper { position:relative; width:100%; height:320px; }
+
+/* Fallback for very small screens to avoid p-password overflow */
+@media (max-width: 420px) {
+	.change-pass :deep(p-password),
+	.change-pass :deep(.p-password) {
+		max-width: calc(100% - 0.6rem) !important;
+	}
+}

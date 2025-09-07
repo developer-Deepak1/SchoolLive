@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, TemplateRef, ViewChild } from '@angular/core';
+import { Component, Input, OnInit, signal, TemplateRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CardModule } from 'primeng/card';
@@ -54,6 +54,7 @@ import { ChartConfiguration, ChartOptions, Chart, Plugin } from 'chart.js';
 export class StudentProfile implements OnInit {
   student = signal<Student & { FirstName?: string; MiddleName?: string; LastName?: string; ContactNumber?: string; EmailID?: string } | null>(null);
   loading = signal<boolean>(true);
+  @Input() profileSetting: boolean = false;
   // Attendance chart state
   attendanceLineData: ChartConfiguration<'line'>['data'] = { labels: [], datasets: [] };
   // summary array: { month: string, workingDays: number, present: number, percent: number }
@@ -116,8 +117,20 @@ export class StudentProfile implements OnInit {
   ngOnInit(): void {
   this.ensureDataLabelPlugin();
   const idParam = this.route.snapshot.queryParamMap.get('id') || this.route.snapshot.paramMap.get('id');
-    const id = idParam ? Number(idParam) : NaN;
-    if (!id) { this.msg.add({severity:'error', summary:'Error', detail:'Invalid student id'}); return; }
+  const id = idParam ? Number(idParam) : NaN;
+    if(!this.profileSetting){
+      this.loadProfile(id);
+    }
+    else {
+      this.students.getStudentId().subscribe({
+        next: (res: any) => {
+          const id = res?.data?.student_id ? Number(res.data.student_id) : NaN;
+          this.loadProfile(id);
+        }
+      });
+    }
+  }
+  loadProfile(id: number) {
     this.loading.set(true);
     this.students.getStudent(id).subscribe({
       next: (s: any) => { this.student.set(s); this.loading.set(false); if (s) this.loadAttendance(); },

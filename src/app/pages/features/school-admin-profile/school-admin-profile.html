@@ -1,0 +1,84 @@
+<p-toast></p-toast>
+
+<h2 class="page-title">My Profile</h2>
+
+<ng-container *ngIf="!loading()">
+	<ng-container *ngIf="user(); else notFoundTpl">
+		<div class="profile-wrapper">
+			<p-card class="profile-hero">
+				<div class="hero-grid">
+					<div class="hero-avatar">
+						<p-avatar *ngIf="displayName(); else fallbackIcon" [label]="initials(displayName())" size="xlarge" shape="circle" styleClass="surface-0 text-primary font-semibold text-lg shadow-2" ></p-avatar>
+						<ng-template #fallbackIcon>
+							<p-avatar icon="pi pi-user" size="xlarge" shape="circle" styleClass="shadow-2" />
+						</ng-template>
+					</div>
+					<div class="hero-main">
+						<div class="hero-name">{{displayName()}}</div>
+						<div class="hero-meta flex gap-2 mt-2 items-center">
+							<p-tag *ngIf="user()!.IsActive !== undefined" [severity]="statusSeverity(user()!.IsActive ? 'active' : 'inactive')" [value]="user()!.IsActive ? 'Active' : 'Inactive'"></p-tag>
+							<p-tag *ngIf="user()!.RoleID" severity="info" [value]="user()!.Role || user()!.RoleName || (user()!.RoleID ? ('Role '+user()!.RoleID) : '')"></p-tag>
+						</div>
+					</div>
+					<div class="hero-actions">
+						<!-- no edit for now -->
+					</div>
+				</div>
+			</p-card>
+
+			<div class="grid info-grid three">
+				<p-card header="Identity" class="panel">
+					<div class="kv">
+						<div class="row"><span>Username</span><strong>{{user()!.Username || user()!.username || '-'}}</strong></div>
+						<div class="row"><span>Name</span><strong>{{displayName() || '-'}}</strong></div>
+						<div class="row"><span>Email</span><strong>{{user()!.EmailID || user()!.email || '-'}}</strong></div>
+						<div class="row"><span>Role</span><strong>{{user()!.Role || user()!.RoleName || '-'}}</strong></div>
+					</div>
+				</p-card>
+
+				<p-card header="Contact" class="panel">
+					<div class="kv">
+						<div class="row"><span>Contact</span><strong>{{user()!.ContactNumber || user()!.Contact || '-'}}</strong></div>
+						<div class="row"><span>Phone</span><strong>{{user()!.Phone || '-'}}</strong></div>
+						<div class="row"><span>School</span><strong>{{user()!.SchoolName || user()!.school_name || '-'}}</strong></div>
+					</div>
+				</p-card>
+
+				<p-card header="Meta" class="panel">
+					<div class="kv">
+						<div class="row"><span>Created</span><strong>{{user()!.CreatedAt ? (user()!.CreatedAt | date:'dd-MMM-yyyy') : '-'}}</strong></div>
+						<div class="row"><span>Last Updated</span><strong>{{user()!.UpdatedAt ? (user()!.UpdatedAt | date:'dd-MMM-yyyy') : '-'}}</strong></div>
+					</div>
+				</p-card>
+			</div>
+			<p-card header="School Details" class="panel">
+				<div class="kv">
+					<div class="row"><span>School Name</span><strong>{{school()!.SchoolName || school()!.school_name || user()!.SchoolName || user()!.school_name || '-'}}</strong></div>
+					<div class="row"><span>Address</span><strong>{{school()!.Address || school()!.SchoolAddress || user()!.SchoolAddress || user()!.address || user()!.SchoolAddressLine || '-'}}</strong></div>
+					<div class="row"><span>Contact</span><strong>{{school()!.ContactNumber || school()!.SchoolContact || user()!.SchoolContact || user()!.ContactNumber || '-'}}</strong></div>
+					<div class="row"><span>Email</span><strong>{{school()!.Email || school()!.SchoolEmail || user()!.SchoolEmail || user()!.email || user()!.EmailID || '-'}}</strong></div>
+					<div class="row"><span>Academic Year</span><strong>{{school()!.AcademicYearName || school()!.AcademicYearID || user()!.AcademicYear || user()!.AcademicYearID || '-'}}</strong></div>
+				</div>
+			</p-card>
+		</div>
+	</ng-container>
+</ng-container>
+
+<ng-template #notFoundTpl>
+	<p-card>
+		<div class="p-4">User not found.</div>
+	</p-card>
+</ng-template>
+
+<ng-template #skeletonTpl>
+	<div class="grid md:grid-cols-3 gap-4">
+		<p-card *ngFor="let i of [0,1,2,3]">
+			<div class="flex flex-col gap-2">
+				<p-skeleton width="60%" height="1.2rem"></p-skeleton>
+				<p-skeleton width="80%" height="0.9rem"></p-skeleton>
+				<p-skeleton width="50%" height="0.9rem"></p-skeleton>
+				<p-skeleton width="70%" height="0.9rem"></p-skeleton>
+			</div>
+		</p-card>
+	</div>
+</ng-template>

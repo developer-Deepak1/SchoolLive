@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, Input, input, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CardModule } from 'primeng/card';
@@ -52,6 +52,8 @@ import { ChartConfiguration, ChartOptions, Chart, Plugin } from 'chart.js';
 export class EmployeeProfile implements OnInit {
   employee = signal<Employee | null>(null);
   loading = signal<boolean>(true);
+  @Input() profileSetting: boolean = false;
+
   attendanceLineData: ChartConfiguration<'line'>['data'] = { labels: [], datasets: [] };
   // summary array: { month: string, workingDays: number, present: number, percent: number }
   attendanceSummary = signal<Array<{ month: string; workingDays: number; present: number; percent: number }>>([]);
@@ -111,14 +113,26 @@ export class EmployeeProfile implements OnInit {
   }
 
   ngOnInit(): void {
-  this.ensureDataLabelPlugin();
+    this.ensureDataLabelPlugin();
     const idParam = this.route.snapshot.queryParamMap.get('id') || this.route.snapshot.paramMap.get('id');
     const id = idParam ? Number(idParam) : NaN;
-    if (!id) { this.msg.add({severity:'error', summary:'Error', detail:'Invalid employee id'}); return; }
+    if (this.profileSetting) {
+      this.employees.getEmployeeId().subscribe({
+        next: (res: any) => {
+          if (!res) { this.msg.add({ severity: 'error', summary: 'Error', detail: 'Employee record not found' }); this.loading.set(false); return; }
+          const empId = res?.data?.EmployeeID;
+          this.loadingprofile(empId);
+        }, error: () => { this.msg.add({ severity: 'error', summary: 'Error', detail: 'Failed to fetch employee id' }); this.loading.set(false); }
+      });
+    } else if (id && !isNaN(id) && id > 0) {
+      this.loadingprofile(id);
+    }
+  }
+  private loadingprofile(id: number) {
     this.loading.set(true);
     this.employees.getEmployee(id).subscribe({
-      next: (s:any) => { const withParents = this.ensureParentFields(s); this.employee.set(withParents); this.loading.set(false); if (withParents) this.loadAttendance(); },
-      error: () => { this.loading.set(false); this.msg.add({severity:'error', summary:'Error', detail:'Failed to load'}); }
+      next: (s: any) => { const withParents = this.ensureParentFields(s); this.employee.set(withParents); this.loading.set(false); if (withParents) this.loadAttendance(); },
+      error: () => { this.loading.set(false); this.msg.add({ severity: 'error', summary: 'Error', detail: 'Failed to load' }); }
     });
   }
 

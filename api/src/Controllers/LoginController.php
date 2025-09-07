@@ -110,8 +110,8 @@ class LoginController extends BaseController {
     if (!$user || $user['IsActive'] != 1) { $this->fail('User account is no longer valid',401); return; }
 
     // Ensure current academic id is present and up-to-date in the token payload
-    $academicModel = new AcademicModel();
-    $currentAcademic = $academicModel->getCurrentAcademicYear($user['SchoolID']);
+    $academicModel = new AcademicModel(); 
+    $currentAcademic = $academicModel->getCurrentAcademicYear($userData['school_id']);
     $userData['AcademicYearID'] = ($currentAcademic && isset($currentAcademic['AcademicYearID'])) ? $currentAcademic['AcademicYearID'] : null;
 
     // Generate new tokens
@@ -123,5 +123,48 @@ class LoginController extends BaseController {
             'refresh_token' => $newRefreshToken,
             'token_type' => 'Bearer'
         ]);
+    }
+
+    /**
+     * Change password for a user.
+     * PUT /api/users/{id}/password
+     * Body: { oldPassword, newPassword }
+     * If the requester is the same user, oldPassword is required. Admins may change without oldPassword.
+     */
+    public function changePassword() {
+        if (!$this->requireMethod('POST')) return;
+
+        $current = $this->currentUser(); if(!$current) return;
+
+        $input = $this->input();
+        $id= $input['userId'] ?? null;
+        $old = $input['oldPassword'] ?? null;
+        $new = $input['newPassword'] ?? null;
+
+        if (empty($new)) { $this->fail('New password is required',status: 400); return; }
+        if (strlen($new) < 6) { $this->fail('New password must be at least 6 characters',400); return; }
+
+        try {
+            // Fetch target user record including password hash
+            $target = $this->userModel->getPdo()->prepare("SELECT UserID, PasswordHash, RoleID FROM Tx_Users WHERE UserID = :id LIMIT 1");
+            $target->execute([':id' => $id]);
+            $userRow = $target->fetch();
+            if (!$userRow) { $this->fail('User not found',404); return; }
+
+            if (empty($old)) { $this->fail('Old password is required',status: 400); return; }
+            if (!$this->userModel->verifyPassword($old, $userRow['PasswordHash'])) { $this->fail('Old password is incorrect',status: 400); return; }
+            // Update to new password
+            $updated = $this->userModel->updatePassword($id, $new);
+            if ($updated) {
+                $this->ok(message: 'Password changed');
+            } else {
+                $this->fail('Failed to update password',500);
+            }
+            return;
+        } catch (\Throwable $ex) {
+            error_log('[LoginController::changePassword] ' . $ex->getMessage());
+            $this->fail('Server error while changing password',status: 500);
+            return;
+        }
     }
 }

@@ -1,33 +1,48 @@
-<p-fluid>
-        <div class="flex mt-8">
-            <div class="card flex flex-col gap-6 w-full">
-                <div class="font-semibold text-xl">Advanced</div>
-                <div class="flex flex-col md:flex-row gap-6">
-                    <div class="flex flex-wrap gap-2 w-full">
-                        <label for="firstname2">Firstname</label>
-                        <input pInputText id="firstname2" type="text" />
-                    </div>
-                    <div class="flex flex-wrap gap-2 w-full">
-                        <label for="lastname2">Lastname</label>
-                        <input pInputText id="lastname2" type="text" />
-                    </div>
-                </div>
-
-                <div class="flex flex-wrap">
-                    <label for="address">Address</label>
-                    <textarea pTextarea id="address" rows="4"></textarea>
-                </div>
-
-                <div class="flex flex-col md:flex-row gap-6">
-                    <div class="flex flex-wrap gap-2 w-full">
-                        <label for="state">State</label>
-                        <p-select id="state" [(ngModel)]="dropdownItem" [options]="dropdownItems" optionLabel="name" placeholder="Select One" class="w-full"></p-select>
-                    </div>
-                    <div class="flex flex-wrap gap-2 w-full">
-                        <label for="zip">Zip</label>
-                        <input pInputText id="zip" type="text" />
-                    </div>
-                </div>
-            </div>
-        </div>
-    </p-fluid>
+@if (userRoles.ROLE_TEACHER==RoleId){
+<app-employee-profile [profileSetting]="true"></app-employee-profile>
+}
+@if (userRoles.ROLE_STUDENT==RoleId) {
+<app-student-profile [profileSetting]="true"></app-student-profile>
+}
+@if (userRoles.ROLE_SCHOOLADMIN==RoleId) {
+<app-school-admin-profile></app-school-admin-profile>
+}
+<p-card header="Change Password" class="panel change-password-card">
+	<div class="change-pass">
+		<form [formGroup]="changePasswordForm" class="p-grid p-fluid">
+			<div class="p-col-12 p-md-4">
+				<label for="oldPassword" class="p-d-block">Old password</label>
+				<p-password id="oldPassword" formControlName="oldPassword" [toggleMask]="true" [feedback]="false"
+					inputStyleClass="w-100"></p-password>
+				<div *ngIf="changePasswordForm.get('oldPassword')?.touched && changePasswordForm.get('oldPassword')?.invalid"
+					class="p-error">Old password is required.</div>
+			</div>
+			<div class="p-col-12 p-md-4">
+				<label for="newPassword" class="p-d-block">New password</label>
+				<p-password id="newPassword" formControlName="newPassword" [toggleMask]="true" [feedback]="false"
+					inputStyleClass="w-100"></p-password>
+				<div *ngIf="changePasswordForm.get('newPassword')?.touched && changePasswordForm.get('newPassword')?.errors"
+					class="p-error">
+					<div *ngIf="changePasswordForm.get('newPassword')?.errors?.['required']">New password is required.
+					</div>
+					<div *ngIf="changePasswordForm.get('newPassword')?.errors?.['minlength']">New password must be at
+						least 6 characters.</div>
+				</div>
+			</div>
+			<div class="p-col-12 p-md-4 p-d-flex p-ai-center">
+				<div style="width:100%">
+					<label for="confirmPassword" class="p-d-block">Confirm password</label>
+					<p-password id="confirmPassword" formControlName="confirmPassword" [toggleMask]="true"
+						[feedback]="false" inputStyleClass="w-100"></p-password>
+					<div *ngIf="changePasswordForm.get('confirmPassword')?.touched && changePasswordForm.get('confirmPassword')?.invalid"
+						class="p-error">Confirmation is required.</div>
+					<div *ngIf="changePasswordForm.touched && changePasswordForm.errors?.['passwordMismatch']"
+						class="p-error">Passwords do not match.</div>
+				</div>
+			</div>
+			<div class="p-col-12 p-md-12 p-d-flex p-jc-end p-pt-2">
+				<button pButton type="button" label="Change" (click)="changePassword()"></button>
+			</div>
+		</form>
+	</div>
+</p-card>

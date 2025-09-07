@@ -166,4 +166,5 @@ export class AuthService {
         // Send the refresh token in the request body as { refresh_token: string }
         return this.http.post(`${environment.baseURL}/api/auth/refresh`, { refresh_token: refresh });
     }
+    
 }
