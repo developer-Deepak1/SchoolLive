@@ -72,6 +72,8 @@ class Router {
     $this->routes['PUT']['/api/employees/{id}'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'update'], 'roles' => true];
     $this->routes['DELETE']['/api/employees/{id}'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'delete'], 'roles' => true];
     $this->routes['GET']['/api/getEmployeeId'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'getEmployeeId'], 'roles' => true];
+    // Return current authenticated user id (delegated to UsersController)
+    $this->routes['GET']['/api/getUserId'] = ['handler' => ['SchoolLive\\Controllers\\UsersController', 'getUserId'], 'roles' => true];
     // Reset password for an employee (admin action)
     $this->routes['POST']['/api/employees/{id}/reset-password'] = ['handler' => ['SchoolLive\\Controllers\\EmployeesController', 'resetPassword'], 'roles' => true];
 
@@ -86,6 +88,18 @@ class Router {
     $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
         echo json_encode(['success' => true, 'data' => $rows]);
     }, 'roles' => true];
+    
+        // Users endpoints (profiles and user management)
+        $this->routes['GET']['/api/users'] = ['handler' => ['SchoolLive\\Controllers\\UsersController', 'list'], 'roles' => true];
+        $this->routes['GET']['/api/users/{id}'] = ['handler' => ['SchoolLive\\Controllers\\UsersController', 'get'], 'roles' => true];
+        $this->routes['POST']['/api/users'] = ['handler' => ['SchoolLive\\Controllers\\UsersController', 'create'], 'roles' => true];
+        $this->routes['PUT']['/api/users/{id}'] = ['handler' => ['SchoolLive\\Controllers\\UsersController', 'update'], 'roles' => true];
+        $this->routes['DELETE']['/api/users/{id}'] = ['handler' => ['SchoolLive\\Controllers\\UsersController', 'delete'], 'roles' => true];
+        $this->routes['GET']['/api/profile'] = ['handler' => ['SchoolLive\\Controllers\\UsersController', 'profile'], 'roles' => true];
+
+    // Schools endpoints
+    $this->routes['GET']['/api/schools/{id}'] = ['handler' => ['SchoolLive\\Controllers\\SchoolsController', 'get'], 'roles' => true];
+    $this->routes['GET']['/api/schools/by-user/{userId}'] = ['handler' => ['SchoolLive\\Controllers\\SchoolsController', 'getByUser'], 'roles' => true];
 
     // Attendance routes (daily mark & list)
     $this->routes['GET']['/api/attendance'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'list'], 'roles' => true];
