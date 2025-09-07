@@ -503,7 +503,7 @@ class AcademicModel extends Model {
             $ins = $this->conn->prepare("INSERT INTO Tx_Holidays (AcademicYearID, SchoolID, Date, Title, Type, CreatedBy, CreatedAt) VALUES (:ay, :school, :date, :title, :type, :user, :created)");
             $createdAt = date('Y-m-d H:i:s');
 
-            $period = new \DatePeriod(new \DateTime($start), new \DateInterval('P1D'), (new \DateTime($end))->modify('+1 day'));
+            $period = new DatePeriod(new DateTime($start), new DateInterval('P1D'), (new DateTime($end))->modify('+1 day'));
             $createdDates = [];
             $skippedDates = [];
 
