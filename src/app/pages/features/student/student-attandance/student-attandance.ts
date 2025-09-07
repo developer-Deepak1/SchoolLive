@@ -86,33 +86,35 @@ export class StudentAttandance {
 
     this.loading.set(true);
     const sid = selSection ?? undefined;
-  this.svc.getDaily(dt, sid).subscribe({
+    // load current day
+    this.svc.getDaily(dt, sid).subscribe({
       next: (res: any) => {
         const data = (res.records || []).map((r:any) => {
-          // If no previous attendance, show default 'Present' and mark as dirty so
-          // Save will create attendance rows. If previous attendance exists, preserve it.
           const status = r.Status ?? 'Present';
           const original = r.Status ?? null;
-          return {...r, Status: status, _original: original, _dirty: (original === null)};
+          return {...r, Status: status, _original: original, _dirty: (original === null), PreviousStatus: null};
         });
-          this.rows.set(data);
-          // populate takenBy/takenAt from meta if provided by API
-          if (res.meta) {
-            this.takenBy = res.meta.takenBy || null;
-            this.takenAt = res.meta.takenAt || null;
-          } else {
-            this.takenBy = null; this.takenAt = null;
-          }
-        // detect if attendance already exists for selected date/section
-        const taken = data.some((d:any) => d._original !== null);
-        this.attendanceTaken.set(taken);
-        if (taken) {
-          const count = data.filter((d:any)=>d._original!==null).length;
-          this.msg.add({ severity: 'warn', summary: 'Attendance exists', detail: `Attendance already recorded (${count} students) for selected date/section. You may update.`, life: 5000 });
-        }
-        this.loading.set(false);
-  },
-  error: (err: any) => { this.loading.set(false); }
+        // fetch previous day and map previous statuses by StudentID
+        try {
+          const prev = new Date(dt);
+          prev.setDate(prev.getDate() - 1);
+          const prevDate = this.normalizeDate(prev.toISOString());
+          this.svc.getDaily(prevDate, sid).subscribe(
+            (prevRes:any) => {
+              const prevMap = new Map<number,string>();
+              (prevRes.records || []).forEach((p:any) => { prevMap.set(p.StudentID, p.Status || null); });
+              data.forEach((d:any) => { d.PreviousStatus = prevMap.get(d.StudentID) || null; });
+              this.rows.set(data);
+              // populate takenBy/takenAt from meta if provided by API
+              if (res.meta) { this.takenBy = res.meta.takenBy || null; this.takenAt = res.meta.takenAt || null; } else { this.takenBy = null; this.takenAt = null; }
+              const taken = data.some((d:any) => d._original !== null);
+              this.attendanceTaken.set(taken);
+              this.loading.set(false);
+            },
+            () => { this.rows.set(data); this.loading.set(false); }
+          );
+        } catch(e) { this.rows.set(data); this.loading.set(false); }
+      }, error: (err: any) => { this.loading.set(false); }
     });
   }
 
@@ -139,9 +141,13 @@ export class StudentAttandance {
   }
 
   onClassChange(){
-  // When class changes, always clear any previously selected section so
-  // Search/Reload remain disabled until user explicitly picks a section.
+  // When class changes, clear any previously selected section and
+  // clear/hide attendance rows so stale data isn't shown for the new class.
   this.selectedSection = null;
+  // hide any success card and clear rows to avoid stale data
+  this.savedSuccess.set(false);
+  this.rows.set([]);
+  this.attendanceTaken.set(false);
   if (!this.selectedClass) { this.sectionOptions = []; return; }
   // Use cached sections if available
   const cached = this.sectionsCache[this.selectedClass as number];

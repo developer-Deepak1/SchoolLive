@@ -43,6 +43,7 @@
 				<th style="width:3rem">#</th>
 				<th>Student</th>
 				<th style="width:10rem">Status</th>
+				<th style="width:12rem">Previous Status</th>
 			</tr>
 		</ng-template>
 		<ng-template pTemplate="body" let-row let-i="rowIndex">
@@ -51,6 +52,10 @@
 				<td>{{ (row.FirstName || '') + (row.MiddleName ? ' ' + row.MiddleName : '') + (row.LastName ? ' ' + row.LastName : '') }}</td>
 				<td>
 				<p-selectButton [options]="statuses" optionLabel="label" optionValue="value" [(ngModel)]="row.Status" (ngModelChange)="markChanged(row, $event)"></p-selectButton>
+				</td>
+				<td>
+					<span *ngIf="row.PreviousStatus">{{ row.PreviousStatus }}</span>
+					<span *ngIf="!row.PreviousStatus">-</span>
 				</td>
 			</tr>
 		</ng-template>
