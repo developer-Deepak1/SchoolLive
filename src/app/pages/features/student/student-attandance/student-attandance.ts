@@ -38,17 +38,25 @@ export class StudentAttandance {
   saving = signal<boolean>(false);
 
   statuses = [
-    { label: 'Present (P)', value: 'Present' },
-    { label: 'Leave (L)', value: 'Leave' },
-    { label: 'Half Day (H)', value: 'HalfDay' },
-    { label: 'Absent (A)', value: 'Absent' }
+    { label: 'P', value: 'Present' },
+    { label: 'L', value: 'Leave' },
+    { label: 'H', value: 'HalfDay' },
+    { label: 'A', value: 'Absent' }
   ];
 
   classOptions: any[] = [];
   sectionOptions: any[] = [];
+  // cache sections per class to avoid repeated requests
+  private sectionsCache: Record<number, any[]> = {};
   selectedClass: number | null = null;
   selectedSection: number | null = null;
+  sectionsLoading = signal<boolean>(false);
   attendanceTaken = signal<boolean>(false);
+  takenBy: string | null = null;
+  takenAt: string | null = null;
+  savedSuccess = signal<boolean>(false);
+  savedClassName: string | null = null;
+  savedSectionName: string | null = null;
 
   constructor(){
   this.loadClasses();
@@ -80,8 +88,21 @@ export class StudentAttandance {
     const sid = selSection ?? undefined;
   this.svc.getDaily(dt, sid).subscribe({
       next: (res: any) => {
-        const data = (res.records || []).map((r:any) => ({...r, Status: r.Status || 'Present', _original: r.Status ?? null}));
-        this.rows.set(data);
+        const data = (res.records || []).map((r:any) => {
+          // If no previous attendance, show default 'Present' and mark as dirty so
+          // Save will create attendance rows. If previous attendance exists, preserve it.
+          const status = r.Status ?? 'Present';
+          const original = r.Status ?? null;
+          return {...r, Status: status, _original: original, _dirty: (original === null)};
+        });
+          this.rows.set(data);
+          // populate takenBy/takenAt from meta if provided by API
+          if (res.meta) {
+            this.takenBy = res.meta.takenBy || null;
+            this.takenAt = res.meta.takenAt || null;
+          } else {
+            this.takenBy = null; this.takenAt = null;
+          }
         // detect if attendance already exists for selected date/section
         const taken = data.some((d:any) => d._original !== null);
         this.attendanceTaken.set(taken);
@@ -96,19 +117,56 @@ export class StudentAttandance {
   }
 
   loadClasses(){
-  this.studentsSvc.getClasses().subscribe({ next: (c:any[]) => { this.classOptions = c || []; }, error: (err: any) => {} });
+  this.studentsSvc.getClasses().subscribe({
+    next: (c:any[]) => {
+      this.classOptions = c || [];
+      // fetch all sections in one call and group by ClassID
+      this.sectionsLoading.set(true);
+      this.studentsSvc.getAllSections().subscribe({
+        next: (allSections:any[]) => {
+          (allSections || []).forEach((s:any) => {
+            const cid = s.ClassID || s.class_id || s.Class || null;
+            if (!cid) return;
+            if (!this.sectionsCache[cid]) this.sectionsCache[cid] = [];
+            this.sectionsCache[cid].push(s);
+          });
+          this.sectionsLoading.set(false);
+        },
+        error: () => { this.sectionsLoading.set(false); }
+      });
+    }, error: (err: any) => {}
+  });
   }
 
   onClassChange(){
-    if (!this.selectedClass) { this.sectionOptions = []; this.selectedSection = null; return; }
-  this.studentsSvc.getSections(this.selectedClass).subscribe({ next: (s:any[]) => { this.sectionOptions = s || []; }, error: (err: any) => { this.sectionOptions = []; } });
+  // When class changes, always clear any previously selected section so
+  // Search/Reload remain disabled until user explicitly picks a section.
+  this.selectedSection = null;
+  if (!this.selectedClass) { this.sectionOptions = []; return; }
+  // Use cached sections if available
+  const cached = this.sectionsCache[this.selectedClass as number];
+  if (cached) {
+    this.sectionOptions = cached;
+  return;
+  }
+  // fallback to API call if cache miss
+  this.sectionsLoading.set(true);
+  this.studentsSvc.getSections(this.selectedClass).subscribe({ next: (s:any[]) => { this.sectionOptions = s || []; this.sectionsCache[this.selectedClass as number] = s || []; this.sectionsLoading.set(false); }, error: (err: any) => { this.sectionOptions = []; this.sectionsLoading.set(false); } });
   }
 
   search(){
     this.load(this.dateModel, this.selectedSection ?? undefined);
   }
 
-  markChanged(row: any){
+  markChanged(row: any, newVal?: string){
+    // If user attempts to clear selection (newVal falsy), ignore the action so
+    // the existing selection remains. This prevents reassigning previous values
+    // explicitly and makes one selection mandatory only when user picks a value.
+    if (!newVal || newVal === '') {
+      // do nothing - keep current row.Status untouched
+    } else {
+      row.Status = newVal;
+    }
     row._dirty = (row.Status !== row._original);
   }
 
@@ -123,7 +181,8 @@ export class StudentAttandance {
       return;
     }
     this.saving.set(true);
-  this.svc.save(this.date(), entries).subscribe({
+  const dt = this.normalizeDate(this.dateModel ?? this.date());
+  this.svc.save(dt, entries, this.selectedClass ?? null, this.selectedSection ?? null).subscribe({
       next: (res: any) => {
         // update originals
         const map = new Map(entries.map(e=>[e.StudentID,e.Status]));
@@ -131,8 +190,24 @@ export class StudentAttandance {
           if(map.has(r.StudentID)){ r._original = r.Status; r._dirty = false; }
           return r;
         }));
-        this.saving.set(false);
-        this.msg.add({severity:'success', summary:'Attendance saved', detail:`Created ${res.summary.created}, Updated ${res.summary.updated}`});
+  this.saving.set(false);
+  // show toast
+  this.msg.add({severity:'success', summary:'Attendance saved', detail:`Created ${res.summary.created}, Updated ${res.summary.updated}`});
+  // update takenBy/takenAt if backend returns meta
+  if (res.meta) { this.takenBy = res.meta.takenBy || null; this.takenAt = res.meta.takenAt || null; }
+  // capture class/section names for success card, then clear
+  const cls = this.classOptions.find(c=>c.ClassID===this.selectedClass);
+  const sec = this.sectionOptions.find(s=>s.SectionID===this.selectedSection);
+  this.savedClassName = cls ? (cls.ClassName || cls.class_name || null) : null;
+  this.savedSectionName = sec ? (sec.SectionName || sec.section_name || null) : null;
+  // mark success, clear form and rows, and hide the attendance table
+  this.savedSuccess.set(true);
+  // clear selection and rows
+  this.selectedClass = null; this.selectedSection = null; this.dateModel = toLocalYMDIST(new Date()) || '';
+  this.rows.set([]);
+  this.attendanceTaken.set(false);
+  // auto-hide success after 3 seconds
+  setTimeout(()=>{ this.savedSuccess.set(false); }, 5000);
   },
   error: (err: any) => { this.saving.set(false); this.msg.add({severity:'error', summary:'Save failed'}); }
     });
