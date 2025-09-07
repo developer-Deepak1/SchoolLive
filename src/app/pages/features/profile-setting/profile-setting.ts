@@ -14,6 +14,7 @@ import { ChartConfiguration, ChartOptions, Chart, Plugin } from 'chart.js';
 import { UserService } from '@/services/user.service';
 import { StudentsService } from '../services/students.service';
 import { EmployeesService } from '../services/employees.service';
+import { ProfileService } from './profile.service';
 import { USER_ROLES } from '../../common/constant';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { InputTextModule } from 'primeng/inputtext';
@@ -43,7 +44,7 @@ export class ProfileSetting implements OnInit {
   // reactive form for change password
   changePasswordForm!: FormGroup;
 
-  constructor(private userService: UserService, private students: StudentsService, private employees: EmployeesService, private msg: MessageService, private http: HttpClient) {}
+  constructor(private userService: UserService, private students: StudentsService, private employees: EmployeesService, private profileService: ProfileService, private msg: MessageService, private http: HttpClient) {}
 
   ngOnInit(): void {
     this.registerDataLabelPlugin();
@@ -161,12 +162,10 @@ export class ProfileSetting implements OnInit {
   getRoleName() { return this.employee?.RoleName || this.employee?.Role || this.employee?.designation || '-'; }
 
   changePassword() {
-    const uid = this.userService.getUserId();
-    if (!uid) { this.msg.add({ severity: 'error', summary: 'Error', detail: 'User not available' }); return; }
-    if (!this.changePasswordForm.valid) { this.msg.add({ severity: 'warn', summary: 'Validation', detail: 'Please correct the form errors' }); this.changePasswordForm.markAllAsTouched(); return; }
-
+    if (!this.changePasswordForm.valid) { this.changePasswordForm.markAllAsTouched(); this.msg.add({ severity: 'warn', summary: 'Validation', detail: 'Please correct the form errors' }); return; }
+    const userId = this.userService.getUserId();
+    if (!userId) { this.msg.add({ severity: 'error', summary: 'Error', detail: 'User not available' }); return; }
     const vals = this.changePasswordForm.value;
-    const payload: any = { password: vals.newPassword };
-    this.http.put(`/api/users/${uid}`, payload).subscribe({ next: (res:any) => { this.msg.add({ severity: 'success', summary: 'Success', detail: 'Password changed' }); this.changePasswordForm.reset(); }, error: (err:any) => { const detail = err?.error?.message || err?.message || 'Failed to change password'; this.msg.add({ severity: 'error', summary: 'Error', detail }); } });
+    this.profileService.changePassword(userId, vals.oldPassword, vals.newPassword).subscribe({ next: (res:any) => { this.msg.add({ severity: 'success', summary: 'Success', detail: 'Password changed' }); this.changePasswordForm.reset(); }, error: (err:any) => { const detail = err?.error?.message || err?.message || 'Failed to change password'; this.msg.add({ severity: 'error', summary: 'Error', detail }); } });
   }
 }

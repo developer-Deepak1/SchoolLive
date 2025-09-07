@@ -15,6 +15,8 @@ class Router {
     // Authentication routes (public)
     $this->routes['POST']['/api/auth/login'] = ['handler' => ['SchoolLive\Controllers\LoginController', 'login'], 'roles' => null];
     $this->routes['POST']['/api/auth/refresh'] = ['handler' => ['SchoolLive\Controllers\LoginController', 'refresh'], 'roles' => null];
+       // User password change (self-service). Expects POST /api/users/changepassword with JSON { oldPassword, newPassword }
+    $this->routes['POST']['/api/users/changepassword'] = ['handler' => ['SchoolLive\\Controllers\\LoginController', 'changePassword'], 'roles' => true];
 
     $this->routes['GET']['/api/academic/getAcademicYears'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'getAcademicYears'], 'roles' => true];
     $this->routes['POST']['/api/academic/CreateAcademicYears'] = ['handler' => ['SchoolLive\Controllers\AcademicController', 'createAcademicYear'], 'roles' => true];
@@ -125,7 +127,7 @@ class Router {
 
         // Route not found
         http_response_code(404);
-        echo json_encode(['success' => false, 'message' => 'Endpoint not found']);
+        echo json_encode(value: ['success' => false, 'message' => 'Endpoint not found']);
     }
 
     /**
