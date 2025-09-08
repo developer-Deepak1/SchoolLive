@@ -48,6 +48,14 @@ export class StudentsService {
     return this.http.get<any>(`${this.academicBase}/sections`, { params }).pipe(map(res => res?.data || []));
   }
 
+  /**
+   * Fetch all sections across classes in a single call when supported by the API.
+   * This expects the API to return an array of sections with ClassID fields.
+   */
+  getAllSections(): Observable<any[]> {
+    return this.http.get<any>(`${this.academicBase}/sections`).pipe(map(res => res?.data || []));
+  }
+
   getStudent(id: number): Observable<Student|null> {
     return this.http.get<any>(`${this.baseUrl}/${id}`).pipe(map(res => res?.data || null));
   }

@@ -879,8 +879,8 @@ class AcademicModel extends Model {
             return [
                 'labels' => $computed['labels'],
                 'datasets' => [
-                    [ 'label' => 'Working Days', 'data' => $computed['workingDays'], 'backgroundColor' => '#6366f1' ],
-                    [ 'label' => 'Present', 'data' => $present, 'backgroundColor' => '#10b981' ]
+                    [ 'label' => 'Working Days', 'data' => $computed['workingDays'], 'backgroundColor' => '#10b981' ],
+                    [ 'label' => 'Present', 'data' => $present, 'backgroundColor' => '#92dbc2ff' ]
                 ]
             ];
     }

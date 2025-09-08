@@ -33,30 +33,16 @@ class DashboardController extends BaseController {
             $stats = $this->model->getStats($schoolId, $academicYearId);
             $attendanceOverview = $this->model->getAttendanceOverviewToday($schoolId, $academicYearId);
             $classAttendance = $this->model->getClassAttendanceToday($schoolId, $academicYearId);
-            $monthlyAttendance = $this->model->getMonthlyAttendance($schoolId, $academicYearId, 12);
-            $enrollmentTrend = $this->model->getEnrollmentTrend($schoolId, $academicYearId);
-            $gradeDistribution = $this->model->getGradeDistribution($schoolId, $academicYearId);
-            $revenueBreakdown = $this->model->getRevenueBreakdown($schoolId, $academicYearId);
-            $recentActivities = $this->model->getRecentActivities($schoolId, $academicYearId);
-            $upcomingEvents = $this->model->getUpcomingEvents($schoolId, $academicYearId);
             $classGender = $this->model->getClassGenderCounts($schoolId, $academicYearId);
-            $topClasses = $this->model->getTopClasses($schoolId, $academicYearId, 5);
 
             $payload = [
                     'stats' => $stats,
                     'charts' => [
                         'attendanceOverview' => $attendanceOverview,
-                        'enrollmentTrend' => $enrollmentTrend,
-                        'gradeDistribution' => $gradeDistribution,
-                        'revenue' => $revenueBreakdown,
                         'classAttendance' => $classAttendance,
-                        'classGender' => $classGender,
-                        'monthlyAttendance' => $monthlyAttendance
+                        'classGender' => $classGender
                     ],
                     // 'classGender' moved under charts to match frontend expectation
-                    'recentActivities' => $recentActivities,
-                    'topClasses' => $topClasses,
-                    'upcomingEvents' => $upcomingEvents,
                     'teacherPerformance' => []
             ];
             $cache[$cacheKey] = [ 'expires' => $now + 60, 'payload' => ['data'=>$payload] ];

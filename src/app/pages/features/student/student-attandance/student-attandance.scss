@@ -3,7 +3,27 @@
 .attendance-page { padding: 1rem; }
 .p-card { padding: .5rem; }
 .p-toolbar .p-toolbar-group-left h3 { margin: 0; font-size: 1rem; font-weight: 600; }
-.p-toolbar .p-toolbar-group-right { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+/* toolbar group styles handled by toolbar-grid */
+
+/* Toolbar grid: fallback grid without requiring PrimeFlex */
+.toolbar-grid { display:flex; flex-wrap:wrap; align-items:center; margin-left:-0.5rem; margin-right:-0.5rem; }
+.toolbar-col { box-sizing:border-box; padding:0.25rem; padding-left:0.5rem; padding-right:0.5rem; width:100%; min-width:0; display:flex; flex-direction:column; }
+.toolbar-actions { box-sizing:border-box; padding:0.25rem; padding-left:0.5rem; padding-right:0.5rem; width:100%; display:flex; justify-content:flex-end; gap:0.5rem; flex-wrap:wrap; flex-direction:column; margin-top:13px !important; }
+
+/* responsive breakpoints */
+@media (min-width: 640px) {
+	/* tablet: two columns */
+	.toolbar-col { flex: 0 0 50%; max-width:50%; }
+	/* actions inline on tablet and up */
+	.toolbar-actions { flex-direction:row; margin-top:0; width:auto; }
+}
+@media (min-width: 992px) {
+	/* laptop/desktop: three columns for inputs, actions full width */
+	.toolbar-grid { align-items:flex-end; }
+	.toolbar-col { flex: 0 0 33.3333%; max-width:33.3333%; }
+	/* let actions size to their content on wide screens so they sit inline with inputs */
+	.toolbar-actions { width:auto; flex: 0 0 auto; }
+}
 .p-tag p { font-weight:600; }
 .legend { display:flex; gap:1.25rem; font-size:.8rem; margin-top:.75rem; flex-wrap:wrap; }
 tr.dirty { background: #fff7ed; }
@@ -11,3 +31,34 @@ tr.dirty { background: #fff7ed; }
 .p-selectbutton .p-button { padding:.35rem .6rem; font-size:.8rem; }
 .w-40 { width: 10rem; }
 .w-36 { width: 9rem; }
+
+/* Utility fallbacks for projects without Tailwind — apply locally to this component */
+.w-full { width: 100% !important; }
+/* Escaped class for 'sm:w-auto' when used in styleClass/ngClass */
+.sm\:w-auto { width: auto !important; }
+
+
+/* Ensure datepicker/input elements can shrink and don't force the toolbar to wrap */
+.toolbar-col .p-calendar, .toolbar-col p-calendar, .toolbar-col .p-datepicker, .toolbar-col .p-inputtext {
+	min-width: 0 !important;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+/* Make action buttons full width on mobile (stacked) */
+.toolbar-actions .p-button { width: 100%; }
+@media (min-width: 640px) {
+	.toolbar-actions .p-button { width: auto; }
+}
+
+/* High-specificity override in case global/PrimeNG rules override component styles */
+.p-toolbar-group-right .toolbar-grid .toolbar-actions {
+	margin-top: 13px !important;
+	width: 100% !important;
+}
+@media (min-width: 640px) {
+	.p-toolbar-group-right .toolbar-grid .toolbar-actions {
+		margin-top: 10 !important;
+		width: auto !important;
+	}
+}

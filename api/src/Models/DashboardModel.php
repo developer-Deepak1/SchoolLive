@@ -141,6 +141,7 @@ class DashboardModel extends Model {
         $sql = "SELECT 
                     SUM(CASE WHEN a.Status='Present' THEN 1 ELSE 0 END) present,
                     SUM(CASE WHEN a.Status='Absent' THEN 1 ELSE 0 END) absent,
+                    SUM(CASE WHEN a.Status='Leave' THEN 1 ELSE 0 END) AS onleave,
                     SUM(CASE WHEN a.Status='HalfDay' THEN 1 ELSE 0 END) halfday
                 FROM Tx_Students_Attendance a
                 WHERE a.SchoolID = :school AND a.Date = :dt" . ($academicYearId ? " AND a.AcademicYearID = :ay" : "");
@@ -149,13 +150,13 @@ class DashboardModel extends Model {
         $stmt->bindValue(':dt', $today);
         if ($academicYearId) $stmt->bindValue(':ay', $academicYearId, PDO::PARAM_INT);
         $stmt->execute();
-        $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['present'=>0,'absent'=>0,'halfday'=>0];
+        $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['present'=>0,'absent'=>0,'halfday'=>0,'onleave'=>0];
         return [
-            'labels' => ['Present','Absent','HalfDay'],
+            'labels' => ['Present','Absent','HalfDay','Leave'],
             'datasets' => [
                 [
-                    'data' => [ (int)$row['present'], (int)$row['absent'], (int)$row['halfday'] ],
-                    'backgroundColor' => ['#10b981','#ef4444','#f59e0b']
+                    'data' => [ (int)$row['present'], (int)$row['absent'], (int)$row['halfday'], (int)$row['onleave'] ],
+                    'backgroundColor' => ['#10b981','#ef4444','#f59e0b','#3b82f6']
                 ]
             ]
         ];
@@ -179,9 +180,11 @@ class DashboardModel extends Model {
             if ($latest) { $dateToUse = $latest; }
         }
 
-        $sql = "SELECT c.ClassName,
+        $sql = "SELECT CONCAT(c.ClassName,'-',sec.SectionName) as ClassName,
                        SUM(CASE WHEN a.Status='Present' THEN 1 ELSE 0 END) AS present,
-                       SUM(CASE WHEN a.Status='Absent' THEN 1 ELSE 0 END) AS absent
+                       SUM(CASE WHEN a.Status='Absent' THEN 1 ELSE 0 END) AS absent,
+                       SUM(CASE WHEN a.Status='Leave' THEN 1 ELSE 0 END) AS onleave,
+                       SUM(CASE WHEN a.Status='HalfDay' THEN 1 ELSE 0 END) AS halfday
                 FROM Tx_Students s
                 INNER JOIN Tx_Sections sec ON s.SectionID = sec.SectionID
                 INNER JOIN Tx_Classes c ON sec.ClassID = c.ClassID
@@ -190,26 +193,32 @@ class DashboardModel extends Model {
                       AND a.Date = :dt
                       " . ($academicYearId ? " AND a.AcademicYearID = :ay" : "") . "
                 WHERE s.SchoolID = :school" . ($academicYearId ? " AND s.AcademicYearID = :ay" : "") . "
-                GROUP BY c.ClassID, c.ClassName
+                GROUP BY c.ClassID, c.ClassName,sec.SectionID,sec.SectionName
                 ORDER BY c.ClassName";
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':dt', $dateToUse);
         $stmt->bindValue(':school',$schoolId,PDO::PARAM_INT);
         if ($academicYearId) $stmt->bindValue(':ay',$academicYearId,PDO::PARAM_INT);
         $stmt->execute();
-        $labels = [];
-        $present = [];
-        $absent = [];
+    $labels = [];
+    $present = [];
+    $absent = [];
+    $onleave = [];
+    $halfday = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $labels[] = $row['ClassName'];
             $present[] = (int)$row['present'];
             $absent[] = (int)$row['absent'];
+            $onleave[] = (int)$row['onleave'];
+            $halfday[] = (int)$row['halfday'];
         }
         return [
             'labels' => $labels,
             'datasets' => [
-                [ 'label' => 'Present', 'data' => $present, 'backgroundColor' => '#3b82f6', 'stack' => 'attendance' ],
-                [ 'label' => 'Absent', 'data' => $absent, 'backgroundColor' => '#ef4444', 'stack' => 'attendance' ]
+                [ 'label' => 'Present', 'data' => $present, 'backgroundColor' => '#10b981', 'stack' => 'attendance' ],
+                [ 'label' => 'Absent', 'data' => $absent, 'backgroundColor' => '#ef4444', 'stack' => 'attendance' ],
+                [ 'label' => 'Leave', 'data' => $onleave, 'backgroundColor' => '#3b82f6', 'stack' => 'attendance' ],
+                [ 'label' => 'HalfDay', 'data' => $halfday, 'backgroundColor' => '#f59e0b', 'stack' => 'attendance' ]
             ],
             'options' => [ 'indexAxis' => 'y', 'stacked' => true ]
         ];

@@ -14,6 +14,7 @@ import { RippleModule } from 'primeng/ripple';
 import { Employee } from '../../model/employee.model';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartOptions, Chart, Plugin } from 'chart.js';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 
 @Component({
   selector: 'app-employee-profile',
@@ -53,14 +54,29 @@ export class EmployeeProfile implements OnInit {
   employee = signal<Employee | null>(null);
   loading = signal<boolean>(true);
   @Input() profileSetting: boolean = false;
-
+  public barChartPlugins = [ChartDataLabels];
+  
   attendanceLineData: ChartConfiguration<'line'>['data'] = { labels: [], datasets: [] };
   // summary array: { month: string, workingDays: number, present: number, percent: number }
   attendanceSummary = signal<Array<{ month: string; workingDays: number; present: number; percent: number }>>([]);
   attendanceLineOptions: ChartOptions<'line'> = {
     responsive: true,
     maintainAspectRatio: false,
-  plugins: { legend: { display: true }, title: { display: false } },
+  plugins: { 
+    legend: { display: true }, 
+    title: { display: false },
+    datalabels: {
+      color: '#ffffff',
+      anchor: 'center',
+      align: 'center',
+      formatter: (value: any) => {
+        // only show labels for non-zero values
+        const num = Number(value ?? 0);
+        return num > 0 ? num : '';
+      },
+      font: { weight: 600, size: 12 }
+    }
+  },
     scales: {
       counts: { // left axis for raw counts (hidden labels/ticks)
         type: 'linear',
@@ -74,46 +90,13 @@ export class EmployeeProfile implements OnInit {
         position: 'right',
         beginAtZero: true,
         max: 100,
-        grid: { drawOnChartArea: false },
+        grid: { drawOnChartArea: true },
         title: { display: true, text: '%' }
       }
     }
   };
   constructor(private route: ActivatedRoute, private router: Router, private employees: EmployeesService, private msg: MessageService) {}
-
-  // Register a tiny plugin to draw value labels above bars
-  private static _dataLabelPluginRegistered = false;
-
-  private ensureDataLabelPlugin() {
-    if ((EmployeeProfile as any)._dataLabelPluginRegistered) return;
-    const dataLabelPlugin: Plugin<'bar'|'line'> = {
-      id: 'barValueLabels',
-      afterDatasetsDraw: (chart) => {
-        const ctx = chart.ctx;
-        chart.data.datasets.forEach((dataset, dsIndex) => {
-          const meta = chart.getDatasetMeta(dsIndex);
-          if (!meta || meta.type !== 'bar') return;
-          meta.data.forEach((elem: any, index: number) => {
-            const v = dataset.data[index];
-            if (v === null || v === undefined) return;
-            const x = elem.x; // center of bar
-            const y = elem.y; // top of bar
-            ctx.save();
-            ctx.fillStyle = '#374151'; // slate-700
-            ctx.font = '12px system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText(String(v), x, y - 4);
-            ctx.restore();
-          });
-        });
-      }
-    };
-    try { Chart.register(dataLabelPlugin); (EmployeeProfile as any)._dataLabelPluginRegistered = true; } catch (e) { /* ignore */ }
-  }
-
   ngOnInit(): void {
-    this.ensureDataLabelPlugin();
     const idParam = this.route.snapshot.queryParamMap.get('id') || this.route.snapshot.paramMap.get('id');
     const id = idParam ? Number(idParam) : NaN;
     if (this.profileSetting) {
