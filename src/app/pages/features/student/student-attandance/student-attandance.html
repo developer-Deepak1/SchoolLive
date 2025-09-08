@@ -19,8 +19,8 @@
 						<p-datepicker inputId="attDate" [(ngModel)]="dateModel" dateFormat="yy-mm-dd" styleClass="w-full" (onSelect)="checkHoliday($event)"></p-datepicker>
 					</div>
 					<div class="toolbar-actions">
-						<p-button label="Search" icon="pi pi-search" (onClick)="search()" styleClass="p-button-outlined mr-2 mb-2 w-full sm:w-auto" [disabled]="!selectedClass || !selectedSection || isHoliday()"></p-button>
-						<p-button label="Reload" icon="pi pi-refresh" styleClass="p-button-text mr-2 mb-2 w-full sm:w-auto" (onClick)="load()" [disabled]="!selectedClass || !selectedSection || loading() || saving() || isHoliday()"></p-button>
+						<p-button label="Search" icon="pi pi-search" (onClick)="search()" styleClass="mr-2 mb-2 w-full sm:w-auto" [disabled]="!selectedClass || !selectedSection || isHoliday()"></p-button>
+						<p-button label="Reload" icon="pi pi-refresh" styleClass="mr-2 mb-2 w-full sm:w-auto" (onClick)="load()" [disabled]="!selectedClass || !selectedSection || loading() || saving() || isHoliday()"></p-button>
 						<p-button label="{{attendanceTaken() ? 'Updated Attendance' : 'Take Attendance'}}" icon="pi pi-save" (onClick)="save()" styleClass="mb-2 w-full sm:w-auto" [disabled]="saving() || dirtyRows.length===0 || isHoliday()"></p-button>
 					</div>
 				</div>
@@ -57,7 +57,7 @@
 		</div>
 	</p-card>
 
-	<p-table *ngIf="!savedSuccess() && rows().length > 0" [value]="rows()" dataKey="StudentID" [loading]="loading()" [tableStyle]="{'min-width':'70rem'}">
+	<p-table *ngIf="!savedSuccess() && rows().length > 0" [value]="rows()" dataKey="StudentID" [loading]="loading()" [tableStyle]="{'min-width':'100%'}">
 		<ng-template pTemplate="header">
 			<tr>
 				<th style="width:3rem">#</th>
@@ -85,6 +85,7 @@
 			<span><strong>L</strong> Leave</span>
 			<span><strong>H</strong> Half Day</span>
 			<span><strong>A</strong> Absent</span>
+			<span><strong>-</strong> No Status</span>
 			<span class="ml-auto" *ngIf="dirtyRows.length>0">{{ dirtyRows.length }} change(s) pending</span>
 	</div>
 </div>
