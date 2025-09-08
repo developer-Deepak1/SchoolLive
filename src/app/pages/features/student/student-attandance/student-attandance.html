@@ -5,12 +5,25 @@
 				<h3 class="m-0">Student Attendance</h3>
 			</div>
 			<div class="p-toolbar-group-right">
-					<p-select [options]="classOptions" optionLabel="ClassName" optionValue="ClassID" [(ngModel)]="selectedClass" placeholder="Class" (onChange)="onClassChange()" class="mr-2"></p-select>
-					<p-select [options]="sectionOptions" optionLabel="SectionName" optionValue="SectionID" [(ngModel)]="selectedSection" placeholder="Section" class="mr-2" [disabled]="!selectedClass || sectionsLoading()"></p-select>
-					<p-datepicker [(ngModel)]="dateModel" dateFormat="yy-mm-dd" inputId="attDate" class="mr-2" (onSelect)="checkHoliday($event)"></p-datepicker>
-			    <p-button label="Search" icon="pi pi-search" (onClick)="search()" class="p-button-outlined mr-2" [disabled]="!selectedClass || !selectedSection || isHoliday()"></p-button>
-				<p-button label="Reload" icon="pi pi-refresh" class="p-button-text mr-2" (onClick)="load()" [disabled]="!selectedClass || !selectedSection || loading() || saving() || isHoliday()"></p-button>
-				<p-button label="{{attendanceTaken() ? 'Updated Attendance' : 'Take Attendance'}}" icon="pi pi-save" (onClick)="save()" [disabled]="saving() || dirtyRows.length===0 || isHoliday()"></p-button>
+				<div class="toolbar-grid">
+					<div class="toolbar-col">
+						<label for="classSelect" class="input-label">Class</label>
+						<p-select inputId="classSelect" [options]="classOptions" optionLabel="ClassName" optionValue="ClassID" [(ngModel)]="selectedClass" placeholder="Class" (onChange)="onClassChange()" styleClass="w-full"></p-select>
+					</div>
+					<div class="toolbar-col">
+						<label for="sectionSelect" class="input-label">Section</label>
+						<p-select inputId="sectionSelect" [options]="sectionOptions" optionLabel="SectionName" optionValue="SectionID" [(ngModel)]="selectedSection" placeholder="Section" styleClass="w-full" [disabled]="!selectedClass || sectionsLoading()"></p-select>
+					</div>
+					<div class="toolbar-col">
+						<label for="attDate" class="input-label">Date</label>
+						<p-datepicker inputId="attDate" [(ngModel)]="dateModel" dateFormat="yy-mm-dd" styleClass="w-full" (onSelect)="checkHoliday($event)"></p-datepicker>
+					</div>
+					<div class="toolbar-actions">
+						<p-button label="Search" icon="pi pi-search" (onClick)="search()" class="p-button-outlined mr-2 mb-2" [disabled]="!selectedClass || !selectedSection || isHoliday()"></p-button>
+						<p-button label="Reload" icon="pi pi-refresh" class="p-button-text mr-2 mb-2" (onClick)="load()" [disabled]="!selectedClass || !selectedSection || loading() || saving() || isHoliday()"></p-button>
+						<p-button label="{{attendanceTaken() ? 'Updated Attendance' : 'Take Attendance'}}" icon="pi pi-save" (onClick)="save()" class="mb-2" [disabled]="saving() || dirtyRows.length===0 || isHoliday()"></p-button>
+					</div>
+				</div>
 			</div>
 	</p-card>
 
