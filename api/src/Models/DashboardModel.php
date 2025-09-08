@@ -215,10 +215,10 @@ class DashboardModel extends Model {
         return [
             'labels' => $labels,
             'datasets' => [
-                [ 'label' => 'Present', 'data' => $present, 'backgroundColor' => '#ef4444', 'stack' => 'attendance' ],
-                [ 'label' => 'Absent', 'data' => $absent, 'backgroundColor' => '#10b981', 'stack' => 'attendance' ],
-                [ 'label' => 'Leave', 'data' => $onleave, 'backgroundColor' => '#f59e0b', 'stack' => 'attendance' ],
-                [ 'label' => 'HalfDay', 'data' => $halfday, 'backgroundColor' => '#0964f6ff', 'stack' => 'attendance' ]
+                [ 'label' => 'Present', 'data' => $present, 'backgroundColor' => '#10b981', 'stack' => 'attendance' ],
+                [ 'label' => 'Absent', 'data' => $absent, 'backgroundColor' => '#ef4444', 'stack' => 'attendance' ],
+                [ 'label' => 'Leave', 'data' => $onleave, 'backgroundColor' => '#3b82f6', 'stack' => 'attendance' ],
+                [ 'label' => 'HalfDay', 'data' => $halfday, 'backgroundColor' => '#f59e0b', 'stack' => 'attendance' ]
             ],
             'options' => [ 'indexAxis' => 'y', 'stacked' => true ]
         ];

@@ -14,6 +14,7 @@ import { RippleModule } from 'primeng/ripple';
 import { Employee } from '../../model/employee.model';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartOptions, Chart, Plugin } from 'chart.js';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 
 @Component({
   selector: 'app-employee-profile',
@@ -53,14 +54,29 @@ export class EmployeeProfile implements OnInit {
   employee = signal<Employee | null>(null);
   loading = signal<boolean>(true);
   @Input() profileSetting: boolean = false;
-
+  public barChartPlugins = [ChartDataLabels];
+  
   attendanceLineData: ChartConfiguration<'line'>['data'] = { labels: [], datasets: [] };
   // summary array: { month: string, workingDays: number, present: number, percent: number }
   attendanceSummary = signal<Array<{ month: string; workingDays: number; present: number; percent: number }>>([]);
   attendanceLineOptions: ChartOptions<'line'> = {
     responsive: true,
     maintainAspectRatio: false,
-  plugins: { legend: { display: true }, title: { display: false } },
+  plugins: { 
+    legend: { display: true }, 
+    title: { display: false },
+    datalabels: {
+      color: '#ffffff',
+      anchor: 'center',
+      align: 'center',
+      formatter: (value: any) => {
+        // only show labels for non-zero values
+        const num = Number(value ?? 0);
+        return num > 0 ? num : '';
+      },
+      font: { weight: 600, size: 12 }
+    }
+  },
     scales: {
       counts: { // left axis for raw counts (hidden labels/ticks)
         type: 'linear',
@@ -74,7 +90,7 @@ export class EmployeeProfile implements OnInit {
         position: 'right',
         beginAtZero: true,
         max: 100,
-        grid: { drawOnChartArea: false },
+        grid: { drawOnChartArea: true },
         title: { display: true, text: '%' }
       }
     }

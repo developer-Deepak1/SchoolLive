@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BaseChartDirective } from 'ng2-charts';
-import { ChartConfiguration, ChartOptions } from 'chart.js';
+import { ChartConfiguration, ChartOptions,Plugin } from 'chart.js';
 
 // PrimeNG Imports
 import { ButtonModule } from 'primeng/button';
@@ -16,6 +16,7 @@ import { ToastModule } from 'primeng/toast';
 import { RippleModule } from 'primeng/ripple';
 import { DashboardService } from '../../../../services/dashboard.service';
 import { HttpClientModule } from '@angular/common/http';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 
 @Component({
   selector: 'app-school-admin-dashboard',
@@ -41,6 +42,8 @@ import { HttpClientModule } from '@angular/common/http';
 export class SchoolAdminDashboard implements OnInit, OnDestroy {
   loading = false;
   loadError: string | null = null;
+  public barChartPlugins = [ChartDataLabels];
+  public doughnutChartPlugins: Plugin<any>[] = [ChartDataLabels];
 
   // Dashboard Statistics
   dashboardStats: any = {
@@ -67,7 +70,18 @@ export class SchoolAdminDashboard implements OnInit, OnDestroy {
       },
       legend: {
         position: 'bottom'
-      }
+      },
+      datalabels: {
+      color: '#ffffff',
+      anchor: 'center',
+      align: 'center',
+      formatter: (value: any) => {
+        // only show labels for non-zero values
+        const num = Number(value ?? 0);
+        return num > 0 ? num : '';
+      },
+      font: { weight: 600, size: 12 }
+    }
     }
   };
 
@@ -85,13 +99,17 @@ export class SchoolAdminDashboard implements OnInit, OnDestroy {
         text: "Today's Attendance (Present vs Absent)"
       },
       legend: { display: true },
-      tooltip: {
-        mode: 'index',
-        intersect: false,
-        callbacks: {
-          label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.x}`
-        }
-      }
+      datalabels: {
+      color: '#ffffff',
+      anchor: 'center',
+      align: 'center',
+      formatter: (value: any) => {
+        // only show labels for non-zero values
+        const num = Number(value ?? 0);
+        return num > 0 ? num : '';
+      },
+      font: { weight: 600, size: 12 }
+    }
     },
     scales: {
       x: {

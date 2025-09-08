@@ -90,7 +90,7 @@
             <p class="m-0 text-sm font-medium">{{loadError}}</p>
             <button pButton label="Retry" size="small" class="mt-2" (click)="loadFromApi()"></button>
           </div>
-          <canvas baseChart [data]="classAttendanceChartData" [options]="classAttendanceChartOptions" type="bar">
+          <canvas baseChart [data]="classAttendanceChartData" [options]="classAttendanceChartOptions" [plugins]="barChartPlugins" type="bar">
           </canvas>
         </div>
       </p-card>
@@ -125,7 +125,7 @@
             <p class="m-0 text-sm font-medium">{{loadError}}</p>
             <button pButton label="Retry" size="small" class="mt-2" (click)="loadFromApi()"></button>
           </div>
-          <canvas baseChart [data]="attendanceChartData" [options]="attendanceChartOptions" type="doughnut">
+          <canvas baseChart [data]="attendanceChartData" [options]="attendanceChartOptions" [plugins]="doughnutChartPlugins" type="doughnut">
           </canvas>
         </div>
       </p-card>
