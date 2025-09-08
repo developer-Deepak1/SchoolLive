@@ -19,9 +19,9 @@
 						<p-datepicker inputId="attDate" [(ngModel)]="dateModel" dateFormat="yy-mm-dd" styleClass="w-full" (onSelect)="checkHoliday($event)"></p-datepicker>
 					</div>
 					<div class="toolbar-actions">
-						<p-button label="Search" icon="pi pi-search" (onClick)="search()" class="p-button-outlined mr-2 mb-2" [disabled]="!selectedClass || !selectedSection || isHoliday()"></p-button>
-						<p-button label="Reload" icon="pi pi-refresh" class="p-button-text mr-2 mb-2" (onClick)="load()" [disabled]="!selectedClass || !selectedSection || loading() || saving() || isHoliday()"></p-button>
-						<p-button label="{{attendanceTaken() ? 'Updated Attendance' : 'Take Attendance'}}" icon="pi pi-save" (onClick)="save()" class="mb-2" [disabled]="saving() || dirtyRows.length===0 || isHoliday()"></p-button>
+						<p-button label="Search" icon="pi pi-search" (onClick)="search()" styleClass="p-button-outlined mr-2 mb-2 w-full sm:w-auto" [disabled]="!selectedClass || !selectedSection || isHoliday()"></p-button>
+						<p-button label="Reload" icon="pi pi-refresh" styleClass="p-button-text mr-2 mb-2 w-full sm:w-auto" (onClick)="load()" [disabled]="!selectedClass || !selectedSection || loading() || saving() || isHoliday()"></p-button>
+						<p-button label="{{attendanceTaken() ? 'Updated Attendance' : 'Take Attendance'}}" icon="pi pi-save" (onClick)="save()" styleClass="mb-2 w-full sm:w-auto" [disabled]="saving() || dirtyRows.length===0 || isHoliday()"></p-button>
 					</div>
 				</div>
 			</div>

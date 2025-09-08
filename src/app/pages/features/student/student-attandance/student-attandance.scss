@@ -32,6 +32,12 @@ tr.dirty { background: #fff7ed; }
 .w-40 { width: 10rem; }
 .w-36 { width: 9rem; }
 
+/* Utility fallbacks for projects without Tailwind — apply locally to this component */
+.w-full { width: 100% !important; }
+/* Escaped class for 'sm:w-auto' when used in styleClass/ngClass */
+.sm\:w-auto { width: auto !important; }
+
+
 /* Ensure datepicker/input elements can shrink and don't force the toolbar to wrap */
 .toolbar-col .p-calendar, .toolbar-col p-calendar, .toolbar-col .p-datepicker, .toolbar-col .p-inputtext {
 	min-width: 0 !important;
