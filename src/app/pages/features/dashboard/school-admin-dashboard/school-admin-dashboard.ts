@@ -54,29 +54,6 @@ export class SchoolAdminDashboard implements OnInit, OnDestroy {
     totalRevenue: 0
   };
 
-  // Student Enrollment Chart
-  enrollmentChartData: ChartConfiguration<'line'>['data'] = { labels: [], datasets: [] };
-
-  enrollmentChartOptions: ChartOptions<'line'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      title: {
-        display: true,
-        text: 'Student Enrollment Trend'
-      },
-      legend: {
-        display: true,
-        position: 'top'
-      }
-    },
-    scales: {
-      y: {
-        beginAtZero: true
-      }
-    }
-  };
-
   // Attendance Chart (start empty; populated from API)
   attendanceChartData: ChartConfiguration<'doughnut'>['data'] = { labels: [], datasets: [] };
 
@@ -90,54 +67,6 @@ export class SchoolAdminDashboard implements OnInit, OnDestroy {
       },
       legend: {
         position: 'bottom'
-      }
-    }
-  };
-
-  // Grade Distribution Chart
-  gradeChartData: ChartConfiguration<'bar'>['data'] = { labels: [], datasets: [] };
-
-  gradeChartOptions: ChartOptions<'bar'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      title: {
-        display: true,
-        text: 'Grade Distribution'
-      },
-      legend: {
-        display: false
-      }
-    },
-    scales: {
-      y: {
-        beginAtZero: true
-      }
-    }
-  };
-
-  // Revenue Chart
-  revenueChartData: ChartConfiguration<'bar'>['data'] = { labels: [], datasets: [] };
-
-  revenueChartOptions: ChartOptions<'bar'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      title: {
-        display: true,
-        text: 'Monthly Revenue Breakdown'
-      },
-      legend: {
-        position: 'top'
-      }
-    },
-    scales: {
-      x: {
-        stacked: true
-      },
-      y: {
-        stacked: true,
-        beginAtZero: true
       }
     }
   };
@@ -195,54 +124,6 @@ export class SchoolAdminDashboard implements OnInit, OnDestroy {
     }
   };
 
-  // Recent Activities (empty until API populates)
-  recentActivities: Array<any> = [];
-
-  // Top Performing Classes
-  topClasses: Array<any> = [];
-
-  // Upcoming Events (empty until API populates)
-  upcomingEvents: Array<any> = [];
-
-  // Teacher Performance
-  teacherPerformance = [
-    {
-      name: 'Dr. Smith Johnson',
-      subject: 'Mathematics',
-      classes: 4,
-      students: 128,
-      rating: 4.8,
-      attendance: 98.5,
-      experience: '15 years'
-    },
-    {
-      name: 'Prof. Emily Davis',
-      subject: 'English Literature',
-      classes: 3,
-      students: 95,
-      rating: 4.7,
-      attendance: 97.2,
-      experience: '12 years'
-    },
-    {
-      name: 'Mr. Michael Brown',
-      subject: 'Physics',
-      classes: 5,
-      students: 145,
-      rating: 4.6,
-      attendance: 96.8,
-      experience: '10 years'
-    },
-    {
-      name: 'Ms. Sarah Wilson',
-      subject: 'Chemistry',
-      classes: 4,
-      students: 118,
-      rating: 4.5,
-      attendance: 95.5,
-      experience: '8 years'
-    }
-  ];
 
   constructor(public dashboardApi: DashboardService) {}
 
@@ -284,8 +165,6 @@ export class SchoolAdminDashboard implements OnInit, OnDestroy {
         this.attendanceChartData = { labels: [], datasets: [] } as any;
         this.classAttendanceChartData = { labels: [], datasets: [] } as any;
         this.classGenderChartData = { labels: [], datasets: [] } as any;
-        this.recentActivities = [];
-        this.upcomingEvents = [];
         this.loading = false;
       }
     });

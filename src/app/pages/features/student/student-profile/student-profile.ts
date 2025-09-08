@@ -82,40 +82,9 @@ export class StudentProfile implements OnInit {
     }
   };
   constructor(private route: ActivatedRoute, private router: Router, private students: StudentsService, private msg: MessageService) {}
-  // tiny plugin registration like EmployeeProfile to render value labels on bars
-  private static _dataLabelPluginRegistered = false;
-
-  private ensureDataLabelPlugin() {
-    if ((StudentProfile as any)._dataLabelPluginRegistered) return;
-    const dataLabelPlugin: Plugin<'bar'|'line'> = {
-      id: 'barValueLabels',
-      afterDatasetsDraw: (chart) => {
-        const ctx = chart.ctx;
-        chart.data.datasets.forEach((dataset, dsIndex) => {
-          const meta = chart.getDatasetMeta(dsIndex);
-          if (!meta || meta.type !== 'bar') return;
-          meta.data.forEach((elem: any, index: number) => {
-            const v = dataset.data[index];
-            if (v === null || v === undefined) return;
-            const x = elem.x;
-            const y = elem.y;
-            ctx.save();
-            ctx.fillStyle = '#374151';
-            ctx.font = '12px system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText(String(v), x, y - 4);
-            ctx.restore();
-          });
-        });
-      }
-    };
-    try { Chart.register(dataLabelPlugin); (StudentProfile as any)._dataLabelPluginRegistered = true; } catch (e) { /* ignore */ }
-  }
   @ViewChild('skeletonTpl', { static: true }) skeletonTpl!: TemplateRef<any>;
   @ViewChild('notFoundTpl', { static: true }) notFoundTpl!: TemplateRef<any>;
   ngOnInit(): void {
-  this.ensureDataLabelPlugin();
   const idParam = this.route.snapshot.queryParamMap.get('id') || this.route.snapshot.paramMap.get('id');
   const id = idParam ? Number(idParam) : NaN;
     if(!this.profileSetting){

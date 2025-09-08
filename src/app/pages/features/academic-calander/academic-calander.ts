@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { ChartConfiguration, ChartData, ChartType, Chart } from 'chart.js';
+import { ChartConfiguration, ChartData, ChartType } from 'chart.js';
 import { CommonModule } from '@angular/common';
 import { BaseChartDirective } from 'ng2-charts';
 import { TableModule } from 'primeng/table';
@@ -15,48 +15,7 @@ import { AcademicYearService } from '../services/academic-year.service';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { toLocalYMDIST } from '@/utils/date-utils';
 import { AcademicCalendarService } from '../services/academic-calendar.service';
-
-// Simple Chart.js plugin to draw values above bars (no extra dependency)
-Chart.register({
-  id: 'barValueLabels',
-  afterDatasetsDraw: (chart) => {
-    const ctx = chart.ctx;
-    chart.data.datasets.forEach((dataset: any, i: number) => {
-      const meta = chart.getDatasetMeta(i);
-      if (!meta || !meta.data) return;
-      meta.data.forEach((bar: any, index: number) => {
-        const value = dataset.data[index];
-        if (value === null || value === undefined) return;
-        // bar dimensions
-        const barTop = Math.min(bar.y, bar.base || 0);
-        const barBottom = Math.max(bar.y, bar.base || 0);
-        const barHeight = Math.abs(barBottom - barTop);
-        const x = bar.x;
-        // choose inside vs above depending on available space
-        const padding = 6;
-        ctx.save();
-        ctx.font = '600 12px sans-serif';
-        ctx.textAlign = 'center';
-        const text = String(value);
-        const textMetrics = ctx.measureText(text);
-        const textHeight = (textMetrics.actualBoundingBoxAscent || 8) + (textMetrics.actualBoundingBoxDescent || 2);
-        if (barHeight > textHeight + padding * 2) {
-          // draw inside bar (centered vertically) with contrasting color
-          const y = barTop + textHeight + padding;
-          ctx.fillStyle = '#ffffff';
-          ctx.fillText(text, x, y);
-        } else {
-          // draw above the bar with dark color
-          const y = barTop - padding;
-          ctx.fillStyle = '#111827';
-          ctx.fillText(text, x, y);
-        }
-        ctx.restore();
-      });
-    });
-  }
-});
-
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 @Component({
   selector: 'app-academic-calander',
   standalone: true,
@@ -79,11 +38,11 @@ Chart.register({
   templateUrl: './academic-calander.html',
   styleUrls: ['./academic-calander.scss']
 })
-export class AcademicCalander implements OnInit,OnDestroy  {
+export class AcademicCalander implements OnInit, OnDestroy {
   // Academic Years
   academicYears: any[] = [];
   selectedAcademicYear: any = null;
-
+  public barChartPlugins = [ChartDataLabels];
   constructor(
     private academicYearService: AcademicYearService,
     private calendarService: AcademicCalendarService,
@@ -315,7 +274,7 @@ export class AcademicCalander implements OnInit,OnDestroy  {
       }
 
       // If in range mode, validate end date and call range API
-  if (this.rangeMode) {
+      if (this.rangeMode) {
         if (!this.holidayEndDate) {
           this.msg.add({ severity: 'warn', summary: 'End date required', detail: 'Please select an end date for the range' });
           return;
@@ -387,8 +346,8 @@ export class AcademicCalander implements OnInit,OnDestroy  {
           return;
         }
       }
-  // If editingHoliday is set, perform update instead of create
-  if (this.editingHoliday && this.editingHoliday.id) {
+      // If editingHoliday is set, perform update instead of create
+      if (this.editingHoliday && this.editingHoliday.id) {
         this.calendarService.updateHoliday(this.editingHoliday.id, payload).subscribe({
           next: (res) => {
             const message = (res && res.message) ? res.message : (res && res.success ? 'Holiday updated' : 'Holiday update response');
@@ -419,7 +378,7 @@ export class AcademicCalander implements OnInit,OnDestroy  {
                 const norm = this.normalizeHoliday(res.data);
                 if (norm) this.holidays = [...this.holidays, norm];
               } else {
-                  this.loadHolidays();
+                this.loadHolidays();
                 // refresh chart after server-created entries
               }
               this.msg.add({ severity: 'success', summary: 'Created', detail: (res && res.message) ? res.message : 'Holiday created' });
@@ -481,7 +440,7 @@ export class AcademicCalander implements OnInit,OnDestroy  {
       accept: () => {
         if (id) {
           this.calendarService.deleteHoliday(id).subscribe({
-            next: (res) => { this.msg.add({ severity: 'success', summary: 'Deleted', detail: (res && res.message) ? res.message : 'Holiday deleted' }); this.loadHolidays(); this.loadMonthlyWorkingDays();},
+            next: (res) => { this.msg.add({ severity: 'success', summary: 'Deleted', detail: (res && res.message) ? res.message : 'Holiday deleted' }); this.loadHolidays(); this.loadMonthlyWorkingDays(); },
             error: (err) => { console.error('Delete holiday failed', err); this.holidays = this.holidays.filter(x => x !== h); const detail = err?.error?.message ?? err?.message ?? 'Server error'; this.msg.add({ severity: 'error', summary: 'Delete failed', detail }); }
           });
         } else {
@@ -581,11 +540,16 @@ export class AcademicCalander implements OnInit,OnDestroy  {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { display: false }
-    }
-    ,
+      legend: { display: false },
+      datalabels: {
+        anchor: 'center',
+        align: 'center',
+        color: '#ffffffff',
+        font: { weight: 'bold', size: 12 },
+        formatter: (value) => value
+      }
+    },
     scales: {
-      // hide default left axis (counts)
       y: { display: false },
       x: { display: true }
     }
@@ -612,7 +576,7 @@ export class AcademicCalander implements OnInit,OnDestroy  {
       this.maxHolidayDate = null;
     }
 
-}
+  }
   ngOnDestroy(): void {
   }
 

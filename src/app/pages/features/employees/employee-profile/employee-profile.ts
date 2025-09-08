@@ -80,40 +80,7 @@ export class EmployeeProfile implements OnInit {
     }
   };
   constructor(private route: ActivatedRoute, private router: Router, private employees: EmployeesService, private msg: MessageService) {}
-
-  // Register a tiny plugin to draw value labels above bars
-  private static _dataLabelPluginRegistered = false;
-
-  private ensureDataLabelPlugin() {
-    if ((EmployeeProfile as any)._dataLabelPluginRegistered) return;
-    const dataLabelPlugin: Plugin<'bar'|'line'> = {
-      id: 'barValueLabels',
-      afterDatasetsDraw: (chart) => {
-        const ctx = chart.ctx;
-        chart.data.datasets.forEach((dataset, dsIndex) => {
-          const meta = chart.getDatasetMeta(dsIndex);
-          if (!meta || meta.type !== 'bar') return;
-          meta.data.forEach((elem: any, index: number) => {
-            const v = dataset.data[index];
-            if (v === null || v === undefined) return;
-            const x = elem.x; // center of bar
-            const y = elem.y; // top of bar
-            ctx.save();
-            ctx.fillStyle = '#374151'; // slate-700
-            ctx.font = '12px system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText(String(v), x, y - 4);
-            ctx.restore();
-          });
-        });
-      }
-    };
-    try { Chart.register(dataLabelPlugin); (EmployeeProfile as any)._dataLabelPluginRegistered = true; } catch (e) { /* ignore */ }
-  }
-
   ngOnInit(): void {
-    this.ensureDataLabelPlugin();
     const idParam = this.route.snapshot.queryParamMap.get('id') || this.route.snapshot.paramMap.get('id');
     const id = idParam ? Number(idParam) : NaN;
     if (this.profileSetting) {

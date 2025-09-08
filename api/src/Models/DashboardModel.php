@@ -141,6 +141,7 @@ class DashboardModel extends Model {
         $sql = "SELECT 
                     SUM(CASE WHEN a.Status='Present' THEN 1 ELSE 0 END) present,
                     SUM(CASE WHEN a.Status='Absent' THEN 1 ELSE 0 END) absent,
+                    SUM(CASE WHEN a.Status='Leave' THEN 1 ELSE 0 END) AS onleave,
                     SUM(CASE WHEN a.Status='HalfDay' THEN 1 ELSE 0 END) halfday
                 FROM Tx_Students_Attendance a
                 WHERE a.SchoolID = :school AND a.Date = :dt" . ($academicYearId ? " AND a.AcademicYearID = :ay" : "");
@@ -149,13 +150,13 @@ class DashboardModel extends Model {
         $stmt->bindValue(':dt', $today);
         if ($academicYearId) $stmt->bindValue(':ay', $academicYearId, PDO::PARAM_INT);
         $stmt->execute();
-        $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['present'=>0,'absent'=>0,'halfday'=>0];
+        $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['present'=>0,'absent'=>0,'halfday'=>0,'onleave'=>0];
         return [
-            'labels' => ['Present','Absent','HalfDay'],
+            'labels' => ['Present','Absent','HalfDay','Leave'],
             'datasets' => [
                 [
-                    'data' => [ (int)$row['present'], (int)$row['absent'], (int)$row['halfday'] ],
-                    'backgroundColor' => ['#10b981','#ef4444','#f59e0b']
+                    'data' => [ (int)$row['present'], (int)$row['absent'], (int)$row['halfday'], (int)$row['onleave'] ],
+                    'backgroundColor' => ['#10b981','#ef4444','#f59e0b','#3b82f6']
                 ]
             ]
         ];
