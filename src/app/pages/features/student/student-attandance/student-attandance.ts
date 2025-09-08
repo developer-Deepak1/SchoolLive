@@ -2,6 +2,7 @@ import { Component, signal, inject } from '@angular/core';
 import { toLocalYMDIST } from '@/utils/date-utils';
 import { CommonModule } from '@angular/common';
 import { AttendanceService, AttendanceRecord } from '@/pages/features/services/attendance.service';
+import { AcademicCalendarService } from '@/pages/features/services/academic-calendar.service';
 import { StudentsService } from '@/pages/features/services/students.service';
 import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
@@ -29,6 +30,7 @@ export class StudentAttandance {
   private svc: AttendanceService = inject(AttendanceService);
   private msg: MessageService = inject(MessageService);
   private studentsSvc: StudentsService = inject(StudentsService);
+  private calendarSvc: AcademicCalendarService = inject(AcademicCalendarService);
 
   date = signal<string>(toLocalYMDIST(new Date()) || '');
   // separate model for template two-way binding
@@ -57,9 +59,39 @@ export class StudentAttandance {
   savedSuccess = signal<boolean>(false);
   savedClassName: string | null = null;
   savedSectionName: string | null = null;
+  // holiday state
+  isHoliday = signal<boolean>(false);
+  holidayTitle: string | null = null;
+  // cached calendar data
+  private cachedHolidays: Map<string, any> | null = null;
+  private cachedWeeklyOffs: Set<number> | null = null;
 
   constructor(){
   this.loadClasses();
+  this.initCalendarCache();
+  }
+
+  // Fetch holidays and weekly offs once and cache them for the session
+  private initCalendarCache() {
+    const ayId = null;
+    this.calendarSvc.getHolidays(ayId).subscribe({ next: (list:any[]) => {
+      const map = new Map<string, any>();
+      (list || []).forEach(h => {
+        const d = (h.Date || h.date || '').split('T')[0];
+        if (d) map.set(d, h);
+      });
+      this.cachedHolidays = map;
+    }, error: () => { this.cachedHolidays = new Map(); }});
+
+    this.calendarSvc.getWeeklyOffs().subscribe({ next: (offs:any[]) => {
+      const set = new Set<number>();
+      (offs || []).forEach(o => {
+        const val = o.DayOfWeek ?? o.day_of_week ?? o.day ?? o;
+        const n = parseInt(String(val), 10);
+        if (!isNaN(n)) set.add(n);
+      });
+      this.cachedWeeklyOffs = set;
+    }, error: () => { this.cachedWeeklyOffs = new Set(); }});
   }
 
   private normalizeDate(v: any): string {
@@ -71,7 +103,74 @@ export class StudentAttandance {
     } catch (e) { return ''; }
   }
 
-  load(date?: string, sectionId?: number){
+  // Check academic calendar for selected date to determine if it's a holiday or weekly-off.
+  public checkHoliday(raw: any): Promise<void> {
+    const dateYMD = this.normalizeDate(raw);
+    this.isHoliday.set(false);
+    this.holidayTitle = null;
+    const ayId = null;
+    if (!dateYMD) return Promise.resolve();
+    // If cache available, use it synchronously
+    if (this.cachedHolidays) {
+      const h = this.cachedHolidays.get(dateYMD);
+      if (h) {
+        const type = (h.Type || h.type || 'Holiday');
+        if (String(type).toLowerCase() === 'workingday') {
+          this.isHoliday.set(false); this.holidayTitle = null; return Promise.resolve();
+        }
+        this.isHoliday.set(true); this.holidayTitle = h.Title || h.title || 'Holiday'; this.rows.set([]); this.attendanceTaken.set(false); this.savedSuccess.set(false);
+        return Promise.resolve();
+      }
+    }
+    if (this.cachedWeeklyOffs) {
+      try {
+        const dt = new Date(dateYMD);
+        const dow = dt.getDay();
+        const dow1 = dow === 0 ? 7 : dow;
+        if (this.cachedWeeklyOffs.has(dow1)) {
+          this.isHoliday.set(true); this.holidayTitle = 'Weekly Off'; this.rows.set([]); this.attendanceTaken.set(false); this.savedSuccess.set(false);
+          return Promise.resolve();
+        }
+      } catch (e) { /* fall through to network */ }
+    }
+
+    // Fallback to network if cache not present
+    return new Promise<void>((resolve) => {
+      this.calendarSvc.getHolidays(ayId).subscribe({
+        next: (list:any[]) => {
+          try {
+            const map = new Map<string, any>();
+            (list || []).forEach(h => {
+              const d = (h.Date || h.date || '').split('T')[0];
+              map.set(d, h);
+            });
+            const h = map.get(dateYMD);
+            if (h) {
+              const type = (h.Type || h.type || 'Holiday');
+              if (String(type).toLowerCase() === 'workingday') { this.isHoliday.set(false); this.holidayTitle = null; resolve(); return; }
+              this.isHoliday.set(true); this.holidayTitle = h.Title || h.title || 'Holiday'; this.rows.set([]); this.attendanceTaken.set(false); this.savedSuccess.set(false); resolve(); return;
+            }
+          } catch (e) { }
+          this.calendarSvc.getWeeklyOffs().subscribe(
+            (offs:any[]) => {
+              try {
+                const offSet = new Set((offs||[]).map((o:any)=>o.DayOfWeek || o.day_of_week || o.DayOfWeek || o));
+                const dt = new Date(dateYMD);
+                const dow = dt.getDay();
+                const dow1 = dow === 0 ? 7 : dow;
+                if (offSet.has(dow1)) { this.isHoliday.set(true); this.holidayTitle = 'Weekly Off'; this.rows.set([]); this.attendanceTaken.set(false); this.savedSuccess.set(false); }
+                else { this.isHoliday.set(false); this.holidayTitle = null; }
+              } catch (e) { this.isHoliday.set(false); this.holidayTitle = null; }
+              resolve();
+            },
+            () => { this.isHoliday.set(false); this.holidayTitle = null; resolve(); }
+          );
+        }, error: () => { this.isHoliday.set(false); this.holidayTitle = null; resolve(); }
+      });
+    });
+  }
+
+  async load(date?: string, sectionId?: number){
     // ensure filters selected
     const selClass = this.selectedClass;
     const selSection = sectionId ?? this.selectedSection;
@@ -81,6 +180,14 @@ export class StudentAttandance {
       this.rows.set([]);
       this.attendanceTaken.set(false);
       this.msg.add({ severity: 'info', summary: 'Select filters', detail: 'Please select Class, Section and Date to load attendance.', life: 3500 });
+      return;
+    }
+
+    // Check holiday/weekly-off before loading and await completion to avoid race
+    await this.checkHoliday(dt);
+    if (this.isHoliday()) {
+      this.loading.set(false);
+      this.msg.add({ severity: 'info', summary: 'Holiday', detail: this.holidayTitle ? `Today is a holiday: ${this.holidayTitle}` : 'Selected date is a holiday or weekly off. Attendance cannot be taken.' , life: 4000 });
       return;
     }
 
