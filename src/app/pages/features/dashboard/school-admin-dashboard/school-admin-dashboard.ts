@@ -259,44 +259,24 @@ export class SchoolAdminDashboard implements OnInit, OnDestroy {
           this.dashboardStats = { ...this.dashboardStats, ...res.data.stats };
 
             // Attendance doughnut
-            if (res.data.charts?.attendanceOverview) {
+            if (res.data.charts?.attendanceOverview) { // done
               this.attendanceChartData = res.data.charts.attendanceOverview as any;
             }
 
             // Class attendance (horizontal stacked)
-            if (res.data.charts?.classAttendance) {
+            if (res.data.charts?.classAttendance) { // done
               const ca = res.data.charts.classAttendance;
               this.classAttendanceChartData = { labels: ca.labels, datasets: ca.datasets } as any;
             }
 
-            if (res.data.charts?.classGender) {
+            if (res.data.charts?.classGender) { //done
               const g = res.data.charts.classGender;
               this.classGenderChartData = { labels: g.labels, datasets: g.datasets } as any;
-            }
-
-            // Enrollment trend
-            if (res.data.charts?.enrollmentTrend) {
-              this.enrollmentChartData = res.data.charts.enrollmentTrend as any;
-            }
-
-            if (res.data.charts?.gradeDistribution) {
-              this.gradeChartData = res.data.charts.gradeDistribution as any;
-            }
-            if (res.data.charts?.revenue) {
-              this.revenueChartData = res.data.charts.revenue as any;
-            }
-            // recent activities and top classes
-            if (res.data.recentActivities) {
-              this.recentActivities = res.data.recentActivities;
-            }
-            if (res.data.topClasses) {
-              // attach rank
-              this.topClasses = (res.data.topClasses as any[]).map((c, idx) => ({ ...c, rank: idx + 1 }));
             }
         } else {
           this.loadError = res.message || 'Unknown error';
         }
-    this.loading = false;
+        this.loading = false;
       },
   error: (err: any) => {
         this.loadError = err?.message || 'Failed to load dashboard';
