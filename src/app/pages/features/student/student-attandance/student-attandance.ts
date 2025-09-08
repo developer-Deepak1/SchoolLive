@@ -1,4 +1,5 @@
 import { Component, signal, inject } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 import { toLocalYMDIST } from '@/utils/date-utils';
 import { CommonModule } from '@angular/common';
 import { AttendanceService, AttendanceRecord } from '@/pages/features/services/attendance.service';
@@ -69,6 +70,51 @@ export class StudentAttandance {
   constructor(){
   this.loadClasses();
   this.initCalendarCache();
+  }
+
+  // Find last working date before the given date (YYYY-MM-DD). Lookback up to 14 days by default.
+  private async findLastWorkingDate(targetYMD: string, lookbackDays: number = 14): Promise<string | null> {
+    if (!targetYMD) return null;
+    // ensure caches are initialized (attempt to await cached observables if null)
+    if (!this.cachedHolidays) {
+      // trigger init and wait a moment - use firstValueFrom to fetch once
+      try { await firstValueFrom(this.calendarSvc.getHolidays(null)); } catch (_) { }
+      // rebuild cached map synchronously from service response next tick (initCalendarCache sets it)
+    }
+    if (!this.cachedWeeklyOffs) {
+      try { await firstValueFrom(this.calendarSvc.getWeeklyOffs()); } catch (_) { }
+    }
+
+    // helper to check if a dateYMD is working
+    const isWorking = (dateYMD: string) => {
+      // check holiday
+      if (this.cachedHolidays && this.cachedHolidays.has(dateYMD)) {
+        const h = this.cachedHolidays.get(dateYMD);
+        const type = (h?.Type || h?.type || 'Holiday');
+        if (String(type).toLowerCase() === 'workingday') return true;
+        return false;
+      }
+      // check weekly offs
+      if (this.cachedWeeklyOffs) {
+        try {
+          const dt = new Date(dateYMD);
+          const dow = dt.getDay();
+          const dow1 = dow === 0 ? 7 : dow;
+          if (this.cachedWeeklyOffs.has(dow1)) return false;
+        } catch (e) { /* treat as working if invalid */ }
+      }
+      return true;
+    };
+
+    const base = new Date(targetYMD);
+    for (let i = 1; i <= lookbackDays; i++) {
+      const d = new Date(base);
+      d.setDate(base.getDate() - i);
+      const ymd = this.normalizeDate(d.toISOString());
+      if (!ymd) continue;
+      if (isWorking(ymd)) return ymd;
+    }
+    return null;
   }
 
   // Fetch holidays and weekly offs once and cache them for the session
@@ -195,32 +241,41 @@ export class StudentAttandance {
     const sid = selSection ?? undefined;
     // load current day
     this.svc.getDaily(dt, sid).subscribe({
-      next: (res: any) => {
+      next: async (res: any) => {
         const data = (res.records || []).map((r:any) => {
           const status = r.Status ?? 'Present';
           const original = r.Status ?? null;
           return {...r, Status: status, _original: original, _dirty: (original === null), PreviousStatus: null};
         });
         // fetch previous day and map previous statuses by StudentID
-        try {
-          const prev = new Date(dt);
-          prev.setDate(prev.getDate() - 1);
-          const prevDate = this.normalizeDate(prev.toISOString());
-          this.svc.getDaily(prevDate, sid).subscribe(
-            (prevRes:any) => {
-              const prevMap = new Map<number,string>();
-              (prevRes.records || []).forEach((p:any) => { prevMap.set(p.StudentID, p.Status || null); });
-              data.forEach((d:any) => { d.PreviousStatus = prevMap.get(d.StudentID) || null; });
-              this.rows.set(data);
-              // populate takenBy/takenAt from meta if provided by API
-              if (res.meta) { this.takenBy = res.meta.takenBy || null; this.takenAt = res.meta.takenAt || null; } else { this.takenBy = null; this.takenAt = null; }
-              const taken = data.some((d:any) => d._original !== null);
-              this.attendanceTaken.set(taken);
-              this.loading.set(false);
-            },
-            () => { this.rows.set(data); this.loading.set(false); }
-          );
-        } catch(e) { this.rows.set(data); this.loading.set(false); }
+              try {
+                // find the last working date before dt (skipping holidays/weekly offs)
+                const lastWorking = await this.findLastWorkingDate(dt);
+                if (lastWorking) {
+                  this.svc.getDaily(lastWorking, sid).subscribe(
+                    (prevRes:any) => {
+                      const prevMap = new Map<number,string>();
+                      (prevRes.records || []).forEach((p:any) => { prevMap.set(p.StudentID, p.Status || null); });
+                      data.forEach((d:any) => { d.PreviousStatus = prevMap.get(d.StudentID) || null; });
+                      this.rows.set(data);
+                      // populate takenBy/takenAt from meta if provided by API
+                      if (res.meta) { this.takenBy = res.meta.takenBy || null; this.takenAt = res.meta.takenAt || null; } else { this.takenBy = null; this.takenAt = null; }
+                      const taken = data.some((d:any) => d._original !== null);
+                      this.attendanceTaken.set(taken);
+                      this.loading.set(false);
+                    },
+                    () => { this.rows.set(data); this.loading.set(false); }
+                  );
+                } else {
+                  // no previous working day found in lookback window
+                  data.forEach((d:any) => { d.PreviousStatus = null; });
+                  this.rows.set(data);
+                  if (res.meta) { this.takenBy = res.meta.takenBy || null; this.takenAt = res.meta.takenAt || null; } else { this.takenBy = null; this.takenAt = null; }
+                  const taken = data.some((d:any) => d._original !== null);
+                  this.attendanceTaken.set(taken);
+                  this.loading.set(false);
+                }
+              } catch(e) { this.rows.set(data); this.loading.set(false); }
       }, error: (err: any) => { this.loading.set(false); }
     });
   }
