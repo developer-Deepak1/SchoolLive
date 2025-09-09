@@ -67,28 +67,15 @@
 				<td style="text-align:center; font-weight:600;">{{ getAbsentCount(rowData) }}</td>
 			</tr>
 		</ng-template>
-		<ng-template pTemplate="caption">
-			<div class="mt-2 flex gap-2 items-center">
-				<p-tag [value]="'P'" [severity]="getSeverity('p')"></p-tag><span>Present</span>
-				<p-tag [value]="'L'" [severity]="getSeverity('l')"></p-tag><span>Leave</span>
-				<p-tag [value]="'H'" [severity]="getSeverity('h')"></p-tag><span>Half Day</span>
-				<p-tag [value]="'A'" [severity]="getSeverity('a')"></p-tag><span>Absent</span>
-				<p-tag [value]="'-'" [severity]="getSeverity('-')"></p-tag><span>No Status</span>
-				<p-tag [value]="'*'" [severity]="getSeverity('*')"></p-tag><span>Holiday</span>
-			</div>
-		</ng-template>
-
 	</p-table>
 
-	<!-- mobile view removed -->
-
-	<!-- Detail dialog (show full day-by-day matrix for the selected student) -->
-	<p-dialog header="{{selected?.studentName}} — Details" [(visible)]="detailDialogVisible" [modal]="true" [style]="{width: '95vw', maxWidth: '720px'}">
-		<div class="overflow-auto">
-			<table class="min-w-full">
-				<thead><tr><th *ngFor="let d of days">{{d}}</th></tr></thead>
-				<tbody><tr><td *ngFor="let s of (selected?.statuses || [])" class="text-center"><p-tag [value]="s.toUpperCase()" [severity]="getSeverity(s)"></p-tag></td></tr></tbody>
-			</table>
-		</div>
-	</p-dialog>
+	<!-- Legend placed at bottom of the table -->
+	<div class="mt-3 flex gap-3 items-center attendance-legend">
+		<p-tag [value]="'P'" [severity]="getSeverity('p')"></p-tag><span>Present</span>
+		<p-tag [value]="'L'" [severity]="getSeverity('l')"></p-tag><span>Leave</span>
+		<p-tag [value]="'H'" [severity]="getSeverity('h')"></p-tag><span>Half Day</span>
+		<p-tag [value]="'A'" [severity]="getSeverity('a')"></p-tag><span>Absent</span>
+		<p-tag [value]="'-'" [severity]="getSeverity('-')"></p-tag><span>No Status</span>
+		<p-tag [value]="'*'" [severity]="getSeverity('*')"></p-tag><span>Holiday</span>
+	</div>
 </div>
