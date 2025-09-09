@@ -64,8 +64,7 @@ export class AppMenu {
                 label: 'Reports',
                 items: [
                     { label: 'Classwise Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/classwise-attendance'] },
-                    { label: 'Employee Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/employee-attendance-reports'] },
-                    { label: 'Studentwise Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/student-attendance-reports'] }
+                    { label: 'Employee Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/employee-attendance-reports'] }
                 ]
             }
         ];}

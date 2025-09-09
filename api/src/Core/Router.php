@@ -103,6 +103,7 @@ class Router {
 
     // Attendance routes (daily mark & list)
     $this->routes['GET']['/api/attendance'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'list'], 'roles' => true];
+    $this->routes['GET']['/api/attendance/monthly'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'monthly'], 'roles' => true];
     $this->routes['POST']['/api/attendance'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'save'], 'roles' => true];
     }
 
