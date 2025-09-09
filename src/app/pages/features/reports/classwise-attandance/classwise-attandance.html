@@ -26,14 +26,14 @@
 		
 	</div>
 	<!-- Desktop: existing p-table kept -->
-	<p-table *ngIf="!isMobile"
+	<p-table
 		[value]="filteredRows"
 		[paginator]="true"
 		[rows]="20"
 		dataKey="studentName"
 		[tableStyle]="{ 'min-width': '60rem' }"
 		[scrollable]="true"
-		scrollHeight="480px">
+		>
 
 		<ng-template pTemplate="caption">
 			<div class="flex items-center justify-between">
@@ -46,16 +46,20 @@
 
 		<ng-template pTemplate="header">
 			<tr>
-				<th style="position:sticky; left:0; background:#fff; z-index:2; min-width:180px;">Student</th>
+				<th style="position:sticky; left:0; background:#fff; z-index:3; width:48px; text-align:center;">#</th>
+				<th>Student Name</th>
 				<th *ngFor="let d of days">{{d}}</th>
 				<th>Total Present</th>
 				<th>Total Absent</th>
 			</tr>
 		</ng-template>
 
-		<ng-template pTemplate="body" let-rowData>
+		<ng-template pTemplate="body" let-rowData let-rowIndex="rowIndex">
 			<tr>
-				<td style="position:sticky; left:0; background:#fff; z-index:1; min-width:180px;">{{rowData.studentName}}</td>
+				<td style="position:sticky; left:0; background:#fff; z-index:3; width:48px; text-align:center;">{{ rowIndex + 1 }}</td>
+				<td>
+					<div class="student-name-scroll" title="{{rowData.studentName}}">{{rowData.studentName}}</div>
+				</td>
 				<td *ngFor="let s of rowData.statuses" class="p-2" style="text-align:center;">
 					<p-tag [value]="s.toUpperCase()" [severity]="getSeverity(s)"></p-tag>
 				</td>
@@ -63,31 +67,20 @@
 				<td style="text-align:center; font-weight:600;">{{ getAbsentCount(rowData) }}</td>
 			</tr>
 		</ng-template>
+		<ng-template pTemplate="caption">
+			<div class="mt-2 flex gap-2 items-center">
+				<p-tag [value]="'P'" [severity]="getSeverity('p')"></p-tag><span>Present</span>
+				<p-tag [value]="'L'" [severity]="getSeverity('l')"></p-tag><span>Leave</span>
+				<p-tag [value]="'H'" [severity]="getSeverity('h')"></p-tag><span>Half Day</span>
+				<p-tag [value]="'A'" [severity]="getSeverity('a')"></p-tag><span>Absent</span>
+				<p-tag [value]="'-'" [severity]="getSeverity('-')"></p-tag><span>No Status</span>
+				<p-tag [value]="'*'" [severity]="getSeverity('*')"></p-tag><span>Holiday</span>
+			</div>
+		</ng-template>
 
 	</p-table>
 
-	<!-- Mobile: list/card view -->
-	<div *ngIf="isMobile" class="mobile-list">
-		<div class="mb-2">
-			<input type="text" placeholder="Search student" class="p-inputtext p-component p-inputtext-sm w-full" [(ngModel)]="filterText" />
-		</div>
-		<div *ngFor="let r of filteredRows" class="p-card mb-2">
-			<div class="flex justify-between items-center">
-				<div>
-					<div class="font-semibold">{{ r.studentName }}</div>
-					<div class="text-sm text-gray-500">{{ r.className }}</div>
-				</div>
-				<div class="text-center">
-					<div>Total P: <strong>{{ getPresentCount(r) }}</strong></div>
-					<div>Total A: <strong>{{ getAbsentCount(r) }}</strong></div>
-				</div>
-			</div>
-
-			<div class="mt-2">
-				<p-button label="Details" (onClick)="openDetails(r)"></p-button>
-			</div>
-		</div>
-	</div>
+	<!-- mobile view removed -->
 
 	<!-- Detail dialog (show full day-by-day matrix for the selected student) -->
 	<p-dialog header="{{selected?.studentName}} — Details" [(visible)]="detailDialogVisible" [modal]="true" [style]="{width: '95vw', maxWidth: '720px'}">

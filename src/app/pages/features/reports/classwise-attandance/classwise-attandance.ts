@@ -1,4 +1,4 @@
-import { Component, HostListener, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AcademicCalendarService } from '@/pages/features/services/academic-calendar.service';
 import { StudentsService } from '@/pages/features/services/students.service';
@@ -60,7 +60,6 @@ export class ClasswiseAttandance implements OnInit {
     return (this.rows || []).filter(r => (r.studentName || '').toLowerCase().includes(t));
   }
 
-  isMobile = false;
   selected: AttendanceRow | null = null;
   detailDialogVisible = false;
 
@@ -78,9 +77,7 @@ export class ClasswiseAttandance implements OnInit {
   }
 
   ngOnInit() {
-    this.initCalendarCache();
     this.updateGrid();
-    this.checkMobile();
   }
 
   // initialize and cache holidays and weekly-offs once per session
@@ -306,10 +303,7 @@ export class ClasswiseAttandance implements OnInit {
     return '-';
   }
 
-  @HostListener('window:resize')
-  checkMobile() {
-    this.isMobile = window.innerWidth <= 768; // tweak breakpoint
-  }
+  // mobile view removed
 
   openDetails(r: AttendanceRow) { this.selected = r; this.detailDialogVisible = true; }
 }
