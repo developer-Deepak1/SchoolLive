@@ -22,6 +22,14 @@ export class AttendanceService {
     return this.http.get<any>(this.base, { params });
   }
 
+  // Get monthly attendance aggregated for a class/section
+  getMonthly(year: number, month: number, classId?: number | null, sectionId?: number | null): Observable<any> {
+    const params: any = { year: String(year), month: String(month) };
+    if (classId != null) params.class_id = classId;
+    if (sectionId != null) params.section = sectionId;
+    return this.http.get<any>(`${this.base}/monthly`, { params });
+  }
+
   // save upserts multiple attendance entries for a date. Optional classId/sectionId may be provided.
   save(date: string, entries: { StudentID: number; Status: string }[], classId?: number | null, sectionId?: number | null): Observable<any> {
     const body: any = { date, entries };
