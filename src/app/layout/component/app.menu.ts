@@ -27,6 +27,21 @@ export class AppMenu {
         this.LoadMenu();
     }
     private LoadMenu() {
+        if (this.userRoles === USER_ROLES.ROLE_SUPERADMIN) {
+            this.model = [
+                {
+                    label: 'Home',
+                    items: [
+                    { label: 'Dashboard', icon: 'pi pi-fw pi-home', routerLink: ['/'] },
+                    { label: 'Profile Settings', icon: 'pi pi-fw pi-cog', routerLink: ['/features/profile-setting'] },
+                    { label: 'Add School', icon: 'pi pi-fw pi-cog', routerLink: ['/features/add-school'] },
+                    { label: 'Add User', icon: 'pi pi-fw pi-cog', routerLink: ['/features/add-user'] },
+                    { label: 'All Users', icon: 'pi pi-fw pi-cog', routerLink: ['/features/all-users'] },
+                    { label: 'All Schools', icon: 'pi pi-fw pi-cog', routerLink: ['/features/all-schools'] }
+                ]
+            }
+        ];
+        }
         if (this.userRoles === USER_ROLES.ROLE_SCHOOLADMIN) {
             this.model = [
                 {
@@ -49,7 +64,7 @@ export class AppMenu {
                 items: [
                     { label: 'All Employees', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/all-employees'] },
                     { label: 'Add New', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/add-employees'] },
-                    { label: 'Take Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/employee-attendance'] }
+                    { label: 'Request Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/employee-attendance'] }
                 ]
             },
             {
@@ -64,7 +79,6 @@ export class AppMenu {
                 label: 'Reports',
                 items: [
                     { label: 'Classwise Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/classwise-attendance'] },
-                    { label: 'Employee Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/employee-attendance-reports'] }
                 ]
             }
         ];}
