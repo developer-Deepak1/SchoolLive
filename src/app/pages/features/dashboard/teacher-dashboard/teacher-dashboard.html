@@ -3,9 +3,14 @@
 	<div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
 		<div>
 			<h1 class="text-3xl font-bold m-0 text-indigo-600">Teacher Dashboard</h1>
-			<p class="text-gray-500 m-0 mt-2">Welcome {{teacherStats.name}}! Here's a snapshot of your classes today.</p>
+			<p class="text-gray-500 m-0 mt-2">Welcome {{firstName}}! Here's a snapshot of your classes today.</p>
 		</div>
 		<!-- header actions removed for teacher view -->
+		 <div class="flex flex-wrap gap-3">
+			<p-button label="Refresh" icon="pi pi-refresh" (click)="refresh()" size="small"
+			 severity="info">
+			</p-button>
+      </div>
 	</div>
 
 	<!-- Quick Stats -->
@@ -19,14 +24,29 @@
 			<div class="text-xs text-gray-500 mt-1">Total Enrolled</div>
 		</p-card>
 		<p-card styleClass="h-full" header="Avg Attendance">
-			<div class="text-3xl font-bold text-purple-500">{{quickStats.avgAttendance | number:'1.0-1'}}%</div>
+			<div class="text-3xl font-bold text-purple-500">{{quickStats.averageAttendance | number:'1.0-1'}}%</div>
 			<div class="text-xs text-gray-500 mt-1">Across your classes</div>
 		</p-card>
-		<p-card styleClass="h-full" header="Rating">
+		<p-card styleClass="h-full" header="Rating (Coming Soon)">
 			<div class="text-3xl font-bold text-amber-500">{{quickStats.rating | number:'1.1-1'}}</div>
 			<div class="text-xs text-gray-500 mt-1">Student feedback</div>
 		</p-card>
 	</div>
+<!-- 
+	<div class="mt-6">
+		<p-card header="Mark Attendance">
+			<div *ngIf="isHoliday || isWeeklyOff" class="text-sm text-gray-600">Today is {{ isHoliday ? 'a Holiday' : 'a Weekly off' }} — attendance marking disabled.</div>
+			<div *ngIf="!isHoliday && !isWeeklyOff">
+				<p-button label="Sign In" icon="pi pi-sign-in" size="small" class="ml-2" (click)="signIn()" [disabled]="signingIn || !canSignIn"></p-button>
+				<p-button label="Sign Out" icon="pi pi-sign-out" size="small" class="ml-2" (click)="signOut()" [disabled]="signingOut || !canSignOut"></p-button>
+				<div class="mt-2 text-sm text-gray-700">
+					<span *ngIf="attendance?.SignIn">Signed in at: {{ attendance.SignIn | date:'shortTime' }}</span>
+					<span *ngIf="attendance?.SignOut" class="ml-4">Signed out at: {{ attendance.SignOut | date:'shortTime' }}</span>
+					<span *ngIf="attendance?.TotalHours" class="ml-4">Total hours: {{ attendance.TotalHours }}</span>
+				</div>
+			</div>
+		</p-card>
+	</div> -->
 
 	<!-- Charts -->
 	<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -43,7 +63,7 @@
 			</p-card>
 		</div>
 		<div>
-			<p-card header="My Classes Attendance">
+			<p-card header="Today's Attendance Overview">
 				<div class="h-[320px] relative">
 					<canvas baseChart [data]="attendanceOverviewData" [options]="attendanceOverviewOptions" type="doughnut"></canvas>
 				</div>
@@ -51,7 +71,7 @@
 		</div>
 	</div>
 	<!-- Quick Actions -->
-	<div>
+	<!-- <div>
 		<p-card header="Quick Actions">
 			<div class="flex flex-wrap gap-3">
 				<p-button label="Record Attendance" icon="pi pi-check-square" size="small" severity="info"></p-button>
@@ -60,6 +80,6 @@
 				<p-button label="Plan Lesson" icon="pi pi-lightbulb" size="small"></p-button>
 			</div>
 		</p-card>
-	</div>
+	</div> -->
 
 </div>

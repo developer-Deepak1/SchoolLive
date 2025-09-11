@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartOptions } from 'chart.js';
@@ -15,6 +15,7 @@ import { ToastModule } from 'primeng/toast';
 import { RippleModule } from 'primeng/ripple';
 import { HttpClientModule } from '@angular/common/http';
 import { DashboardService } from '../../../../services/dashboard.service';
+import { UserService } from '@/services/user.service';
 // Removed assignment feature modules
 
 @Component({
@@ -42,23 +43,13 @@ import { DashboardService } from '../../../../services/dashboard.service';
 export class TeacherDashboard implements OnInit {
   loading = false;
   loadError: string | null = null;
-
-  // Teacher specific snapshot
-  teacherStats: any = {
-    name: '-',
-    subject: '-',
-    classes: 0,
-    students: 0,
-    rating: 0,
-    attendance: 0,
-    experience: '-'
-  };
-
+  firstName: string = '';
+  private userService = inject(UserService);
   // Aggregated quick stats (derived)
   quickStats = {
     totalClasses: 0,
     totalStudents: 0,
-    avgAttendance: 0,
+    averageAttendance: 0,
     rating: 0
   };
 
@@ -79,7 +70,7 @@ export class TeacherDashboard implements OnInit {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      title: { display: true, text: 'My Classes Attendance Today' },
+      title: { display: true, text: 'Daily Attendance Overview' },
       legend: { position: 'bottom' }
     }
   };
@@ -117,6 +108,7 @@ export class TeacherDashboard implements OnInit {
 
   ngOnInit() {
     this.loadFromApi();
+    this.firstName = this.userService.getFirstName() || 'Teacher';
   }
 
   loadFromApi() {
@@ -125,28 +117,14 @@ export class TeacherDashboard implements OnInit {
     this.dashboardApi.getSummary().subscribe({
       next: (res: any) => {
         if (res.success && res.data) {
-          const teachers: any[] = res.data.teacherPerformance || [];
-          // Pick first teacher as the current user placeholder.
-          if (teachers.length) {
-            this.teacherStats = { ...teachers[0] };
-            this.quickStats.totalClasses = teachers[0].classes;
-            this.quickStats.totalStudents = teachers[0].students;
-            this.quickStats.avgAttendance = teachers[0].attendance;
-            this.quickStats.rating = teachers[0].rating;
-          }
-
+            this.quickStats = res.data.stats;
             // Reuse global charts as fallback
             if (res.data.charts?.attendanceOverview) {
               this.attendanceOverviewData = res.data.charts.attendanceOverview as any;
             }
-            if (res.data.charts?.gradeDistribution) {
-              this.gradeDistributionData = res.data.charts.gradeDistribution as any;
-            }
             if (res.data.charts?.classAttendance) {
               this.classAttendanceStackData = res.data.charts.classAttendance as any;
             }
-            this.recentActivities = (res.data.recentActivities || []).slice(0, 5);
-            this.upcomingEvents = (res.data.upcomingEvents || []).slice(0, 4);
         } else {
           this.loadError = res.message || 'Unknown error';
         }
@@ -164,39 +142,4 @@ export class TeacherDashboard implements OnInit {
     this.loadFromApi();
   }
 
-  // Export grades (gradeDistributionData) to CSV
-  exportGrades() {
-    if (!this.gradeDistributionData.labels?.length || !this.gradeDistributionData.datasets?.length) {
-      // nothing to export
-      return;
-    }
-    const dataset = this.gradeDistributionData.datasets[0] as any;
-    const rows: string[] = ['Grade,Count'];
-    this.gradeDistributionData.labels.forEach((label: any, idx: number) => {
-      const val = Array.isArray(dataset.data) ? dataset.data[idx] : '';
-      rows.push(`${label},${val}`);
-    });
-    const csv = rows.join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'grades-export.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  getSeverity(activityType: string): string {
-    switch (activityType) {
-      case 'exam':
-      case 'grade':
-        return 'success';
-      case 'attendance':
-        return 'warning';
-      default:
-        return 'info';
-    }
-  }
-
-  trackById(_: number, item: any) { return item.id; }
 }
