@@ -77,7 +77,7 @@
   </div>
 
   <!-- Charts Section -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <!-- Class-wise Present Students Today -->
     <div class="lg:col-span-2">
       <p-card header="Today's Present Students (Class-wise)">
@@ -95,25 +95,6 @@
         </div>
       </p-card>
     </div>
-    <!-- Class Gender Distribution (placed after class-wise attendance) -->
-    <div class="lg:col-span-2">
-      <p-card header="Students by Class & Gender">
-        <div class="h-[320px] relative">
-          <ng-container *ngIf="(classGenderChartData?.labels?.length || 0) > 0; else noClassGender">
-            <canvas baseChart [data]="classGenderChartData" [options]="classGenderChartOptions" type="bar">
-            </canvas>
-          </ng-container>
-          <ng-template #noClassGender>
-            <div class="h-full flex flex-col items-center justify-center text-gray-500">
-              <p class="mb-2">No class & gender data available.</p>
-              <button pButton label="Refresh" size="small" (click)="dashboardApi.refreshNow(); loadFromApi()"></button>
-            </div>
-          </ng-template>
-        </div>
-      </p-card>
-    </div>
-
-
     <div>
       <p-card header="Today's Attendance Overview">
         <div class="h-[300px] relative">
@@ -131,6 +112,23 @@
       </p-card>
     </div>
   </div>
+    <!-- Class Gender Distribution (placed after class-wise attendance) -->
+    <div class="lg:col-span-3">
+      <p-card header="Students by Class & Gender">
+        <div class="h-[320px] relative">
+          <ng-container *ngIf="(classGenderChartData?.labels?.length || 0) > 0; else noClassGender">
+            <canvas baseChart [data]="classGenderChartData" [options]="classGenderChartOptions" type="bar">
+            </canvas>
+          </ng-container>
+          <ng-template #noClassGender>
+            <div class="h-full flex flex-col items-center justify-center text-gray-500">
+              <p class="mb-2">No class & gender data available.</p>
+              <button pButton label="Refresh" size="small" (click)="dashboardApi.refreshNow(); loadFromApi()"></button>
+            </div>
+          </ng-template>
+        </div>
+      </p-card>
+    </div>
 
   <!-- Quick Actions -->
   <div class="mt-6">
