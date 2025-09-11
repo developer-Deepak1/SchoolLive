@@ -1,1 +1,38 @@
-<p>employee-attandance works!</p>
+<!-- Request Attendance Module - School Admin -->
+
+<div class="request-attendance-container">
+  <h2>Request Employee Attendance</h2>
+  <form>
+    <div>
+      <label for="attendanceDate">Date</label>
+      <input type="date" id="attendanceDate" name="attendanceDate" required>
+    </div>
+
+    <div>
+      <label for="employee">Select Employee</label>
+      <select id="employee" name="employee" required>
+        <option value="">-- Select Employee --</option>
+        <option value="emp1">John Doe</option>
+        <option value="emp2">Nisha Verma</option>
+        <option value="emp3">Amit Singh</option>
+        <!-- Dynamically bind with *ngFor for real data -->
+      </select>
+    </div>
+
+    <div>
+      <label for="attendanceType">Attendance Type</label>
+      <select id="attendanceType" name="attendanceType" required>
+        <option value="present">Present</option>
+        <option value="absent">Absent</option>
+        <option value="leave">On Leave</option>
+      </select>
+    </div>
+
+    <div>
+      <label for="remarks">Remarks</label>
+      <textarea id="remarks" name="remarks" rows="2" placeholder="Optional"></textarea>
+    </div>
+
+    <button type="submit">Request Attendance</button>
+  </form>
+</div>

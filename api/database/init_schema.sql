@@ -312,7 +312,10 @@ CREATE TABLE Tx_Employee_Attendance (
     SchoolID INT NOT NULL,
     AcademicYearID INT NOT NULL,
     Date DATE NOT NULL,
-    Status ENUM('Present','Absent','Leave','HalfDay') NOT NULL,
+    SignIn DATETIME DEFAULT NULL,
+    SignOut DATETIME DEFAULT NULL,
+    TotalHours DECIMAL(5,2) DEFAULT NULL,
+    Status ENUM('Present','Leave','HalfDay') NOT NULL DEFAULT 'Leave',
     Remarks TEXT,
     IsActive BOOLEAN NOT NULL DEFAULT TRUE,
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -328,6 +331,29 @@ CREATE TABLE Tx_Employee_Attendance (
     INDEX idx_school_date (SchoolID, Date)
     ,INDEX idx_empatt_academicyear (AcademicYearID)
 );
+
+CREATE TABLE Tx_Employee_LeaveRequests (
+    LeaveID BIGINT AUTO_INCREMENT PRIMARY KEY,
+    EmployeeID BIGINT NOT NULL,
+    Date DATE NOT NULL,
+    LeaveType ENUM('FullDay','HalfDay-AM','HalfDay-PM') NOT NULL,
+    Reason VARCHAR(255) NULL,
+    Status ENUM('Pending','Approved','Rejected') DEFAULT 'Pending',
+    SchoolID INT NOT NULL,
+    AcademicYearID INT NOT NULL,
+    IsActive BOOLEAN NOT NULL DEFAULT TRUE,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CreatedBy VARCHAR(100),
+    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UpdatedBy VARCHAR(100),
+    FOREIGN KEY (EmployeeID) REFERENCES Tx_Employees(EmployeeID) ON DELETE CASCADE,
+    FOREIGN KEY (SchoolID) REFERENCES Tm_Schools(SchoolID) ON DELETE CASCADE,
+    FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID) ON DELETE CASCADE,
+    UNIQUE KEY unique_employee_leave (EmployeeID, Date)
+    ,INDEX idx_empleave_academicyear (AcademicYearID)
+    ,INDEX idx_empleave_status (Status)
+);
+
 
 -- Create Student Attendance table
 CREATE TABLE Tx_Students_Attendance (
