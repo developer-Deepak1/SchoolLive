@@ -37,4 +37,15 @@ export class AttendanceService {
     if (sectionId != null) body.section_id = sectionId;
     return this.http.post<any>(this.base, body);
   }
+
+  // Employee sign-in/sign-out helper (frontend-side helper; backend endpoint must exist)
+  signIn(date: string): Observable<any> {
+    const url = `${environment.baseURL.replace(/\/+$/,'')}/api/employee/attendance/signin`;
+    return this.http.post<any>(url, { date });
+  }
+
+  signOut(date: string): Observable<any> {
+    const url = `${environment.baseURL.replace(/\/+$/,'')}/api/employee/attendance/signout`;
+    return this.http.post<any>(url, { date });
+  }
 }

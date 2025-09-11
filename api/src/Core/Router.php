@@ -101,6 +101,11 @@ class Router {
     $this->routes['GET']['/api/schools/{id}'] = ['handler' => ['SchoolLive\\Controllers\\SchoolsController', 'get'], 'roles' => true];
     $this->routes['GET']['/api/schools/by-user/{userId}'] = ['handler' => ['SchoolLive\\Controllers\\SchoolsController', 'getByUser'], 'roles' => true];
 
+    // Employee attendance endpoints (sign in/out and today's record)
+    $this->routes['POST']['/api/employee/attendance/signin'] = ['handler' => ['SchoolLive\\Controllers\\EmployeeAttendanceController', 'signIn'], 'roles' => true];
+    $this->routes['POST']['/api/employee/attendance/signout'] = ['handler' => ['SchoolLive\\Controllers\\EmployeeAttendanceController', 'signOut'], 'roles' => true];
+    $this->routes['GET']['/api/employee/attendance/today'] = ['handler' => ['SchoolLive\\Controllers\\EmployeeAttendanceController', 'getEmployeeAttendanceForDate'], 'roles' => true];
+
     // Attendance routes (daily mark & list)
     $this->routes['GET']['/api/attendance'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'list'], 'roles' => true];
     $this->routes['GET']['/api/attendance/monthly'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'monthly'], 'roles' => true];
