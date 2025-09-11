@@ -332,11 +332,11 @@ CREATE TABLE Tx_Employee_Attendance (
     ,INDEX idx_empatt_academicyear (AcademicYearID)
 );
 
-CREATE TABLE Tx_Employee_LeaveRequests (
-    LeaveID BIGINT AUTO_INCREMENT PRIMARY KEY,
+CREATE TABLE Tx_Employee_AttendanceRequests (
+    AttendanceRequestID BIGINT AUTO_INCREMENT PRIMARY KEY,
     EmployeeID BIGINT NOT NULL,
     Date DATE NOT NULL,
-    LeaveType ENUM('FullDay','HalfDay-AM','HalfDay-PM') NOT NULL,
+    RequestType ENUM('Leave','Attendance') NOT NULL,
     Reason VARCHAR(255) NULL,
     Status ENUM('Pending','Approved','Rejected') DEFAULT 'Pending',
     SchoolID INT NOT NULL,
