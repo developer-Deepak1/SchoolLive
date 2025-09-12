@@ -6,6 +6,7 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { SelectModule } from 'primeng/select';
 import { InputTextModule } from 'primeng/inputtext';
 import { CardModule } from 'primeng/card';
+import { TableModule } from 'primeng/table';
 import { EmployeeAttendanceService } from '@/pages/features/services/employee-attendance.service';
 import { UserService } from '@/services/user.service';
 import { AcademicCalendarService } from '@/pages/features/services/academic-calendar.service';
@@ -14,7 +15,7 @@ import { AcademicYearService } from '@/pages/features/services/academic-year.ser
 @Component({
   selector: 'app-employee-attandance',
   standalone: true,
-  imports: [CommonModule, FormsModule, ButtonModule, DatePickerModule, SelectModule, InputTextModule, CardModule],
+  imports: [CommonModule, FormsModule, ButtonModule, DatePickerModule, SelectModule, InputTextModule, CardModule, TableModule],
   templateUrl: './employee-attandance.html',
   styleUrl: './employee-attandance.scss'
 })
@@ -47,6 +48,8 @@ export class EmployeeAttandance implements OnInit {
   // unified min/max date objects (same style as calendar component)
   minDateObj: Date | null = null;
   maxDateObj: Date | null = null;
+
+  
   // outOfAcademicRange removed: datepicker min/max prevents out-of-range selection
 
   // Safe getter to provide Date|null for datepicker bindings when reqDate may be string or Date
@@ -89,6 +92,7 @@ export class EmployeeAttandance implements OnInit {
 
   ngOnInit(): void {
     this.loadCalendar();
+    this.loadRequests();
     // load academic year bounds
     this.yearSvc.getAcademicYears().subscribe({
       next: (yrs: any[]) => {
@@ -147,6 +151,57 @@ export class EmployeeAttandance implements OnInit {
         this.requests = (res && res.success && res.data) ? res.data : [];
       }, error: (err: any) => { this.loading = false; this.message = err?.message || 'Failed to load'; }
     });
+  }
+
+  onSubmitRequest(row: any) {
+    // Use row values where available; fallback to current form values
+    const date = row?.Date || row?.date || row?.requestDate || this.formatDate(this.reqDate || new Date());
+    const type = row?.RequestType || row?.request_type || this.reqType;
+    const reason = row?.Reason || row?.reason || this.reqReason || '';
+    const eid = row?.EmployeeID || row?.employee_id || this.userSvc.getEmployeeId();
+    this.loading = true; this.message = null;
+    this.attendanceSvc.createRequest(date, type, reason, eid).subscribe({ next: (res:any) => {
+      this.loading = false;
+      if (res && res.success) {
+        this.message = 'Request submitted';
+        this.loadRequests();
+      } else {
+        this.message = res?.message || 'Submit failed';
+      }
+    }, error: (err:any) => { this.loading = false; this.message = err?.message || 'Submit failed'; }});
+  }
+
+  onApproveRequest(row: any) {
+    const id = row?.AttendanceRequestID || row?.id || row?.AttendanceRequestId;
+    if (!id) { this.message = 'Request id missing'; return; }
+    this.loading = true; this.message = null;
+    this.attendanceSvc.approveRequest(Number(id)).subscribe({ next: (res:any) => {
+      this.loading = false;
+      if (res && res.success) { this.message = 'Request approved'; this.loadRequests(); }
+      else { this.message = res?.message || 'Approve failed'; }
+    }, error: (err:any) => { this.loading = false; this.message = err?.message || 'Approve failed'; }});
+  }
+
+  onRejectRequest(row: any) {
+    const id = row?.AttendanceRequestID || row?.id || row?.AttendanceRequestId;
+    if (!id) { this.message = 'Request id missing'; return; }
+    this.loading = true; this.message = null;
+    this.attendanceSvc.rejectRequest(Number(id)).subscribe({ next: (res:any) => {
+      this.loading = false;
+      if (res && res.success) { this.message = 'Request rejected'; this.loadRequests(); }
+      else { this.message = res?.message || 'Reject failed'; }
+    }, error: (err:any) => { this.loading = false; this.message = err?.message || 'Reject failed'; }});
+  }
+
+  onDeleteRequest(row: any) {
+    const id = row?.AttendanceRequestID || row?.id || row?.AttendanceRequestId;
+    if (!id) { this.message = 'Request id missing'; return; }
+    this.loading = true; this.message = null;
+    this.attendanceSvc.cancelRequest(Number(id)).subscribe({ next: (res:any) => {
+      this.loading = false;
+      if (res && res.success) { this.message = 'Request deleted'; this.loadRequests(); }
+      else { this.message = res?.message || 'Delete failed'; }
+    }, error: (err:any) => { this.loading = false; this.message = err?.message || 'Delete failed'; }});
   }
 
   resetForm() {

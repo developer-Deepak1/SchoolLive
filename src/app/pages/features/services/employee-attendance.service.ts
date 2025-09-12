@@ -48,4 +48,19 @@ export class EmployeeAttendanceService {
     const params = new HttpParams({ fromObject: paramsObj });
     return this.http.get<any>(url, { params });
   }
+
+  cancelRequest(id: number): Observable<any> {
+    const url = `${environment.baseURL.replace(/\/+$/,'')}/api/employee/attendance/requests/${id}`;
+    return this.http.delete<any>(url);
+  }
+
+  approveRequest(id: number): Observable<any> {
+    const url = `${environment.baseURL.replace(/\/+$/,'')}/api/employee/attendance/requests/${id}/approve`;
+    return this.http.post<any>(url, {});
+  }
+
+  rejectRequest(id: number): Observable<any> {
+    const url = `${environment.baseURL.replace(/\/+$/,'')}/api/employee/attendance/requests/${id}/reject`;
+    return this.http.post<any>(url, {});
+  }
 }

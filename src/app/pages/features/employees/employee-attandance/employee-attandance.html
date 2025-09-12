@@ -31,5 +31,29 @@
 	</p-card>
 	<p-card class="mb-6">
 		<h2 class="text-2xl font-semibold mb-4">List of Requests</h2>
+		<p-table [tableStyle]="{ 'min-width': '60rem' }" [value]="requests" [paginator]="true" [rows]="10" class="mt-2" [responsiveLayout]="'scroll'">
+			<ng-template pTemplate="header">
+				<tr>
+					<th>Date</th>
+					<th>Type</th>
+					<th>Reason</th>
+					<th>Status</th>
+					<th>Action</th>
+				</tr>
+			</ng-template>
+			<ng-template pTemplate="body" let-r>
+				<tr>
+					<td>{{ r.Date || r.date || r.DateString || r.requestDate }}</td>
+					<td>{{ r.RequestType || r.request_type || r.Type || r.type }}</td>
+					<td>{{ r.Reason || r.reason || r.note || r.Note }}</td>
+					<td>{{ r.Status || r.status || (r.approved ? 'Approved' : (r.rejected ? 'Rejected' : 'Pending')) }}</td>
+					<td>
+						<button pButton type="button" icon="pi pi-check" class="p-button-success p-button-sm" (click)="onApproveRequest(r)"></button>
+						<button pButton type="button" icon="pi pi-times" class="p-button-danger p-button-sm ml-2" (click)="onRejectRequest(r)"></button>
+						<button pButton type="button" icon="pi pi-trash" class="p-button-warning p-button-sm ml-2" (click)="onDeleteRequest(r)"></button>
+					</td>
+				</tr>
+			</ng-template>
+		</p-table>
 	</p-card>
 </div>
