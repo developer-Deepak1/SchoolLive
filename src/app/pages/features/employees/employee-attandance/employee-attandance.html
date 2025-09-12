@@ -1,0 +1,35 @@
+<div class="p-6">
+	<p-card class="mb-6">
+		<h2 class="text-2xl font-semibold mb-4">Request Attendance / Leave</h2>
+		<form (ngSubmit)="submitRequest()" class="space-y-3 p-4">
+			<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+				<div>
+					<label class="block text-sm">Date</label>
+					<!-- PrimeNG datepicker -->
+					<p-datepicker [(ngModel)]="reqDate" (ngModelChange)="evaluateSelectedDate()" name="reqDate" dateFormat="yy-mm-dd" inputClass="p-2 border rounded" styleClass="w-full" [minDate]="minDateObj" [maxDate]="maxDateObj"></p-datepicker>
+					<div class="mt-2 text-sm">
+						<span *ngIf="selectedDateStatus === 'Holiday'" class="text-red-600">Selected date is a Holiday</span>
+						<span *ngIf="selectedDateStatus === 'WorkingDay'" class="text-green-600">Selected date is a Working Day</span>
+						<span *ngIf="selectedDateStatus === 'WeeklyOff'" class="text-yellow-600">Selected date is a Weekly Off</span>
+					</div>
+				</div>
+				<div>
+					<label class="block text-sm">Type</label>
+					<p-select [(ngModel)]="reqType" name="reqType" [options]="reqTypeOptions" placeholder="Select type" class="w-full"></p-select>
+				</div>
+				<div>
+					<label class="block text-sm">Reason (optional)</label>
+					<input pInputText [(ngModel)]="reqReason" name="reqReason" class="p-2 border rounded w-full" />
+				</div>
+			</div>
+			<div class="flex items-center gap-3">
+			<button pButton type="submit" label="Submit" icon="pi pi-check" class="p-button-success" [disabled]="loading"></button>
+			<button pButton type="button" label="Reset" icon="pi pi-refresh" class="p-button-secondary" (click)="resetForm()"></button>
+				<span *ngIf="loading" class="text-sm text-gray-500">Processing...</span>
+			</div>
+		</form>
+	</p-card>
+	<p-card class="mb-6">
+		<h2 class="text-2xl font-semibold mb-4">List of Requests</h2>
+	</p-card>
+</div>

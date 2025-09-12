@@ -30,4 +30,22 @@ export class EmployeeAttendanceService {
     const params = new HttpParams({ fromObject: paramsObj });
     return this.http.get<any>(url, { params });
   }
+
+  // Attendance Requests API
+  createRequest(date: string, requestType: 'Leave' | 'Attendance', reason?: string, employeeId?: number): Observable<any> {
+    const url = `${environment.baseURL.replace(/\/+$/,'')}/api/employee/attendance/requests/create`;
+    const body: any = { date, request_type: requestType };
+    if (reason) body.reason = reason;
+    if (employeeId !== undefined && employeeId !== null) body.employee_id = employeeId;
+    return this.http.post<any>(url, body);
+  }
+
+  listRequests(employeeId?: number, status?: string): Observable<any> {
+    const url = `${environment.baseURL.replace(/\/+$/,'')}/api/employee/attendance/requests`;
+    const paramsObj: any = {};
+    if (employeeId !== undefined && employeeId !== null) paramsObj.employee_id = String(employeeId);
+    if (status) paramsObj.status = status;
+    const params = new HttpParams({ fromObject: paramsObj });
+    return this.http.get<any>(url, { params });
+  }
 }
