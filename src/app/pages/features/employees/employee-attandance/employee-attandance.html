@@ -32,9 +32,10 @@
 	</p-card>
 	<p-card class="mb-6">
 		<h2 class="text-2xl font-semibold mb-4">List of Requests</h2>
-		<p-table [tableStyle]="{ 'min-width': '60rem' }" [value]="requests" [paginator]="true" [rows]="10" class="mt-2" [responsiveLayout]="'scroll'">
+		<p-table [tableStyle]="{ 'min-width': '40rem' }" [value]="requests" [paginator]="true" [rows]="10" class="mt-2" [responsiveLayout]="'scroll'">
 			<ng-template pTemplate="header">
 				<tr>
+					<th class="sticky-col">#</th>
 					<th>Date</th>
 					<th>Type</th>
 					<th>Reason</th>
@@ -45,11 +46,12 @@
 
 				<ng-template pTemplate="emptymessage">
 					<tr>
-						<td colspan="5" class="text-center text-gray-500 py-4">No Record Found</td>
+						<td colspan="6" class="text-center text-gray-500 py-4">No Record Found</td>
 					</tr>
 				</ng-template>
-			<ng-template pTemplate="body" let-r>
+				<ng-template pTemplate="body" let-r let-i="rowIndex">
 				<tr>
+					<td class="sticky-col">{{ i + 1 }}</td>
 					<td>{{ r.Date || r.date || r.DateString || r.requestDate }}</td>
 					<td>{{ r.RequestType || r.request_type || r.Type || r.type }}</td>
 					<td>{{ r.Reason || r.reason || r.note || r.Note }}</td>

@@ -1,0 +1,20 @@
+.p-datatable .sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: var(--surface-card, #ffffff);
+  text-align: right;
+  padding-right: 0.75rem; /* match table cell spacing */
+}
+
+/* Ensure header stays above body rows */
+.p-datatable .p-datatable-thead > tr > th.sticky-col {
+  z-index: 5;
+}
+
+/* Small screens: keep sticky but reduce padding */
+@media (max-width: 640px) {
+  .p-datatable .sticky-col {
+    padding-right: 0.5rem;
+  }
+}
