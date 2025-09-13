@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { ChartConfiguration, ChartData, ChartType } from 'chart.js';
 import { CommonModule } from '@angular/common';
 import { BaseChartDirective } from 'ng2-charts';
@@ -16,6 +16,8 @@ import { MessageService, ConfirmationService } from 'primeng/api';
 import { toLocalYMDIST } from '@/utils/date-utils';
 import { AcademicCalendarService } from '../services/academic-calendar.service';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
+import { UserService } from '@/services/user.service';
+import { USER_ROLES } from '@/pages/common/constant';
 @Component({
   selector: 'app-academic-calander',
   standalone: true,
@@ -43,6 +45,7 @@ export class AcademicCalander implements OnInit, OnDestroy {
   academicYears: any[] = [];
   selectedAcademicYear: any = null;
   public barChartPlugins = [ChartDataLabels];
+  private userSvc: UserService = inject(UserService);
   constructor(
     private academicYearService: AcademicYearService,
     private calendarService: AcademicCalendarService,
@@ -142,6 +145,8 @@ export class AcademicCalander implements OnInit, OnDestroy {
   rangeMode: boolean = false;
   rangePreview: string[] = [];
   previewCollapsed: boolean = false;
+  RoleId:number|null = this.userSvc.getRoleId();
+  userRoles = USER_ROLES;
 
   // Clear end-date and preview when range mode is toggled off
   onRangeModeChange(val: boolean) {

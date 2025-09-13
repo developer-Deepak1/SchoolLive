@@ -1,9 +1,9 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BaseChartDirective } from 'ng2-charts';
-import { ChartConfiguration, ChartOptions } from 'chart.js';
+import { ChartConfiguration, ChartOptions,Plugin } from 'chart.js';
 import { AcademicCalendarService } from '@/pages/features/services/academic-calendar.service';
-
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 // PrimeNG Imports
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
@@ -44,6 +44,8 @@ import { EmployeeAttendanceService } from '@/pages/features/services/employee-at
 })
 export class TeacherDashboard implements OnInit {
   loading = false;
+  public barChartPlugins = [ChartDataLabels];
+  public doughnutChartPlugins: Plugin<any>[] = [ChartDataLabels];
   loadError: string | null = null;
   firstName: string = '';
   private userService = inject(UserService);
@@ -91,7 +93,18 @@ export class TeacherDashboard implements OnInit {
     maintainAspectRatio: false,
     plugins: {
       title: { display: true, text: 'Daily Attendance Overview' },
-      legend: { position: 'bottom' }
+      legend: { position: 'bottom' },
+      datalabels: {
+      color: '#ffffff',
+      anchor: 'center',
+      align: 'center',
+      formatter: (value: any) => {
+        // only show labels for non-zero values
+        const num = Number(value ?? 0);
+        return num > 0 ? num : '';
+      },
+      font: { weight: 600, size: 12 }
+    }
     }
   };
 
@@ -111,7 +124,18 @@ export class TeacherDashboard implements OnInit {
     indexAxis: 'y',
     responsive: true,
     maintainAspectRatio: false,
-    plugins: { title: { display: true, text: "Today's Attendance by Class" } },
+    plugins: { title: { display: true, text: "Today's Attendance by Class" }, 
+    datalabels: {
+      color: '#ffffff',
+      anchor: 'center',
+      align: 'center',
+      formatter: (value: any) => {
+        // only show labels for non-zero values
+        const num = Number(value ?? 0);
+        return num > 0 ? num : '';
+      },
+      font: { weight: 600, size: 12 }
+    }},
     scales: {
       x: { stacked: true, beginAtZero: true, title: { display: true, text: 'Students' } },
       y: { stacked: true }

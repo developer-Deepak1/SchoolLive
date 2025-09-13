@@ -71,14 +71,14 @@
 						<p class="m-0 text-sm font-medium">{{loadError}}</p>
 						<button pButton size="small" label="Retry" class="mt-2" (click)="refresh()"></button>
 					</div>
-					<canvas baseChart [data]="classAttendanceStackData" [options]="classAttendanceStackOptions" type="bar"></canvas>
+					<canvas baseChart [data]="classAttendanceStackData" [options]="classAttendanceStackOptions" [plugins]="barChartPlugins" type="bar"></canvas>
 				</div>
 			</p-card>
 		</div>
 		<div>
 			<p-card header="Today's Attendance Overview">
 				<div class="h-[320px] relative">
-					<canvas baseChart [data]="attendanceOverviewData" [options]="attendanceOverviewOptions" type="doughnut"></canvas>
+					<canvas baseChart [data]="attendanceOverviewData" [options]="attendanceOverviewOptions" [plugins]="doughnutChartPlugins"  type="doughnut"></canvas>
 				</div>
 			</p-card>
 		</div>

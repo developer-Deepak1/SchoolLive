@@ -11,7 +11,7 @@
 	</div>
 
 	<!-- Quick Stats -->
-	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" *ngIf="false">
 		<div *ngFor="let stat of quickStats">
 			<p-card styleClass="h-full">
 				<div class="flex justify-between items-start">
@@ -32,7 +32,7 @@
 
 	<!-- Charts -->
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-		<div class="lg:col-span-1">
+		<div class="lg:col-span-2">
 			<p-card header="Attendance">
 				<div class="h-[280px] relative">
 					<div *ngIf="loading" class="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
@@ -46,113 +46,18 @@
 				</div>
 			</p-card>
 		</div>
-		<div class="lg:col-span-1">
-			<p-card header="Grade Distribution">
-				<div class="h-[280px] relative">
-					<ng-container *ngIf="(gradeChartData?.labels?.length || 0) > 0; else noGrades">
-						<canvas baseChart [data]="gradeChartData" [options]="gradeChartOptions" type="bar"></canvas>
-					</ng-container>
-					<ng-template #noGrades>
-						<div class="absolute inset-0 flex flex-col items-center justify-center text-gray-500 text-sm">
-							<p class="mb-2">No grade data yet.</p>
-							<button pButton label="Refresh" size="small" (click)="refresh()"></button>
-						</div>
-					</ng-template>
-				</div>
-			</p-card>
-		</div>
-		<div class="lg:col-span-1">
-			<p-card header="Progress Trend">
-				<div class="h-[280px] relative">
-					<ng-container *ngIf="(progressChartData?.labels?.length || 0) > 0; else noProgress">
-						<canvas baseChart [data]="progressChartData" [options]="progressChartOptions" type="line"></canvas>
-					</ng-container>
-					<ng-template #noProgress>
-						<div class="absolute inset-0 flex flex-col items-center justify-center text-gray-500 text-sm">
-							<p class="mb-2">No progress data yet.</p>
-							<button pButton label="Refresh" size="small" (click)="refresh()"></button>
-						</div>
-					</ng-template>
-				</div>
-			</p-card>
-		</div>
-			<div class="lg:col-span-1">
-				<p-card header="Monthly Attendance %">
-					<div class="h-[280px] relative">
-						<ng-container *ngIf="(monthlyAttendanceChartData?.labels?.length || 0) > 0; else noMonthlyAttendance">
-							<canvas baseChart [data]="monthlyAttendanceChartData" [options]="monthlyAttendanceChartOptions" type="line"></canvas>
-						</ng-container>
-						<ng-template #noMonthlyAttendance>
-							<div class="absolute inset-0 flex flex-col items-center justify-center text-gray-500 text-sm">
-								<p class="mb-2">No monthly attendance data.</p>
-								<button pButton label="Refresh" size="small" (click)="refresh()"></button>
-							</div>
-						</ng-template>
-					</div>
-				</p-card>
-			</div>
-	</div>
-
-	<!-- Activities & Events -->
-	<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 		<div class="lg:col-span-2">
-			<p-card header="Recent Activities">
-				<div class="relative">
-					<div *ngIf="loading" class="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
-						<span class="text-xs text-gray-600">Loading...</span>
-					</div>
-					<div *ngIf="loadError && !loading" class="absolute inset-0 flex flex-col items-center justify-center bg-red-50 text-red-600 z-10 p-4">
-						<p class="m-0 text-xs font-medium">{{loadError}}</p>
-						<button pButton label="Retry" size="small" (click)="refresh()" class="mt-2"></button>
-					</div>
-
-					<div class="flex flex-col divide-y divide-gray-100" *ngIf="!loadError">
-						<ng-container *ngIf="(recentActivities?.length || 0) > 0; else noRecent">
-							<div *ngFor="let a of recentActivities" class="py-3 flex gap-3 items-start">
-								<div class="rounded-md px-2 py-1 text-xs font-medium bg-gray-100 text-gray-600 capitalize">{{a.type}}</div>
-								<div class="flex-1">
-									<p class="m-0 text-sm font-medium text-gray-800">{{a.message}}</p>
-									<p class="m-0 mt-1 text-xs text-gray-500">{{a.timestamp}}</p>
-								</div>
-								<p-tag [value]="a.severity || a.type" [severity]="getSeverityForActivity(a.type)"></p-tag>
-							</div>
-						</ng-container>
-						<ng-template #noRecent>
-							<div class="p-6 text-center text-gray-500 text-sm">No recent activity.</div>
-						</ng-template>
-					</div>
-				</div>
-			</p-card>
-		</div>
-		<div class="lg:col-span-1">
-			<p-card header="Upcoming Events">
-				<div class="relative">
-					<div *ngIf="loading" class="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
-						<span class="text-xs text-gray-600">Loading...</span>
-					</div>
-					<div *ngIf="loadError && !loading" class="absolute inset-0 flex flex-col items-center justify-center bg-red-50 text-red-600 z-10 p-4">
-						<p class="m-0 text-xs font-medium">{{loadError}}</p>
-						<button pButton label="Retry" size="small" (click)="refresh()" class="mt-2"></button>
-					</div>
-
-					<div class="flex flex-col gap-3" *ngIf="!loadError">
-						<ng-container *ngIf="(upcomingEvents?.length || 0) > 0; else noEvents">
-							<div *ngFor="let e of upcomingEvents" class="p-3 rounded-md border border-gray-200 bg-white hover:bg-gray-50 transition-colors">
-								<div class="flex justify-between items-start gap-2 mb-2">
-									<h4 class="m-0 font-semibold text-gray-700 leading-snug text-sm">{{e.title}}</h4>
-									<p-badge [value]="e.priority" [severity]="e.priority === 'high' ? 'danger' : e.priority === 'medium' ? 'warn' : 'success'"></p-badge>
-								</div>
-								<div class="text-xs text-gray-500 flex flex-col gap-1">
-									<div class="flex items-center"><i class="pi pi-calendar mr-2"></i>{{e.date}}</div>
-									<div class="flex items-center"><i class="pi pi-clock mr-2"></i>{{e.time}}</div>
-									<div class="flex items-center" *ngIf="e.location"><i class="pi pi-map-marker mr-2"></i>{{e.location}}</div>
-								</div>
-							</div>
-						</ng-container>
-						<ng-template #noEvents>
-							<div class="p-6 text-center text-gray-500 text-sm">No upcoming events.</div>
-						</ng-template>
-					</div>
+			<p-card header="Monthly Attendance %">
+				<div class="h-[280px] relative">
+					<ng-container *ngIf="(monthlyAttendanceChartData?.labels?.length || 0) > 0; else noMonthlyAttendance">
+						<canvas baseChart [data]="monthlyAttendanceChartData" [options]="monthlyAttendanceChartOptions" type="line"></canvas>
+					</ng-container>
+					<ng-template #noMonthlyAttendance>
+						<div class="absolute inset-0 flex flex-col items-center justify-center text-gray-500 text-sm">
+							<p class="mb-2">No monthly attendance data.</p>
+							<button pButton label="Refresh" size="small" (click)="refresh()"></button>
+						</div>
+					</ng-template>
 				</div>
 			</p-card>
 		</div>
@@ -160,7 +65,7 @@
 
 	<!-- Placeholder for future actions -->
 	<div>
-		<p-card header="Quick Actions">
+		<p-card header="Quick Actions" *ngIf="false">
 			<div class="flex flex-wrap gap-3 text-sm">
 				<button pButton type="button" label="View Timetable" icon="pi pi-clock" size="small"></button>
 				<button pButton type="button" label="Assignments" icon="pi pi-book" size="small" severity="success"></button>

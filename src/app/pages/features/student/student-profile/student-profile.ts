@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, signal, TemplateRef, ViewChild } from '@angular/core';
+import { Component, inject, Input, OnInit, signal, TemplateRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CardModule } from 'primeng/card';
@@ -15,6 +15,7 @@ import { Student } from '../../model/student.model';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartOptions, Chart, Plugin } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
+import { UserService } from '@/services/user.service';
 
 @Component({
   selector: 'app-student-profile',
@@ -57,6 +58,7 @@ export class StudentProfile implements OnInit {
   loading = signal<boolean>(true);
   @Input() profileSetting: boolean = false;
   public barChartPlugins = [ChartDataLabels];
+  public userService = inject(UserService);
   // Attendance chart state
   attendanceLineData: ChartConfiguration<'line'>['data'] = { labels: [], datasets: [] };
   // summary array: { month: string, workingDays: number, present: number, percent: number }
@@ -104,12 +106,8 @@ export class StudentProfile implements OnInit {
       this.loadProfile(id);
     }
     else {
-      this.students.getStudentId().subscribe({
-        next: (res: any) => {
-          const id = res?.data?.student_id ? Number(res.data.student_id) : NaN;
-          this.loadProfile(id);
-        }
-      });
+      const studentId = this.userService.getStudentId();
+      this.loadProfile(studentId || 0);
     }
   }
   loadProfile(id: number) {

@@ -112,7 +112,7 @@ class ClassSectionModel extends Model {
             $query .= " WHERE " . implode(' AND ', $clauses);
         }
 
-        $query .= " ORDER BY c.ClassName, c.ClassCode";
+        $query .= " ORDER BY c.ClassID";
         
         $stmt = $this->conn->prepare($query);
         
@@ -195,7 +195,7 @@ class ClassSectionModel extends Model {
             $query .= " WHERE " . implode(' AND ', $clauses);
         }
 
-        $query .= " ORDER BY s.SectionName";
+        $query .= " ORDER BY s.SectionID";
 
         $stmt = $this->conn->prepare($query);
         if ($academic_year_id) {
