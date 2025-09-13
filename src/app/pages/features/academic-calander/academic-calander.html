@@ -4,7 +4,7 @@
   <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
     <div class="flex items-center gap-3">
       <label for="academic-year" class="font-bold mr-2">Academic Year</label>
-      <p-select inputId="academic-year" [(ngModel)]="selectedAcademicYear" [options]="academicYears" optionLabel="label"
+      <p-select [disabled]="RoleId !== userRoles.ROLE_SCHOOLADMIN" inputId="academic-year" [(ngModel)]="selectedAcademicYear" [options]="academicYears" optionLabel="label"
         placeholder="Select Academic Year" [style]="{'width':'220px'}" styleClass="w-full md:w-auto"
         (ngModelChange)="onAcademicYearChange($event)">
       </p-select>
@@ -29,7 +29,7 @@
   <hr class="border-t border-gray-200 my-3" />
   <div class="flex flex-wrap gap-2 mb-4">
     <ng-container *ngFor="let d of daysOfWeek">
-      <button pButton type="button" (click)="toggleWeeklyDay(d)" [attr.aria-pressed]="isDayOff(d)"
+      <button pButton type="button" [disabled]="RoleId !== userRoles.ROLE_SCHOOLADMIN" (click)="toggleWeeklyDay(d)" [attr.aria-pressed]="isDayOff(d)"
         [ngClass]="[ isDayOff(d) ? 'p-button-primary' : 'p-button-outlined p-button-primary', 'w-full sm:w-auto' ]">
         {{ d.label }}
       </button>
@@ -38,10 +38,9 @@
 </p-card>
 
 <!-- Holidays -->
+@if (RoleId===userRoles.ROLE_SCHOOLADMIN){
 <p-card header="Holidays/Exception working">
   <div class="border-t border-gray-200 my-3"></div>
-
-
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
     <div>
       <label for="holiday-date" class="block font-bold mb-2">Holiday Date <span class="text-red-600">*</span></label>
@@ -99,6 +98,7 @@
       icon="pi pi-eye" (click)="computeRangePreview()"></button>
   </div>
 </p-card>
+}
 <p-table [value]="holidays" [rows]="10" [paginator]="true" dataKey="id" class="mt-4" stripedRows
   [tableStyle]="{ 'min-width': '60rem' }"
   currentPageReportTemplate="Showing {first} to {last} of {totalRecords} academic years" [showCurrentPageReport]="true"
@@ -111,7 +111,9 @@
       <th>Date</th>
       <th>Title</th>
       <th>Type</th>
-      <th>Action</th>
+      @if (RoleId===userRoles.ROLE_SCHOOLADMIN){
+        <th>Action</th>
+      }
     </tr>
   </ng-template>
   <ng-template pTemplate="body" let-h>
@@ -119,6 +121,7 @@
       <td>{{ h.date }}</td>
       <td>{{ h.title }}</td>
       <td>{{ h.type }}</td>
+      @if (RoleId===userRoles.ROLE_SCHOOLADMIN){
       <td class="flex gap-2">
         <button pButton icon="pi pi-pencil" [rounded]="true" [outlined]="true" class="p-button-secondary"
           (click)="startEditHoliday(h)"></button>
@@ -126,6 +129,7 @@
           (click)="removeHoliday(h)" [disabled]="editingHoliday && editingHoliday.id === h.id">
         </button>
       </td>
+      }
     </tr>
   </ng-template>
 </p-table>

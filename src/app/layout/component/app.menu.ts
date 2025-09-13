@@ -89,7 +89,8 @@ export class AppMenu {
                     items: [
                     { label: 'Dashboard', icon: 'pi pi-fw pi-home', routerLink: ['/'] },
                     { label: 'Profile Settings', icon: 'pi pi-fw pi-user', routerLink: ['/features/profile-setting'] },
-                     { label: 'Request Attendance', icon: 'pi pi-fw pi-clock', routerLink: ['/features/employee-attendance'] }
+                    { label: 'Academic Calendar', icon: 'pi pi-fw pi-calendar', routerLink: ['/features/academic-calendar'] },
+                    { label: 'Request Attendance', icon: 'pi pi-fw pi-clock', routerLink: ['/features/employee-attendance'] }
                 ]
             },
             {
@@ -112,7 +113,8 @@ export class AppMenu {
                     label: 'Home',
                     items: [
                     { label: 'Dashboard', icon: 'pi pi-fw pi-home', routerLink: ['/'] },
-                    { label: 'Profile Settings', icon: 'pi pi-fw pi-user', routerLink: ['/features/profile-setting'] }
+                    { label: 'Profile Settings', icon: 'pi pi-fw pi-user', routerLink: ['/features/profile-setting'] },
+                    { label: 'Academic Calendar', icon: 'pi pi-fw pi-calendar', routerLink: ['/features/academic-calendar'] },
                 ]
             }
         ];}
