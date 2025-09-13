@@ -1,4 +1,4 @@
-<p-table #dt [value]="employees()" dataKey="EmployeeID" [rows]="10" [paginator]="true" [rowsPerPageOptions]="[10,20,30]" [globalFilterFields]="tableGlobalFilterFields" [tableStyle]="{'min-width':'90rem'}" [rowHover]="true" [showCurrentPageReport]="true" currentPageReportTemplate="Showing {first} to {last} of {totalRecords}">
+<p-table #dt [value]="employees()" dataKey="EmployeeID" [rows]="10" [paginator]="true" [rowsPerPageOptions]="[10,20,30]" [globalFilterFields]="tableGlobalFilterFields" [tableStyle]="{'min-width':'60rem'}" [rowHover]="true" [showCurrentPageReport]="true" currentPageReportTemplate="Showing {first} to {last} of {totalRecords}">
   <ng-template pTemplate="caption">
         <h3 class="m-0">All Employees</h3>
         <div class="flex items-center justify-between">
