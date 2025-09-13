@@ -53,7 +53,11 @@
 					<td>{{ r.Date || r.date || r.DateString || r.requestDate }}</td>
 					<td>{{ r.RequestType || r.request_type || r.Type || r.type }}</td>
 					<td>{{ r.Reason || r.reason || r.note || r.Note }}</td>
-					<td>{{ r.Status || r.status || (r.approved ? 'Approved' : (r.rejected ? 'Rejected' : 'Pending')) }}</td>
+					<td>
+						<span *ngIf="(r.Status || r.status || '').toString().toLowerCase() === 'approved' || r.approved" class="text-green-600 font-semibold">Approved</span>
+						<span *ngIf="(r.Status || r.status || '').toString().toLowerCase() === 'rejected' || r.rejected" class="text-red-600 font-semibold">Rejected</span>
+						<span *ngIf="!( (r.Status || r.status || '').toString().toLowerCase() === 'approved' || r.approved ) && !( (r.Status || r.status || '').toString().toLowerCase() === 'rejected' || r.rejected )" class="text-yellow-600 font-semibold">Pending</span>
+					</td>
 					<td *ngIf="RoleId==userRoles.ROLE_SCHOOLADMIN">
 						<button pButton type="button" icon="pi pi-check" class="p-button-success p-button-sm" (click)="onApproveRequest(r)" [disabled]="!isPending(r)"></button>
 						<button pButton type="button" icon="pi pi-times" class="p-button-danger p-button-sm ml-2" (click)="onRejectRequest(r)" [disabled]="!isPending(r)"></button>
