@@ -33,26 +33,18 @@ class StudentDashboardController extends BaseController {
 
         // If no privileged request, resolve student linked to the current user
         if (!$studentId) {
-            $studentId = $this->model->resolveStudentIdForUser(schoolId: $schoolId, studentId: $requestedStudentId);
+            // Resolve the student id linked to the current user account
+            $studentId = $this->model->resolveStudentIdForUser(schoolId: $schoolId, studentId: $userId);
             if (!$studentId) { $this->fail('Student profile not linked to this user',404); return; }
         }
         try {
             $avgAttendance = $this->model->getAverageAttendance($schoolId, $studentId, $academicYearId);
             $monthlyAttendance = $this->model->getMonthlyAttendance($schoolId, $studentId, $academicYearId, 12);
-            $gradeDistribution = $this->model->getGradeDistribution($schoolId, $studentId, $academicYearId);
-            $avgGrade = $this->model->getAverageGrade($schoolId, $studentId, $academicYearId);
-            $gradeProgress = $this->model->getGradeProgress($schoolId, $studentId, $academicYearId, 12);
-            $activities = $this->model->getRecentActivities($schoolId, $studentId, $academicYearId, 10);
-            $events = $this->model->getUpcomingEvents($schoolId, $academicYearId, 5);
+            $today = $this->model->getTodayAttendance($schoolId, $studentId, $academicYearId);
             $payload = [
-                'stats' => [ 'averageAttendance' => $avgAttendance, 'averageGrade' => $avgGrade ],
-                'charts' => [
-                    'monthlyAttendance' => $monthlyAttendance,
-                    'gradeDistribution' => $gradeDistribution,
-                    'gradeProgress' => $gradeProgress
-                ],
-                'recentActivities' => $activities,
-                'upcomingEvents' => $events
+                'stats' => [ 'averageAttendance' => $avgAttendance ],
+                'charts' => [ 'monthlyAttendance' => $monthlyAttendance ],
+                'today' => $today
             ];
             $this->ok('Student dashboard fetched', $payload);
         } catch (\Throwable $e) {
@@ -68,14 +60,24 @@ class StudentDashboardController extends BaseController {
         // support optional student_id param for teachers/admins
         $requestedStudentId = isset($params['student_id']) ? (int)$params['student_id'] : null;
 
-        if (!$this->model->validateStudentBelongsToSchool($schoolId, $requestedStudentId)) {
-            $this->fail('Requested student does not belong to your school', 404); return;
+        // If a student_id was provided, validate it belongs to the same school. If not provided, resolve linked student for the current user.
+        $studentId = null;
+        if ($requestedStudentId) {
+            if (!$this->model->validateStudentBelongsToSchool($schoolId, $requestedStudentId)) {
+                $this->fail('Requested student does not belong to your school', 404); return;
+            }
+            $studentId = $requestedStudentId;
+        } else {
+            // Resolve the student id linked to the current user account
+            $userId = (int)($user['id'] ?? $user['user_id'] ?? $user['UserID'] ?? 0);
+            if ($userId <= 0) { $this->fail('User context missing',400); return; }
+            $studentId = $this->model->resolveStudentIdForUser(schoolId: $schoolId, studentId: $userId);
+            if (!$studentId) { $this->fail('Student profile not linked to this user',404); return; }
         }
 
         $academicYearId = !empty($params['academic_year_id']) ? (int)$params['academic_year_id'] : ($user['AcademicYearID'] ?? null);
         try {
-            
-            $monthly = $this->model->getMonthlyAttendance($schoolId, $requestedStudentId, $academicYearId);
+            $monthly = $this->model->getMonthlyAttendance($schoolId, $studentId, $academicYearId);
             $this->ok('Monthly attendance fetched', ['charts' => ['monthlyAttendance' => $monthly]]);
         } catch (\Throwable $e) {
             $this->fail('Failed to load monthly attendance: '.$e->getMessage(), 500);

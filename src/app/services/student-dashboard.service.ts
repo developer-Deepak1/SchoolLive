@@ -13,6 +13,7 @@ export interface StudentDashboardResponse {
       gradeDistribution?: { labels: string[]; datasets: any[] };
       gradeProgress?: { labels: string[]; datasets: any[] };
     };
+    today?: { status: string; remarks?: string | null };
     recentActivities: any[];
     upcomingEvents: any[];
   };
@@ -22,9 +23,17 @@ export interface StudentDashboardResponse {
 export class StudentDashboardService {
   // Auto-refresh removed. Components should explicitly call getSummary() when they need fresh data.
   constructor(private http: HttpClient) {}
-  private load(): Observable<StudentDashboardResponse> { return this.http.get<StudentDashboardResponse>(`${environment.baseURL}/api/dashboard/student`); }
-  getSummary(): Observable<StudentDashboardResponse> {
-    return this.load();
+  private load(params?: {[k:string]: any}): Observable<StudentDashboardResponse> {
+    let url = `${environment.baseURL}/api/dashboard/student`;
+    if (params && Object.keys(params).length) {
+      const qp = new URLSearchParams();
+      for (const k of Object.keys(params)) { if (params[k] !== undefined && params[k] !== null) qp.set(k, String(params[k])); }
+      url = url + '?' + qp.toString();
+    }
+    return this.http.get<StudentDashboardResponse>(url);
+  }
+  getSummary(studentId?: number): Observable<StudentDashboardResponse> {
+    return this.load(studentId ? { student_id: studentId } : undefined);
   }
 
   /**

@@ -14,6 +14,8 @@ import { BadgeModule } from 'primeng/badge';
 import { RippleModule } from 'primeng/ripple';
 
 import { StudentDashboardService, StudentDashboardResponse } from '../../../../services/student-dashboard.service';
+import { UserService } from '../../../../services/user.service';
+import { StudentsService } from '../../services/students.service';
 
 interface StudentQuickStat {
   key: string;
@@ -46,13 +48,12 @@ interface StudentQuickStat {
 export class StudentDashboard implements OnInit {
   loading = false;
   loadError: string | null = null;
+  todayRemarks: string | null = null;
+  todayStatus: string | null = null;
 
   // Quick stats pulled from backend student summary
   quickStats: StudentQuickStat[] = [
-    { key: 'attendance', label: 'Avg Attendance', icon: 'pi pi-calendar', color: 'purple', value: 0, suffix: '%', hint: 'Academic Year' },
-    { key: 'grades', label: 'Avg Grade', icon: 'pi pi-chart-line', color: 'green', value: 0, suffix: '%', hint: 'Average Marks' },
-    { key: 'events', label: 'Upcoming Events', icon: 'pi pi-calendar-clock', color: 'blue', value: 0 },
-    { key: 'activities', label: 'Recent Activities', icon: 'pi pi-bolt', color: 'orange', value: 0 }
+    { key: 'attendance', label: 'Avg Attendance', icon: 'pi pi-calendar', color: 'purple', value: 0, suffix: '%', hint: 'Academic Year' }
   ];
 
   // Attendance donut (using school attendance for now)
@@ -66,29 +67,6 @@ export class StudentDashboard implements OnInit {
     }
   };
 
-  // Grade distribution (personal – simulated until backend provides per-student distribution)
-  gradeChartData: ChartConfiguration<'bar'>['data'] = { labels: [], datasets: [] };
-  gradeChartOptions: ChartOptions<'bar'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      title: { display: true, text: 'Grade Distribution (My Subjects)' },
-      legend: { display: false }
-    },
-    scales: { y: { beginAtZero: true } }
-  };
-
-  // Enrollment / Progress trend (placeholder based on enrollment trend labels)
-  progressChartData: ChartConfiguration<'line'>['data'] = { labels: [], datasets: [] };
-  progressChartOptions: ChartOptions<'line'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      title: { display: true, text: 'Monthly Progress (Placeholder)' }
-    },
-    scales: { y: { beginAtZero: true } }
-  };
-
   // Monthly attendance line chart (school-wide until per-student endpoint is added)
   monthlyAttendanceChartData: ChartConfiguration<'line'>['data'] = { labels: [], datasets: [] };
   monthlyAttendanceChartOptions: ChartOptions<'line'> = {
@@ -100,10 +78,7 @@ export class StudentDashboard implements OnInit {
     }
   };
 
-  recentActivities: any[] = [];
-  upcomingEvents: any[] = [];
-
-  constructor(private studentApi: StudentDashboardService) {}
+  constructor(private studentApi: StudentDashboardService, private userService: UserService, private students: StudentsService) {}
 
   ngOnInit(): void {
     this.loadFromApi();
@@ -112,7 +87,17 @@ export class StudentDashboard implements OnInit {
   loadFromApi() {
     this.loading = true;
     this.loadError = null;
-    this.studentApi.getSummary().subscribe({
+    // Resolve student id (sync or via API) then call summary once with the resolved id
+    const resolveStudentId = (): Promise<number|null> => {
+      const s = this.userService.getStudentId();
+      if (s) return Promise.resolve(s);
+      return new Promise((resolve) => {
+        this.students.getStudentId().subscribe({ next: (r:any) => { resolve(r?.data?.student_id ?? r?.student_id ?? null); }, error: () => resolve(null) });
+      });
+    };
+
+    const callSummary = (sid?: number|null) => {
+      this.studentApi.getSummary(sid ?? undefined).subscribe({
       next: (res: StudentDashboardResponse) => {
         if (!res.success) {
           this.loadError = res.message || 'Failed to load summary';
@@ -122,23 +107,68 @@ export class StudentDashboard implements OnInit {
         // Average stats
         if (res.data?.stats) {
           this.setQuickStat('attendance', (res.data.stats.averageAttendance ?? 0).toFixed(1));
-          this.setQuickStat('grades', (res.data.stats.averageGrade ?? 0).toFixed(1));
         }
-        if (res.data?.charts?.monthlyAttendance) {
-          this.monthlyAttendanceChartData = res.data.charts.monthlyAttendance as any;
-        }
-        if (res.data?.charts?.gradeDistribution) {
-          this.gradeChartData = res.data.charts.gradeDistribution as any;
-        }
-        if (res.data?.charts?.gradeProgress) {
-          this.progressChartData = res.data.charts.gradeProgress as any; // reuse progress chart area
-          this.progressChartOptions.plugins!.title!.text = 'Average Marks Trend';
+        // Prefer using the summary payload's monthlyAttendance when present to avoid an extra API call.
+        const summaryMonthly = res.data?.charts?.monthlyAttendance;
+        if (summaryMonthly && (summaryMonthly.labels?.length || 0) > 0) {
+          this.monthlyAttendanceChartData = summaryMonthly as any;
+        } else if (sid) {
+          // Only call the per-student monthly endpoint when the summary doesn't include the chart
+          this.students.getStudentMonthlyAttendance(sid).subscribe({ next: (m) => { this.monthlyAttendanceChartData = m as any; }, error: () => { this.monthlyAttendanceChartData = { labels: [], datasets: [] }; } });
+        } else {
+          this.monthlyAttendanceChartData = { labels: [], datasets: [] };
         }
 
-        this.recentActivities = res.data?.recentActivities?.slice(0, 6) || [];
-        this.upcomingEvents = res.data?.upcomingEvents?.slice(0, 5) || [];
-        this.setQuickStat('events', this.upcomingEvents.length);
-        this.setQuickStat('activities', this.recentActivities.length);
+        // Build today's attendance donut from the API if available
+        const today = res.data?.today;
+        this.todayRemarks = today?.remarks ?? null;
+        this.todayStatus = null;
+        if (today && (today.status || today.remarks)) {
+          // Normalize status (trim, case-insensitive) and support common shorthand
+          const raw = (today.status || '').toString().trim();
+          const s = raw.toLowerCase();
+          const buckets = { Present: 0, HalfDay: 0, Leave: 0, Absent: 0 } as any;
+          if (s === 'present' || s === 'p') { buckets.Present = 1; this.todayStatus = 'Present'; }
+          else if (s === 'halfday' || s === 'half day' || s === 'h') { buckets.HalfDay = 1; this.todayStatus = 'HalfDay'; }
+          else if (s === 'leave' || s === 'l') { buckets.Leave = 1; this.todayStatus = 'Leave'; }
+          else if (s === 'absent' || s === 'a') { buckets.Absent = 1; this.todayStatus = 'Absent'; }
+          else {
+            // If status is unrecognized, try to infer from remarks (e.g. 'on leave')
+            const remarks = (today.remarks || '').toString().toLowerCase();
+            if (remarks.includes('leave') || remarks.includes('on leave')) { buckets.Leave = 1; this.todayStatus = 'Leave'; }
+            else if (remarks.includes('half')) { buckets.HalfDay = 1; this.todayStatus = 'HalfDay'; }
+            else if (remarks.includes('absent') || remarks.includes('sick')) { buckets.Absent = 1; this.todayStatus = 'Absent'; }
+            else if (remarks.includes('present') || remarks.includes('in class') || remarks.includes('on time')) { buckets.Present = 1; this.todayStatus = 'Present'; }
+            else { /* NotMarked - will fall back below to average */ }
+          }
+
+          // If we were able to set a bucket, use the explicit 4-bucket donut
+          const total = buckets.Present + buckets.HalfDay + buckets.Leave + buckets.Absent;
+          if (total > 0) {
+            this.attendanceChartData = {
+              labels: ['Present','HalfDay','Leave','Absent'],
+              datasets: [{ data: [buckets.Present, buckets.HalfDay, buckets.Leave, buckets.Absent], backgroundColor: ['#10b981','#f59e0b','#f97316','#ef4444'] }]
+            } as any;
+          } else {
+            // Unclear today marker, fall back to average-based donut
+            const avg = Number(res.data?.stats?.averageAttendance ?? 0);
+            const present = Math.max(0, Math.min(100, Math.round(avg)));
+            const absent = 100 - present;
+            this.attendanceChartData = {
+              labels: ['Present','Absent'],
+              datasets: [{ data: [present, absent], backgroundColor: ['#10b981','#ef4444'] }]
+            } as any;
+          }
+        } else {
+          // Fallback to average-based donut
+          const avg = Number(res.data?.stats?.averageAttendance ?? 0);
+          const present = Math.max(0, Math.min(100, Math.round(avg)));
+          const absent = 100 - present;
+          this.attendanceChartData = {
+            labels: ['Present','Absent'],
+            datasets: [{ data: [present, absent], backgroundColor: ['#10b981','#ef4444'] }]
+          } as any;
+        }
 
         this.loading = false;
       },
@@ -146,7 +176,10 @@ export class StudentDashboard implements OnInit {
         this.loadError = err?.message || 'Network error';
         this.loading = false;
       }
-    });
+      });
+    };
+
+    resolveStudentId().then(id => callSummary(id));
   }
 
   refresh() {
