@@ -55,7 +55,9 @@ export class TeacherDashboard implements OnInit {
   // Attendance / sign in-out state
   isHoliday = false;
   isWeeklyOff = false;
+  isLeave = false;
   attendance: any = null; // { SignIn?: string, SignOut?: string, TotalHours?: string }
+  todayLeaveReason: string | null = null;
   signingIn = false;
   signingOut = false;
   canSignIn = true;
@@ -134,9 +136,26 @@ export class TeacherDashboard implements OnInit {
     if (eid) {
       // ask backend for today's persisted attendance
       const today = new Date().toISOString().slice(0,10);
+      // load persisted attendance row and infer leave state/reason from the response
       this.attendanceSvc.getToday(today, eid).subscribe({ next: (res:any) => {
         if (res && res.success && res.data) {
-          this.attendance = res.data;
+            this.attendance = res.data;
+            try {
+              const row = this.attendance;
+              const status = (row.Status || row.status || '').toString().toLowerCase();
+              const remarks = (row.Remarks || row.Remark || row.remarks || row.remark || row.Note || row.note || row.Reason || row.reason || '').toString();
+              // store leave state so other flows can respect it
+              this.isLeave = status === 'leave' || status === 'absent' || /leave/i.test(remarks);
+              if (this.isLeave) {
+                this.canSignIn = false;
+                this.canSignOut = false;
+              }
+              // populate Reason for UI if available
+              if (remarks) {
+                this.todayLeaveReason = remarks;
+                if (!row.Reason) this.attendance.Reason = remarks;
+              }
+            } catch (e) {}
         }
         try { this.loadTodayAttendance(); } catch(e) {}
       }, error: () => { try { this.loadTodayAttendance(); } catch(e) {} }});
@@ -179,11 +198,16 @@ export class TeacherDashboard implements OnInit {
       } catch(e){}
 
       // Evaluate button enable/disable based on local attendance object
-      if (this.attendance && this.attendance.SignIn) {
-        this.canSignIn = false;
-        this.canSignOut = !this.attendance.SignOut;
+      // Do not override disable state if we previously detected a Leave
+      if (this.isLeave) {
+        this.canSignIn = false; this.canSignOut = false;
       } else {
-        this.canSignIn = true; this.canSignOut = false;
+        if (this.attendance && this.attendance.SignIn) {
+          this.canSignIn = false;
+          this.canSignOut = !this.attendance.SignOut;
+        } else {
+          this.canSignIn = true; this.canSignOut = false;
+        }
       }
     };
 
@@ -291,6 +315,8 @@ export class TeacherDashboard implements OnInit {
   try { this.loadTodayAttendance(); } catch (e) { }
     }, error: () => { this.cachedWeeklyOffs = new Set(); }});
   }
+
+  // Note: leave reason is stored in `todayLeaveReason` and attendance.Reason when available
 
   refresh() {
     this.dashboardApi.refreshNow();

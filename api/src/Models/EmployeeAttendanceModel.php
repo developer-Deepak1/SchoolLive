@@ -84,4 +84,45 @@ class EmployeeAttendanceModel extends Model {
         // If no existing row, do not insert on sign-out; return not-created
         return ['created'=>false,'updated'=>false,'row'=>null,'message'=>'No attendance row found to sign out. Sign-in required first.'];
     }
+
+    /**
+     * Return a normalized status for the employee for the given date.
+     * Returns array: ['status' => 'Present'|'Leave'|'NotMarked'|'Unknown', 'attendance' => row|null]
+     */
+    public function getEmployeeStatusToday($schoolId, $employeeId, $date, $academicYearId = null) {
+        $row = $this->getEmployeeAttendanceForDate($schoolId, $employeeId, $date, $academicYearId);
+        if (!$row) {
+            return ['status' => 'NotMarked', 'attendance' => null];
+        }
+        $status = $row['Status'] ?? null;
+        if ($status) return ['status' => $status, 'attendance' => $row];
+        // infer from fields
+        if (!empty($row['SignIn']) || !empty($row['SignOut'])) {
+            return ['status' => 'Present', 'attendance' => $row];
+        }
+        if (!empty($row['Remarks']) && stripos($row['Remarks'], 'leave') !== false) {
+            return ['status' => 'Leave', 'attendance' => $row];
+        }
+        return ['status' => 'Unknown', 'attendance' => $row];
+    }
+
+    /**
+     * Try to obtain a leave reason for the employee on the given date.
+     * First checks attendance requests (prefer Approved), then falls back to attendance.Remarks.
+     */
+    public function getLeaveReason($schoolId, $employeeId, $date, $academicYearId = null) {
+        // check requests table for a leave request
+        $stmt = $this->conn->prepare("SELECT Reason, Status FROM Tx_Employee_AttendanceRequests WHERE EmployeeID = :eid AND Date = :dt AND IsActive = 1 AND (RequestType = 'Leave' OR RequestType = 'leave') ORDER BY AttendanceRequestID DESC LIMIT 1");
+        $stmt->execute([':eid' => $employeeId, ':dt' => $date]);
+        $req = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($req && !empty($req['Reason'])) return $req['Reason'];
+
+        // fallback to attendance row remarks
+        $row = $this->getEmployeeAttendanceForDate($schoolId, $employeeId, $date, $academicYearId);
+        if ($row) {
+            if (!empty($row['Remarks'])) return $row['Remarks'];
+            if (!empty($row['Note'])) return $row['Note'];
+        }
+        return null;
+    }
 }

@@ -105,6 +105,8 @@ class Router {
     $this->routes['POST']['/api/employee/attendance/signin'] = ['handler' => ['SchoolLive\\Controllers\\EmployeeAttendanceController', 'signIn'], 'roles' => true];
     $this->routes['POST']['/api/employee/attendance/signout'] = ['handler' => ['SchoolLive\\Controllers\\EmployeeAttendanceController', 'signOut'], 'roles' => true];
     $this->routes['GET']['/api/employee/attendance/today'] = ['handler' => ['SchoolLive\\Controllers\\EmployeeAttendanceController', 'getEmployeeAttendanceForDate'], 'roles' => true];
+    $this->routes['GET']['/api/employee/attendance/status'] = ['handler' => ['SchoolLive\\Controllers\\EmployeeAttendanceController', 'getEmployeeStatusToday'], 'roles' => true];
+    $this->routes['GET']['/api/employee/attendance/leaveReason'] = ['handler' => ['SchoolLive\\Controllers\\EmployeeAttendanceController', 'getLeaveReason'], 'roles' => true];
 
     // Employee attendance requests (create/list/cancel)
     $this->routes['POST']['/api/employee/attendance/requests/create'] = ['handler' => ['SchoolLive\Controllers\EmployeeAttendanceController', 'createRequest'], 'roles' => true];

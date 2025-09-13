@@ -61,6 +61,30 @@ class EmployeeAttendanceController extends BaseController {
         $this->ok('Employee attendance', $row);
     }
 
+    // GET /api/employee/attendance/status?date=YYYY-MM-DD
+    public function getEmployeeStatusToday($params = []) {
+        $user = $this->currentUser(); if (!$user) return;
+        $date = $_GET['date'] ?? date('Y-m-d');
+        $schoolId = $user['school_id'] ?? null;
+        $employeeId = isset($_GET['employee_id']) && $_GET['employee_id'] ? $_GET['employee_id'] : ($user['EmployeeID'] ?? $user['employee_id'] ?? null);
+        $academicYearId = $user['AcademicYearID'] ?? null;
+        if (!$employeeId) { $this->fail('Employee not found for user', 400); return; }
+        $res = $this->model->getEmployeeStatusToday($schoolId, $employeeId, $date, $academicYearId);
+        $this->ok('Employee status', $res);
+    }
+
+    // GET /api/employee/attendance/leaveReason?date=YYYY-MM-DD
+    public function getLeaveReason($params = []) {
+        $user = $this->currentUser(); if (!$user) return;
+        $date = $_GET['date'] ?? date('Y-m-d');
+        $schoolId = $user['school_id'] ?? null;
+        $employeeId = isset($_GET['employee_id']) && $_GET['employee_id'] ? $_GET['employee_id'] : ($user['EmployeeID'] ?? $user['employee_id'] ?? null);
+        $academicYearId = $user['AcademicYearID'] ?? null;
+        if (!$employeeId) { $this->fail('Employee not found for user', 400); return; }
+        $reason = $this->model->getLeaveReason($schoolId, $employeeId, $date, $academicYearId);
+        $this->ok('Leave reason', ['reason' => $reason]);
+    }
+
     // POST /api/employee/attendance/requests/create
     public function createRequest($params = []) {
         if (!$this->requireMethod('POST')) return;
@@ -76,10 +100,12 @@ class EmployeeAttendanceController extends BaseController {
         $academicYearId = $user['AcademicYearID'] ?? 0;
         if (!$employeeId) { $this->fail('Employee not found', 400); return; }
         $createdBy = $user['username'] ?? 'system';
-        // attempt to insert
-        $id = $this->requestsModel->createRequest($schoolId, $employeeId, $date, $type, $reason, $createdBy, $academicYearId);
-        if ($id === false) { $this->fail('Failed to create request', 500); return; }
-        $this->ok('Request created', ['id' => $id]);
+    // attempt to insert (model may return 'exists_active' or reactivated id)
+    $id = $this->requestsModel->createRequest($schoolId, $employeeId, $date, $type, $reason, $createdBy, $academicYearId);
+    if ($id === false) { $this->fail('Failed to create request', 500); return; }
+    if ($id === 'exists_active') { $this->fail('A request already exists for this date', 409); return; }
+    // otherwise id is either new insert id or reactivated existing id
+    $this->ok('Request created', ['id' => $id]);
     }
 
     // GET /api/employee/attendance/requests?employee_id=&status=

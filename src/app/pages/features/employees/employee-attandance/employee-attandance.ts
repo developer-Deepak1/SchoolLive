@@ -11,6 +11,7 @@ import { EmployeeAttendanceService } from '@/pages/features/services/employee-at
 import { UserService } from '@/services/user.service';
 import { AcademicCalendarService } from '@/pages/features/services/academic-calendar.service';
 import { AcademicYearService } from '@/pages/features/services/academic-year.service';
+import { USER_ROLES } from '@/pages/common/constant';
 
 @Component({
   selector: 'app-employee-attandance',
@@ -26,7 +27,7 @@ export class EmployeeAttandance implements OnInit {
   private yearSvc: AcademicYearService = inject(AcademicYearService);
 
   // form model
-  reqDate: Date | null = new Date();
+  reqDate: Date | undefined;
   reqType: 'Leave' | 'Attendance' = 'Leave';
   reqTypeOptions = [
     { label: 'Leave', value: 'Leave' },
@@ -38,6 +39,8 @@ export class EmployeeAttandance implements OnInit {
   requests: any[] = [];
   loading = false;
   message: string | null = null;
+  duplicateDateExists = false;
+  duplicateMessage: string | null = null;
   // holidays / weekly offs
   holidays: any[] = [];
   weeklyOffs: number[] = [];
@@ -48,7 +51,8 @@ export class EmployeeAttandance implements OnInit {
   // unified min/max date objects (same style as calendar component)
   minDateObj: Date | null = null;
   maxDateObj: Date | null = null;
-
+  RoleId:number|null = this.userSvc.getRoleId();
+  userRoles = USER_ROLES;
   
   // outOfAcademicRange removed: datepicker min/max prevents out-of-range selection
 
@@ -129,8 +133,9 @@ export class EmployeeAttandance implements OnInit {
         } else {
           this.message = res.message || 'Failed to submit';
         }
+        this.resetForm();
       },
-      error: (err: any) => { this.loading = false; this.message = err?.message || 'Request failed'; }
+      error: (err: any) => { this.loading = false; this.message = err?.message || 'Request failed';this.resetForm(); }
     });
   }
 
@@ -149,6 +154,7 @@ export class EmployeeAttandance implements OnInit {
       next: (res: any) => {
         this.loading = false;
         this.requests = (res && res.success && res.data) ? res.data : [];
+        this.checkDuplicateForDate(this.reqDate);
       }, error: (err: any) => { this.loading = false; this.message = err?.message || 'Failed to load'; }
     });
   }
@@ -204,13 +210,28 @@ export class EmployeeAttandance implements OnInit {
     }, error: (err:any) => { this.loading = false; this.message = err?.message || 'Delete failed'; }});
   }
 
+  // Helper: determine whether a request row is pending
+  isPending(row: any): boolean {
+    if (!row) return false;
+    const status = (row.Status || row.status || '').toString().toLowerCase();
+    // treat empty/unknown as pending if explicit flags present
+    if (!status) {
+      if (row.approved) return false;
+      if (row.rejected) return false;
+      return true;
+    }
+    return status === 'pending';
+  }
+
   resetForm() {
     // restore default values
-    this.reqDate = new Date();
+    this.reqDate = undefined;
     this.reqType = 'Leave';
     this.reqReason = '';
     this.message = null;
     this.evaluateSelectedDate();
+    this.duplicateDateExists = false;
+    this.duplicateMessage = null;
   }
 
   private loadCalendar() {
@@ -284,6 +305,32 @@ export class EmployeeAttandance implements OnInit {
       } catch (e) { }
     }
     this.selectedDateStatus = 'WorkingDay';
+    // check duplicate requests for this selected date
+    this.checkDuplicateForDate(this.reqDate);
     // keep only selected status
+  }
+
+  private checkDuplicateForDate(v: any) {
+    this.duplicateDateExists = false;
+    this.duplicateMessage = null;
+    if (!v) return;
+    const dt = this.parseToLocalDate(v);
+    if (!dt) return;
+    const ymd = this.formatDate(dt);
+    const found = (this.requests || []).some((r: any) => {
+      const raw = r.Date ?? r.date ?? r.DateString ?? r.requestDate ?? null;
+      if (!raw) return false;
+      const part = String(raw).split('T')[0].split(' ')[0];
+      if (part === ymd) return true;
+      try {
+        const parsed = this.parseToLocalDate(raw);
+        if (parsed) return this.formatDate(parsed) === ymd;
+      } catch (e) {}
+      return false;
+    });
+    if (found) {
+      this.duplicateDateExists = true;
+      this.duplicateMessage = 'A request already exists for the selected date.';
+    }
   }
 }

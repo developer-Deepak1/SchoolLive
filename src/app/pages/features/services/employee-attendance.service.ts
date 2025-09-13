@@ -31,6 +31,24 @@ export class EmployeeAttendanceService {
     return this.http.get<any>(url, { params });
   }
 
+  getStatus(date?: string, employeeId?: number): Observable<any> {
+    const url = `${environment.baseURL.replace(/\/+$/,'')}/api/employee/attendance/status`;
+    const paramsObj: any = {};
+    if (date) paramsObj.date = date;
+    if (employeeId !== undefined && employeeId !== null) paramsObj.employee_id = String(employeeId);
+    const params = new HttpParams({ fromObject: paramsObj });
+    return this.http.get<any>(url, { params });
+  }
+
+  getLeaveReason(date?: string, employeeId?: number): Observable<any> {
+    const url = `${environment.baseURL.replace(/\/+$/,'')}/api/employee/attendance/leaveReason`;
+    const paramsObj: any = {};
+    if (date) paramsObj.date = date;
+    if (employeeId !== undefined && employeeId !== null) paramsObj.employee_id = String(employeeId);
+    const params = new HttpParams({ fromObject: paramsObj });
+    return this.http.get<any>(url, { params });
+  }
+
   // Attendance Requests API
   createRequest(date: string, requestType: 'Leave' | 'Attendance', reason?: string, employeeId?: number): Observable<any> {
     const url = `${environment.baseURL.replace(/\/+$/,'')}/api/employee/attendance/requests/create`;
