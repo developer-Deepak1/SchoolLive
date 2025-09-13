@@ -306,4 +306,44 @@ export class ClasswiseAttandance implements OnInit {
   // mobile view removed
 
   openDetails(r: AttendanceRow) { this.selected = r; this.detailDialogVisible = true; }
+
+  // Export current table (filteredRows) to a CSV file compatible with Excel
+  exportToExcel() {
+    try {
+      const rows = this.filteredRows || [];
+      if (!rows || rows.length === 0) return;
+
+      // Header: #, Student, days..., Total Present, Total Absent
+      const header = ['#', 'Student', ...this.days.map(d => String(d)), 'Total Present', 'Total Absent'];
+      const csvLines: string[] = [];
+      // add BOM for Excel to recognize UTF-8
+      // we will prepend BOM when creating blob
+      csvLines.push(header.join(','));
+
+      rows.forEach((r, idx) => {
+        const present = this.getPresentCount(r);
+        const absent = this.getAbsentCount(r);
+        const statusCells = (r.statuses || []).map(s => (s || '').toUpperCase());
+        const line = [String(idx + 1), `"${(r.studentName||'').replace(/"/g,'""')}"`, ...statusCells, String(present), String(absent)];
+        csvLines.push(line.join(','));
+      });
+
+      const csvContent = '\uFEFF' + csvLines.join('\n'); // BOM + CSV
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const monthLabel = this.date ? (this.date.toLocaleString('default', { month: 'short', year: 'numeric' })) : 'month';
+      const clsLabel = this.selectedClassLabel || 'class';
+      const filename = `attendance_${clsLabel.replace(/\s+/g,'_')}_${this.selectedSection || 'all'}_${monthLabel.replace(/\s+/g,'_')}.csv`;
+      a.href = url;
+      a.setAttribute('download', filename);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      // fail silently for now; could show toast
+      console.error('Export failed', e);
+    }
+  }
 }

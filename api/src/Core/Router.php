@@ -101,6 +101,20 @@ class Router {
     $this->routes['GET']['/api/schools/{id}'] = ['handler' => ['SchoolLive\\Controllers\\SchoolsController', 'get'], 'roles' => true];
     $this->routes['GET']['/api/schools/by-user/{userId}'] = ['handler' => ['SchoolLive\\Controllers\\SchoolsController', 'getByUser'], 'roles' => true];
 
+    // Employee attendance endpoints (sign in/out and today's record)
+    $this->routes['POST']['/api/employee/attendance/signin'] = ['handler' => ['SchoolLive\\Controllers\\EmployeeAttendanceController', 'signIn'], 'roles' => true];
+    $this->routes['POST']['/api/employee/attendance/signout'] = ['handler' => ['SchoolLive\\Controllers\\EmployeeAttendanceController', 'signOut'], 'roles' => true];
+    $this->routes['GET']['/api/employee/attendance/today'] = ['handler' => ['SchoolLive\\Controllers\\EmployeeAttendanceController', 'getEmployeeAttendanceForDate'], 'roles' => true];
+    $this->routes['GET']['/api/employee/attendance/status'] = ['handler' => ['SchoolLive\\Controllers\\EmployeeAttendanceController', 'getEmployeeStatusToday'], 'roles' => true];
+    $this->routes['GET']['/api/employee/attendance/leaveReason'] = ['handler' => ['SchoolLive\\Controllers\\EmployeeAttendanceController', 'getLeaveReason'], 'roles' => true];
+
+    // Employee attendance requests (create/list/cancel)
+    $this->routes['POST']['/api/employee/attendance/requests/create'] = ['handler' => ['SchoolLive\Controllers\EmployeeAttendanceController', 'createRequest'], 'roles' => true];
+    $this->routes['GET']['/api/employee/attendance/requests'] = ['handler' => ['SchoolLive\Controllers\EmployeeAttendanceController', 'listRequests'], 'roles' => true];
+    $this->routes['DELETE']['/api/employee/attendance/requests/{id}'] = ['handler' => ['SchoolLive\Controllers\EmployeeAttendanceController', 'cancelRequest'], 'roles' => true];
+    $this->routes['POST']['/api/employee/attendance/requests/{id}/approve'] = ['handler' => ['SchoolLive\Controllers\EmployeeAttendanceController', 'approveRequest'], 'roles' => true];
+    $this->routes['POST']['/api/employee/attendance/requests/{id}/reject'] = ['handler' => ['SchoolLive\Controllers\EmployeeAttendanceController', 'rejectRequest'], 'roles' => true];
+
     // Attendance routes (daily mark & list)
     $this->routes['GET']['/api/attendance'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'list'], 'roles' => true];
     $this->routes['GET']['/api/attendance/monthly'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'monthly'], 'roles' => true];

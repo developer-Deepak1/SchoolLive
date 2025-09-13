@@ -1,7 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartConfiguration, ChartOptions } from 'chart.js';
+import { AcademicCalendarService } from '@/pages/features/services/academic-calendar.service';
 
 // PrimeNG Imports
 import { ButtonModule } from 'primeng/button';
@@ -15,6 +16,8 @@ import { ToastModule } from 'primeng/toast';
 import { RippleModule } from 'primeng/ripple';
 import { HttpClientModule } from '@angular/common/http';
 import { DashboardService } from '../../../../services/dashboard.service';
+import { UserService } from '@/services/user.service';
+import { EmployeeAttendanceService } from '@/pages/features/services/employee-attendance.service';
 // Removed assignment feature modules
 
 @Component({
@@ -42,23 +45,31 @@ import { DashboardService } from '../../../../services/dashboard.service';
 export class TeacherDashboard implements OnInit {
   loading = false;
   loadError: string | null = null;
-
-  // Teacher specific snapshot
-  teacherStats: any = {
-    name: '-',
-    subject: '-',
-    classes: 0,
-    students: 0,
-    rating: 0,
-    attendance: 0,
-    experience: '-'
-  };
+  firstName: string = '';
+  private userService = inject(UserService);
+  private calendarSvc = inject(AcademicCalendarService);
+  private attendanceSvc = inject(EmployeeAttendanceService);
+  // cached calendar data
+  private cachedHolidays: Map<string, any> | null = null;
+  private cachedWeeklyOffs: Set<number> | null = null;
+  // Attendance / sign in-out state
+  isHoliday = false;
+  isWeeklyOff = false;
+  isLeave = false;
+  attendance: any = null; // { SignIn?: string, SignOut?: string, TotalHours?: string }
+  todayLeaveReason: string | null = null;
+  signingIn = false;
+  signingOut = false;
+  canSignIn = true;
+  canSignOut = false;
+  // today's date for header display
+  today: Date = new Date();
 
   // Aggregated quick stats (derived)
   quickStats = {
     totalClasses: 0,
     totalStudents: 0,
-    avgAttendance: 0,
+    averageAttendance: 0,
     rating: 0
   };
 
@@ -79,7 +90,7 @@ export class TeacherDashboard implements OnInit {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      title: { display: true, text: 'My Classes Attendance Today' },
+      title: { display: true, text: 'Daily Attendance Overview' },
       legend: { position: 'bottom' }
     }
   };
@@ -117,6 +128,95 @@ export class TeacherDashboard implements OnInit {
 
   ngOnInit() {
     this.loadFromApi();
+    this.firstName = this.userService.getFirstName() || 'Teacher';
+    // fetch today's attendance/status for current employee
+    this.initCalendarCache();
+    // attempt to load today's attendance from backend when employee id is available
+    const eid = this.userService.getEmployeeId();
+    if (eid) {
+      // ask backend for today's persisted attendance
+      const today = new Date().toISOString().slice(0,10);
+      // load persisted attendance row and infer leave state/reason from the response
+      this.attendanceSvc.getToday(today, eid).subscribe({ next: (res:any) => {
+        if (res && res.success && res.data) {
+            this.attendance = res.data;
+            try {
+              const row = this.attendance;
+              const status = (row.Status || row.status || '').toString().toLowerCase();
+              const remarks = (row.Remarks || row.Remark || row.remarks || row.remark || row.Note || row.note || row.Reason || row.reason || '').toString();
+              // store leave state so other flows can respect it
+              this.isLeave = status === 'leave' || status === 'absent' || /leave/i.test(remarks);
+              if (this.isLeave) {
+                this.canSignIn = false;
+                this.canSignOut = false;
+              }
+              // populate Reason for UI if available
+              if (remarks) {
+                this.todayLeaveReason = remarks;
+                if (!row.Reason) this.attendance.Reason = remarks;
+              }
+            } catch (e) {}
+        }
+        try { this.loadTodayAttendance(); } catch(e) {}
+      }, error: () => { try { this.loadTodayAttendance(); } catch(e) {} }});
+    } else {
+      // still evaluate holiday/off rules using cached calendar; attendance will be local until login resolves
+      try { this.loadTodayAttendance(); } catch(e) {}
+    }
+  }
+
+  private loadTodayAttendance() {
+    const todayYmd = new Date().toISOString().slice(0,10);
+
+    const handleLists = (holidays: any[], offs: any[]) => {
+      const holidayMap = new Map<string, any>();
+      (holidays || []).forEach(h => { const d = (h.Date || h.date || '').split('T')[0]; if (d) holidayMap.set(d, h); });
+      const offSet = new Set((offs||[]).map((o:any)=>o.DayOfWeek || o.day_of_week || o));
+
+      // persist to cache for future checks
+      if (!this.cachedHolidays) {
+        const m = new Map<string, any>(); holidayMap.forEach((v,k)=>m.set(k,v)); this.cachedHolidays = m;
+      }
+      if (!this.cachedWeeklyOffs) {
+        this.cachedWeeklyOffs = new Set(Array.from(offSet));
+      }
+
+      // check holiday
+      if (holidayMap.has(todayYmd)) {
+        const h = holidayMap.get(todayYmd); const type = (h.Type || h.type || 'Holiday');
+        if (String(type).toLowerCase() !== 'workingday') { this.isHoliday = true; this.canSignIn = false; this.canSignOut = false; return; }
+      }
+      // check weekly off, but allow holiday entries to override as 'workingday'
+      try {
+        const dt = new Date(todayYmd);
+        const dow = dt.getDay();
+        const dow1 = dow===0?7:dow;
+        // If a holiday exists for today and it's explicitly a working day, do not treat as weekly off
+        const h = holidayMap.get(todayYmd);
+        const isWorkingOverride = h ? String((h.Type || h.type || '')).toLowerCase() === 'workingday' : false;
+        if (!isWorkingOverride && offSet.has(dow1)) { this.isWeeklyOff = true; this.canSignIn = false; this.canSignOut = false; return; }
+      } catch(e){}
+
+      // Evaluate button enable/disable based on local attendance object
+      // Do not override disable state if we previously detected a Leave
+      if (this.isLeave) {
+        this.canSignIn = false; this.canSignOut = false;
+      } else {
+        if (this.attendance && this.attendance.SignIn) {
+          this.canSignIn = false;
+          this.canSignOut = !this.attendance.SignOut;
+        } else {
+          this.canSignIn = true; this.canSignOut = false;
+        }
+      }
+    };
+
+    if (this.cachedHolidays && this.cachedWeeklyOffs) {
+      // use cache
+      const holidays = Array.from(this.cachedHolidays.keys()).map(k => this.cachedHolidays!.get(k));
+      const offs = Array.from(this.cachedWeeklyOffs.values());
+      handleLists(holidays as any[], offs as any[]);
+    }
   }
 
   loadFromApi() {
@@ -125,28 +225,14 @@ export class TeacherDashboard implements OnInit {
     this.dashboardApi.getSummary().subscribe({
       next: (res: any) => {
         if (res.success && res.data) {
-          const teachers: any[] = res.data.teacherPerformance || [];
-          // Pick first teacher as the current user placeholder.
-          if (teachers.length) {
-            this.teacherStats = { ...teachers[0] };
-            this.quickStats.totalClasses = teachers[0].classes;
-            this.quickStats.totalStudents = teachers[0].students;
-            this.quickStats.avgAttendance = teachers[0].attendance;
-            this.quickStats.rating = teachers[0].rating;
-          }
-
+            this.quickStats = res.data.stats;
             // Reuse global charts as fallback
             if (res.data.charts?.attendanceOverview) {
               this.attendanceOverviewData = res.data.charts.attendanceOverview as any;
             }
-            if (res.data.charts?.gradeDistribution) {
-              this.gradeDistributionData = res.data.charts.gradeDistribution as any;
-            }
             if (res.data.charts?.classAttendance) {
               this.classAttendanceStackData = res.data.charts.classAttendance as any;
             }
-            this.recentActivities = (res.data.recentActivities || []).slice(0, 5);
-            this.upcomingEvents = (res.data.upcomingEvents || []).slice(0, 4);
         } else {
           this.loadError = res.message || 'Unknown error';
         }
@@ -159,44 +245,82 @@ export class TeacherDashboard implements OnInit {
     });
   }
 
+  // Sign in - POST to backend employee attendance endpoint
+  signIn() {
+    if (!this.canSignIn) return;
+    this.signingIn = true;
+    try {
+      const date = new Date().toISOString().slice(0,10);
+  // include current employee id if known so backend can persist against the correct employee
+  const eid = this.userService.getEmployeeId() ?? undefined;
+  this.attendanceSvc.signIn(date, eid).subscribe({ next: () => {}, error: () => {} });
+      // update UI
+      this.attendance = this.attendance || {};
+      this.attendance.SignIn = new Date().toISOString();
+      this.canSignIn = false; this.canSignOut = true;
+    } catch (e) {
+      // noop
+    } finally { this.signingIn = false; }
+  }
+
+  // Sign out - POST to backend employee attendance endpoint and compute total hours
+  signOut() {
+    if (!this.canSignOut) return;
+    this.signingOut = true;
+    try {
+      const date = new Date().toISOString().slice(0,10);
+  const eid = this.userService.getEmployeeId() ?? undefined;
+  // fire-and-forget sign-out call
+  this.attendanceSvc.signOut(date, eid).subscribe({ next: () => {}, error: () => {} });
+
+      this.attendance = this.attendance || {};
+      this.attendance.SignOut = new Date().toISOString();
+      // compute hours difference if SignIn exists
+      if (this.attendance.SignIn) {
+        const inDt = new Date(this.attendance.SignIn);
+        const outDt = new Date(this.attendance.SignOut);
+        const diffMs = Math.max(0, outDt.getTime() - inDt.getTime());
+        const hours = Math.floor(diffMs / (1000*60*60));
+        const mins = Math.floor((diffMs % (1000*60*60)) / (1000*60));
+        this.attendance.TotalHours = `${hours}h ${mins}m`;
+      }
+      this.canSignOut = false;
+      this.canSignIn = false;
+    } finally { this.signingOut = false; }
+  }
+
+  // Initialize calendar caches (holidays and weekly offs)
+  private initCalendarCache() {
+    const ayId = null;
+    this.calendarSvc.getHolidays(ayId).subscribe({ next: (list:any[]) => {
+      const map = new Map<string, any>();
+      (list || []).forEach(h => {
+        const d = (h.Date || h.date || '').split('T')[0];
+        if (d) map.set(d, h);
+      });
+      this.cachedHolidays = map;
+  // re-evaluate today's attendance/holiday state when cache arrives
+  try { this.loadTodayAttendance(); } catch (e) { }
+    }, error: () => { this.cachedHolidays = new Map(); }});
+
+    this.calendarSvc.getWeeklyOffs().subscribe({ next: (offs:any[]) => {
+      const set = new Set<number>();
+      (offs || []).forEach(o => {
+        const val = o.DayOfWeek ?? o.day_of_week ?? o.day ?? o;
+        const n = parseInt(String(val), 10);
+        if (!isNaN(n)) set.add(n);
+      });
+      this.cachedWeeklyOffs = set;
+  // re-evaluate today's attendance/holiday state when weekly offs cache arrives
+  try { this.loadTodayAttendance(); } catch (e) { }
+    }, error: () => { this.cachedWeeklyOffs = new Set(); }});
+  }
+
+  // Note: leave reason is stored in `todayLeaveReason` and attendance.Reason when available
+
   refresh() {
     this.dashboardApi.refreshNow();
     this.loadFromApi();
   }
 
-  // Export grades (gradeDistributionData) to CSV
-  exportGrades() {
-    if (!this.gradeDistributionData.labels?.length || !this.gradeDistributionData.datasets?.length) {
-      // nothing to export
-      return;
-    }
-    const dataset = this.gradeDistributionData.datasets[0] as any;
-    const rows: string[] = ['Grade,Count'];
-    this.gradeDistributionData.labels.forEach((label: any, idx: number) => {
-      const val = Array.isArray(dataset.data) ? dataset.data[idx] : '';
-      rows.push(`${label},${val}`);
-    });
-    const csv = rows.join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'grades-export.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  getSeverity(activityType: string): string {
-    switch (activityType) {
-      case 'exam':
-      case 'grade':
-        return 'success';
-      case 'attendance':
-        return 'warning';
-      default:
-        return 'info';
-    }
-  }
-
-  trackById(_: number, item: any) { return item.id; }
 }

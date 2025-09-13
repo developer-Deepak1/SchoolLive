@@ -18,7 +18,7 @@
 		<div class="flex items-end">
 			<div class="flex gap-2">
 				<p-button label="Load" icon="pi pi-refresh" (onClick)="updateGrid()" [disabled]="!selectedClass || !selectedSection"></p-button>
-				<p-button label="Export" icon="pi pi-download" severity="secondary"></p-button>
+				<p-button label="Export" icon="pi pi-download" severity="secondary" (onClick)="exportToExcel()" [disabled]="!rows || rows.length === 0"></p-button>
 			</div>
 		</div>
 	</div>

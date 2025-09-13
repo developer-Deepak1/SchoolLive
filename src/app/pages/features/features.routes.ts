@@ -15,6 +15,10 @@ import { EmployeeAttandanceReports } from './reports/employee-attandance-reports
 import { AcademicYears } from './academic-years/academic-years';
 import { AuthGuard } from '@/guards/auth.guard';
 import { AcademicCalander } from './academic-calander/academic-calander';
+import { AddSchool } from './school/add-school/add-school';
+import { AddUsers } from './user/add-users/add-users';
+import { AllUsers } from './user/all-users/all-users';
+import { AllSchool } from './school/all-school/all-school';
 
 export default [
     { path: 'profile-setting', component: ProfileSetting, canActivate: [AuthGuard] },
@@ -32,5 +36,9 @@ export default [
     { path: 'classwise-attendance', component: ClasswiseAttandance, canActivate: [AuthGuard] },
     { path: 'employee-attendance-reports', component: EmployeeAttandanceReports, canActivate: [AuthGuard] },
     { path: 'student-attendance-reports', component: StudentAttandanceReports, canActivate: [AuthGuard] },
+    { path: 'add-school', component: AddSchool, canActivate: [AuthGuard] },
+    { path: 'add-user', component: AddUsers, canActivate: [AuthGuard] },
+    { path: 'all-users', component: AllUsers, canActivate: [AuthGuard] },
+    { path: 'all-schools', component: AllSchool, canActivate: [AuthGuard] },
     { path: '**', redirectTo: '/notfound' }
 ] as Routes;
