@@ -123,8 +123,9 @@ export class StudentDashboard implements OnInit {
         const today = res.data?.today;
         this.todayRemarks = today?.remarks ?? null;
         this.todayStatus = null;
-        if (today && (today.status || today.remarks)) {
-          // Normalize status (trim, case-insensitive) and support common shorthand
+
+        // If today's attendance has either an explicit status or non-empty remarks, try to use it.
+        if (today && (today.status || (today.remarks && today.remarks.toString().trim() !== ''))) {
           const raw = (today.status || '').toString().trim();
           const s = raw.toLowerCase();
           const buckets = { Present: 0, HalfDay: 0, Leave: 0, Absent: 0 } as any;
@@ -133,16 +134,14 @@ export class StudentDashboard implements OnInit {
           else if (s === 'leave' || s === 'l') { buckets.Leave = 1; this.todayStatus = 'Leave'; }
           else if (s === 'absent' || s === 'a') { buckets.Absent = 1; this.todayStatus = 'Absent'; }
           else {
-            // If status is unrecognized, try to infer from remarks (e.g. 'on leave')
+            // Try to infer from remarks
             const remarks = (today.remarks || '').toString().toLowerCase();
             if (remarks.includes('leave') || remarks.includes('on leave')) { buckets.Leave = 1; this.todayStatus = 'Leave'; }
             else if (remarks.includes('half')) { buckets.HalfDay = 1; this.todayStatus = 'HalfDay'; }
             else if (remarks.includes('absent') || remarks.includes('sick')) { buckets.Absent = 1; this.todayStatus = 'Absent'; }
             else if (remarks.includes('present') || remarks.includes('in class') || remarks.includes('on time')) { buckets.Present = 1; this.todayStatus = 'Present'; }
-            else { /* NotMarked - will fall back below to average */ }
           }
 
-          // If we were able to set a bucket, use the explicit 4-bucket donut
           const total = buckets.Present + buckets.HalfDay + buckets.Leave + buckets.Absent;
           if (total > 0) {
             this.attendanceChartData = {
@@ -150,23 +149,19 @@ export class StudentDashboard implements OnInit {
               datasets: [{ data: [buckets.Present, buckets.HalfDay, buckets.Leave, buckets.Absent], backgroundColor: ['#10b981','#f59e0b','#f97316','#ef4444'] }]
             } as any;
           } else {
-            // Unclear today marker, fall back to average-based donut
-            const avg = Number(res.data?.stats?.averageAttendance ?? 0);
-            const present = Math.max(0, Math.min(100, Math.round(avg)));
-            const absent = 100 - present;
+            // NotMarked: don't infer absent/present from averages — show neutral zeros
+            this.todayStatus = 'NotMarked';
             this.attendanceChartData = {
               labels: ['Present','Absent'],
-              datasets: [{ data: [present, absent], backgroundColor: ['#10b981','#ef4444'] }]
+              datasets: [{ data: [0, 0], backgroundColor: ['#10b981','#ef4444'] }]
             } as any;
           }
         } else {
-          // Fallback to average-based donut
-          const avg = Number(res.data?.stats?.averageAttendance ?? 0);
-          const present = Math.max(0, Math.min(100, Math.round(avg)));
-          const absent = 100 - present;
+          // No status or remarks -> treat as NotMarked and show neutral zeros
+          this.todayStatus = 'NotMarked';
           this.attendanceChartData = {
             labels: ['Present','Absent'],
-            datasets: [{ data: [present, absent], backgroundColor: ['#10b981','#ef4444'] }]
+            datasets: [{ data: [0, 0], backgroundColor: ['#10b981','#ef4444'] }]
           } as any;
         }
 

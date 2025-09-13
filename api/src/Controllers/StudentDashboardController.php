@@ -39,7 +39,7 @@ class StudentDashboardController extends BaseController {
         }
         try {
             $avgAttendance = $this->model->getAverageAttendance($schoolId, $studentId, $academicYearId);
-            $monthlyAttendance = $this->model->getMonthlyAttendance($schoolId, $studentId, $academicYearId, 12);
+            $monthlyAttendance = $this->model->getMonthlyAttendancePercentage($schoolId, $studentId, $academicYearId, 12);
             $today = $this->model->getTodayAttendance($schoolId, $studentId, $academicYearId);
             $payload = [
                 'stats' => [ 'averageAttendance' => $avgAttendance ],
