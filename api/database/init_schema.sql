@@ -103,7 +103,7 @@ CREATE TABLE Tx_WorkingDays (
 
 
 -- Set auto-increment start value
-ALTER TABLE Tm_Schools AUTO_INCREMENT = 1000;
+ALTER TABLE Tm_Schools AUTO_INCREMENT = 100;
 
 -- Create Roles Master Table
 CREATE TABLE Tm_Roles (
