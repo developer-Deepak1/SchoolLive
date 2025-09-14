@@ -134,10 +134,22 @@ export class SchoolAdminDashboard implements OnInit, OnDestroy {
     maintainAspectRatio: false,
     plugins: {
       title: { display: true, text: 'Student Count by Class and Gender' },
-      legend: { position: 'top' }
+      legend: { position: 'top' },
+      datalabels: {
+      color: '#ffffff',
+      anchor: 'center',
+      align: 'center',
+      formatter: (value: any) => {
+        // only show labels for non-zero values
+        const num = Number(value ?? 0);
+        return num > 0 ? num : '';
+      },
+      font: { weight: 600, size: 12 }
+    }
     },
     scales: {
-      x: { stacked: true, beginAtZero: true, title: { display: true, text: 'Students' } },
+      x: { stacked: true, beginAtZero: true, title: { display: true, text: 'Students' },
+      ticks: { precision: 0 } },
       y: { stacked: true }
     }
   };

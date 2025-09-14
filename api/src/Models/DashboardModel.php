@@ -175,11 +175,7 @@ class DashboardModel extends Model {
         $check->bindValue(':dt',$today);
         if ($academicYearId) $check->bindValue(':ay',$academicYearId,PDO::PARAM_INT);
         $check->execute();
-        if ((int)$check->fetchColumn() === 0) {
-            $latest = $this->getLatestAttendanceDate($schoolId, $academicYearId);
-            if ($latest) { $dateToUse = $latest; }
-        }
-
+        
         $sql = "SELECT CONCAT(c.ClassName,'-',sec.SectionName) as ClassName,
                        SUM(CASE WHEN a.Status='Present' THEN 1 ELSE 0 END) AS present,
                        SUM(CASE WHEN a.Status='Absent' THEN 1 ELSE 0 END) AS absent,
