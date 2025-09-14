@@ -117,7 +117,7 @@
       <p-card header="Students by Class & Gender">
         <div class="h-[320px] relative">
           <ng-container *ngIf="(classGenderChartData?.labels?.length || 0) > 0; else noClassGender">
-            <canvas baseChart [data]="classGenderChartData" [options]="classGenderChartOptions" type="bar">
+            <canvas baseChart [data]="classGenderChartData" [options]="classGenderChartOptions" [plugins]="barChartPlugins" type="bar" >
             </canvas>
           </ng-container>
           <ng-template #noClassGender>
