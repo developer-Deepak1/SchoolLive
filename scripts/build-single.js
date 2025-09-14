@@ -16,18 +16,37 @@ const esbuild = require('esbuild');
   }
   fs.mkdirSync(outDir, { recursive: true });
 
-  // Find entry files - prefer main-*.js
+  // Find entry files - prefer the most recently modified matching files
   const files = fs.readdirSync(distDir);
-  const mainJs = files.find(f => /^main.*\.js$/.test(f));
-  const polyfills = files.find(f => /^polyfills.*\.js$/.test(f));
-  const chunks = files.filter(f => /^chunk-.*\.js$/.test(f));
-  const styles = files.find(f => /^styles.*\.css$/.test(f));
+  function newest(matchRegex) {
+    const candidates = files.filter(f => matchRegex.test(f));
+    if (!candidates || candidates.length === 0) return null;
+    candidates.sort((a, b) => {
+      const sa = fs.statSync(path.join(distDir, a)).mtimeMs;
+      const sb = fs.statSync(path.join(distDir, b)).mtimeMs;
+      return sb - sa; // newest first
+    });
+    return candidates[0];
+  }
+
+  const mainJs = newest(/^main.*\.js$/);
+  const polyfills = newest(/^polyfills.*\.js$/);
+  // for chunks include all chunk-* files but sort newest-first when bundling order matters
+  let chunks = files.filter(f => /^chunk-.*\.js$/.test(f));
+  chunks.sort((a, b) => fs.statSync(path.join(distDir, b)).mtimeMs - fs.statSync(path.join(distDir, a)).mtimeMs);
+  const styles = newest(/^styles.*\.css$/);
   const indexHtmlPath = path.join(distDir, 'index.html');
 
   if (!mainJs || !fs.existsSync(path.join(distDir, mainJs))) {
     console.error('main JS not found in', distDir);
     process.exit(1);
   }
+
+  console.log('Using files:');
+  console.log('  main:', mainJs);
+  if (polyfills) console.log('  polyfills:', polyfills);
+  console.log('  styles:', styles);
+  if (chunks && chunks.length) console.log('  chunks (count):', chunks.length);
 
   // Build single JS bundle using esbuild. We'll create a virtual entry that imports
   // polyfills, chunks and main, then write bundle to outDir as `app.bundle.js`.
