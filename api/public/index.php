@@ -53,6 +53,7 @@ if (php_sapi_name() === 'cli') {
         echo json_encode([
             'success' => true,
             'message' => 'Welcome to SchoolLive API',
+            'dateandtime' => date('Y-m-d H:i:s'),
             'version' => '1.0'
         ]);
         exit(0);

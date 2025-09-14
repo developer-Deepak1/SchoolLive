@@ -100,7 +100,7 @@
 </p-card>
 }
 <p-table [value]="holidays" [rows]="10" [paginator]="true" dataKey="id" class="mt-4" stripedRows
-  [tableStyle]="{ 'min-width': '60rem' }"
+  [tableStyle]="{ 'min-width': '100%' }"
   currentPageReportTemplate="Showing {first} to {last} of {totalRecords} academic years" [showCurrentPageReport]="true"
   [rowsPerPageOptions]="[10,20,30]">
   <ng-template pTemplate="caption">
@@ -118,7 +118,7 @@
   </ng-template>
   <ng-template pTemplate="body" let-h>
     <tr>
-      <td>{{ h.date }}</td>
+      <td style="min-width: 9rem;">{{ h.date }}</td>
       <td>{{ h.title }}</td>
       <td>{{ h.type }}</td>
       @if (RoleId===userRoles.ROLE_SCHOOLADMIN){
