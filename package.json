@@ -5,6 +5,7 @@
         "ng": "ng",
         "start": "ng serve",
         "build": "ng build",
+        "build:single": "ng build --configuration production && node ./scripts/build-single.js",
         "watch": "ng build --watch --configuration development",
         "format": "prettier --write \"**/*.{js,mjs,ts,mts,d.ts,html}\" --cache",
         "test": "ng test"
@@ -22,6 +23,7 @@
         "@primeuix/themes": "^1.2.1",
         "@tailwindcss/postcss": "^4.1.11",
         "chart.js": "^4.4.2",
+        "chartjs-plugin-datalabels": "^2.2.0",
         "ng2-charts": "^8.0.0",
         "primeclt": "^0.1.5",
         "primeicons": "^7.0.0",
@@ -32,6 +34,7 @@
         "zone.js": "~0.15.1"
     },
     "devDependencies": {
+        "esbuild": "^0.18.16",
         "@angular-devkit/build-angular": "^20",
         "@angular/cli": "^20",
         "@angular/compiler-cli": "^20",
@@ -53,4 +56,5 @@
         "tailwindcss": "^4.1.11",
         "typescript": "~5.8.3"
     }
+
 }

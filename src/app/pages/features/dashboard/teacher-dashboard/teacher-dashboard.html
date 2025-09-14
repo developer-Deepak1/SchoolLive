@@ -3,12 +3,14 @@
 	<div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
 		<div>
 			<h1 class="text-3xl font-bold m-0 text-indigo-600">Teacher Dashboard</h1>
-			<p class="text-gray-500 m-0 mt-2">Welcome {{teacherStats.name}}! Here's a snapshot of your classes today.</p>
+			<p class="text-gray-500 m-0 mt-2">Welcome {{firstName}}! Here's a snapshot of your classes today.</p>
 		</div>
-		<div class="flex flex-wrap gap-3">
-			<p-button label="Refresh" icon="pi pi-refresh" size="small" severity="info" (click)="refresh()"></p-button>
-			<p-button label="Export Grades" icon="pi pi-download" size="small" (click)="exportGrades()"></p-button>
-		</div>
+		<!-- header actions removed for teacher view -->
+		 <div class="flex flex-wrap gap-3">
+			<p-button label="Refresh" icon="pi pi-refresh" (click)="refresh()" size="small"
+			 severity="info">
+			</p-button>
+      </div>
 	</div>
 
 	<!-- Quick Stats -->
@@ -22,12 +24,40 @@
 			<div class="text-xs text-gray-500 mt-1">Total Enrolled</div>
 		</p-card>
 		<p-card styleClass="h-full" header="Avg Attendance">
-			<div class="text-3xl font-bold text-purple-500">{{quickStats.avgAttendance | number:'1.0-1'}}%</div>
+			<div class="text-3xl font-bold text-purple-500">{{quickStats.averageAttendance | number:'1.0-1'}}%</div>
 			<div class="text-xs text-gray-500 mt-1">Across your classes</div>
 		</p-card>
-		<p-card styleClass="h-full" header="Rating">
+		<p-card styleClass="h-full" header="Rating (Coming Soon)">
 			<div class="text-3xl font-bold text-amber-500">{{quickStats.rating | number:'1.1-1'}}</div>
 			<div class="text-xs text-gray-500 mt-1">Student feedback</div>
+		</p-card>
+	</div>
+
+	<div class="mt-6">
+		<p-card header="Mark Attendance - {{today | date:'fullDate'}}" styleClass="shadow-md rounded-lg">
+			<div *ngIf="isHoliday || isWeeklyOff" class="text-sm text-gray-600">Today is <strong>{{ isHoliday ? 'a Holiday' : 'a Weekly off' }}</strong> — attendance marking disabled.</div>
+			<div *ngIf="!isHoliday && !isWeeklyOff">
+				<div *ngIf="isLeave" class="mb-3 text-sm text-yellow-700">Today you are on <strong>Leave</strong> — Reason: {{ todayLeaveReason || 'N/A' }}</div>
+				<div *ngIf="!isLeave" class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+					<!-- Left (actions) wider on large screens -->
+					<div class="w-full lg:w-1/3 flex flex-col sm:flex-row sm:items-center sm:gap-3">
+						<!-- Sign In button: full width on small screens, auto on larger -->
+						<p-button label="Sign In" icon="pi pi-sign-in" styleClass="w-full sm:w-auto p-button-success px-6 py-2" (click)="signIn()" [disabled]="signingIn || !canSignIn" aria-label="Sign in"></p-button>
+						<p-button label="Sign Out" icon="pi pi-sign-out" styleClass="w-full sm:w-auto p-button-danger px-6 py-2 mt-2 sm:mt-0" (click)="signOut()" [disabled]="signingOut || !canSignOut" aria-label="Sign out"></p-button>
+						<!-- Spinners stack on mobile below buttons -->
+						<div class="flex flex-row sm:flex-col items-center gap-2 sm:gap-0 ml-0 sm:ml-2">
+							<i *ngIf="signingIn" class="pi pi-spin pi-spinner text-indigo-600"></i>
+							<i *ngIf="signingOut" class="pi pi-spin pi-spinner text-indigo-600"></i>
+						</div>
+					</div>
+					<!-- Right (status) narrower on large screens -->
+					<div class="mt-2 sm:mt-0 text-sm text-gray-700 flex flex-col sm:flex-row sm:items-center gap-3 w-full lg:w-2/3">
+						<span *ngIf="attendance?.SignIn" class="flex items-center gap-2"> <i class="pi pi-clock text-indigo-500"></i> Signed in: <strong>{{ attendance.SignIn | date:'shortTime' }}</strong></span>
+						<span *ngIf="attendance?.SignOut" class="flex items-center gap-2"> <i class="pi pi-clock text-indigo-500"></i> Signed out: <strong>{{ attendance.SignOut | date:'shortTime' }}</strong></span>
+						<span *ngIf="attendance?.TotalHours" class="flex items-center gap-2"> <i class="pi pi-hourglass text-indigo-500"></i> Total: <strong>{{ attendance.TotalHours }} hrs</strong></span>
+					</div>
+				</div>
+			</div>
 		</p-card>
 	</div>
 
@@ -41,83 +71,28 @@
 						<p class="m-0 text-sm font-medium">{{loadError}}</p>
 						<button pButton size="small" label="Retry" class="mt-2" (click)="refresh()"></button>
 					</div>
-					<canvas baseChart [data]="classAttendanceStackData" [options]="classAttendanceStackOptions" type="bar"></canvas>
+					<canvas baseChart [data]="classAttendanceStackData" [options]="classAttendanceStackOptions" [plugins]="barChartPlugins" type="bar"></canvas>
 				</div>
 			</p-card>
 		</div>
 		<div>
-			<p-card header="My Classes Attendance">
+			<p-card header="Today's Attendance Overview">
 				<div class="h-[320px] relative">
-					<canvas baseChart [data]="attendanceOverviewData" [options]="attendanceOverviewOptions" type="doughnut"></canvas>
-				</div>
-			</p-card>
-		</div>
-		<div class="xl:col-span-3">
-			<p-card header="Recent Grade Distribution">
-				<div class="h-[320px] relative">
-					<ng-container *ngIf="(gradeDistributionData?.labels?.length || 0) > 0; else noGrades">
-						<canvas baseChart [data]="gradeDistributionData" [options]="gradeDistributionOptions" type="bar"></canvas>
-					</ng-container>
-					<ng-template #noGrades>
-						<div class="h-full flex flex-col items-center justify-center text-gray-500">
-							<p class="mb-2">No grade data yet.</p>
-							<button pButton label="Refresh" size="small" (click)="refresh()"></button>
-						</div>
-					</ng-template>
+					<canvas baseChart [data]="attendanceOverviewData" [options]="attendanceOverviewOptions" [plugins]="doughnutChartPlugins"  type="doughnut"></canvas>
 				</div>
 			</p-card>
 		</div>
 	</div>
-
-	<!-- Activities / Assignments / Events -->
-	<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-		<div class="lg:col-span-2">
-			<p-card header="Recent Activities">
-				<div class="flex flex-col gap-3">
-					<div *ngFor="let activity of recentActivities; trackBy: trackById" class="flex items-center p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors">
-						<div class="mr-3 shrink-0">
-							<i class="pi pi-bell text-blue-500 text-xl"></i>
-						</div>
-						<div class="flex-1 min-w-0">
-							<p class="m-0 font-medium text-gray-800 truncate">{{activity.message}}</p>
-							<p class="m-0 text-xs text-gray-500 mt-1">{{activity.timestamp}}</p>
-						</div>
-						<p-tag [value]="activity.type" [severity]="getSeverity(activity.type)"></p-tag>
-					</div>
-					<div *ngIf="!recentActivities.length && !loading" class="text-sm text-gray-500">No recent activities.</div>
-				</div>
-			</p-card>
-		</div>
-		<div>
-			<p-card header="Upcoming Events">
-				<div class="flex flex-col gap-3">
-					<div *ngFor="let ev of upcomingEvents" class="p-3 rounded-md border border-gray-200 bg-white hover:shadow-sm transition-shadow">
-						<div class="flex justify-between items-start mb-2">
-							<h4 class="m-0 font-semibold text-gray-800 text-sm">{{ev.title}}</h4>
-							<p-badge [value]="ev.priority" [severity]="ev.priority === 'high' ? 'danger' : ev.priority === 'medium' ? 'warn' : 'success'"></p-badge>
-						</div>
-						<div class="text-xs text-gray-500 space-y-1">
-							<div><i class="pi pi-calendar mr-1"></i>{{ev.date}}</div>
-							<div><i class="pi pi-clock mr-1"></i>{{ev.time}}</div>
-							<div><i class="pi pi-map-marker mr-1"></i>{{ev.location}}</div>
-						</div>
-					</div>
-					<div *ngIf="!upcomingEvents.length && !loading" class="text-sm text-gray-500">No upcoming events.</div>
-				</div>
-			</p-card>
-		</div>
-	</div>
-
 	<!-- Quick Actions -->
-	<div>
+	<!-- <div>
 		<p-card header="Quick Actions">
 			<div class="flex flex-wrap gap-3">
-				<p-button label="Record Attendance" icon="pi pi-calendar" size="small" severity="info"></p-button>
-				<p-button label="Message Class" icon="pi pi-comments" size="small" severity="secondary"></p-button>
-				<p-button label="Upload Grades" icon="pi pi-upload" size="small"></p-button>
-				<p-button label="Plan Lesson" icon="pi pi-book" size="small"></p-button>
+				<p-button label="Record Attendance" icon="pi pi-check-square" size="small" severity="info"></p-button>
+				<p-button label="Message Class" icon="pi pi-envelope" size="small" severity="secondary"></p-button>
+				<p-button label="Upload Grades" icon="pi pi-file" size="small"></p-button>
+				<p-button label="Plan Lesson" icon="pi pi-lightbulb" size="small"></p-button>
 			</div>
 		</p-card>
-	</div>
+	</div> -->
 
 </div>

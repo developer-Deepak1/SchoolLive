@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, inject, Input, OnInit, signal, TemplateRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CardModule } from 'primeng/card';
@@ -13,100 +13,16 @@ import { SkeletonModule } from 'primeng/skeleton';
 import { RippleModule } from 'primeng/ripple';
 import { Student } from '../../model/student.model';
 import { BaseChartDirective } from 'ng2-charts';
-import { ChartConfiguration, ChartOptions } from 'chart.js';
+import { ChartConfiguration, ChartOptions, Chart, Plugin } from 'chart.js';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
+import { UserService } from '@/services/user.service';
 
 @Component({
   selector: 'app-student-profile',
   standalone: true,
   imports: [CommonModule, CardModule, ButtonModule, ToastModule, TagModule, DividerModule, AvatarModule, SkeletonModule, RippleModule, BaseChartDirective],
   providers: [StudentsService, MessageService],
-  template: `
-    <p-toast />
-    <div class="flex flex-wrap items-center gap-3 mb-1">
-      <button pButton pRipple type="button" label="Back" icon="pi pi-arrow-left" class="p-button-text" (click)="back()"></button>
-    </div>
-    <h2 class="page-title">Student Profile</h2>
-
-    <ng-container *ngIf="student(); else skeletonTpl">
-      <div class="profile-wrapper">
-        <p-card class="profile-hero">
-          <div class="hero-grid">
-            <div class="hero-avatar">
-              <p-avatar *ngIf="student()!.StudentName; else fallbackIcon" [label]="initials(student()!.StudentName)" size="xlarge" shape="circle" styleClass="surface-0 text-primary font-semibold text-lg shadow-2" ></p-avatar>
-              <ng-template #fallbackIcon>
-                <p-avatar icon="pi pi-user" size="xlarge" shape="circle" styleClass="shadow-2" />
-              </ng-template>
-            </div>
-            <div class="hero-main">
-              <div class="hero-name">{{student()!.StudentName}}</div>
-              <div class="hero-sub">ID: {{student()!.StudentID}}</div>
-              <div class="hero-meta flex gap-2 mt-2 items-center">
-                <p-tag *ngIf="student()!.Status" [severity]="statusSeverity(student()!.Status)" [value]="student()!.Status"></p-tag>
-                <p-tag *ngIf="student()!.ClassName" severity="info" [value]="student()!.ClassName + (student()!.SectionName ? (' - ' + student()!.SectionName) : '')"></p-tag>
-              </div>
-            </div>
-            <div class="hero-actions">
-              <button pButton pRipple icon="pi pi-pencil" label="Edit" (click)="edit()"></button>
-            </div>
-          </div>
-        </p-card>
-
-        <div class="grid info-grid three">
-          <p-card header="Identity" class="panel">
-            <div class="kv">
-              <div class="row"><span>Username</span><strong>{{student()!.Username || '-'}}</strong></div>
-              <div class="row"><span>First Name</span><strong>{{student()!.FirstName || '-'}}</strong></div>
-              <div class="row" *ngIf="student()!.MiddleName"><span>Middle Name</span><strong>{{student()!.MiddleName}}</strong></div>
-              <div class="row"><span>Last Name</span><strong>{{student()!.LastName || '-'}}</strong></div>
-              <div class="row"><span>Gender</span><strong>{{student()!.Gender}}</strong></div>
-              <div class="row"><span>DOB</span><strong>{{student()!.DOB | date:'dd-MMM-yyyy'}}</strong></div>
-            </div>
-          </p-card>
-
-            <p-card header="Academic" class="panel">
-              <div class="kv">
-                <div class="row"><span>Class</span><strong>{{student()!.ClassName || '-'}}</strong></div>
-                <div class="row"><span>Section</span><strong>{{student()!.SectionName || '-'}}</strong></div>
-                <div class="row"><span>Admission</span><strong>{{student()!.AdmissionDate | date:'dd-MMM-yyyy'}}</strong></div>
-                <div class="row"><span>Status</span><strong>{{student()!.Status}}</strong></div>
-              </div>
-            </p-card>
-
-            <p-card header="Parent & Contact" class="panel">
-              <div class="kv">
-                <div class="row"><span>Father</span><strong>{{student()!.FatherName || '-'}} </strong><small *ngIf="student()!.FatherContactNumber">{{student()!.FatherContactNumber}}</small></div>
-                <div class="row"><span>Mother</span><strong>{{student()!.MotherName || '-'}} </strong><small *ngIf="student()!.MotherContactNumber">{{student()!.MotherContactNumber}}</small></div>
-                <div class="row"><span>Student Contact</span><strong>{{student()!.ContactNumber || '-'}} </strong></div>
-                <div class="row"><span>Email</span><strong>{{student()!.EmailID || '-'}} </strong></div>
-              </div>
-            </p-card>
-        </div>
-        <div class="attendance-row">
-          <p-card header="Monthly Attendance %">
-            <div class="chart-wrapper">
-              <canvas baseChart
-                [data]="attendanceLineData"
-                [options]="attendanceLineOptions"
-                type="line"></canvas>
-            </div>
-          </p-card>
-        </div>
-      </div>
-    </ng-container>
-
-    <ng-template #skeletonTpl>
-      <div class="grid md:grid-cols-3 gap-4">
-        <p-card *ngFor="let i of [0,1,2,3]">
-          <div class="flex flex-col gap-2">
-            <p-skeleton width="60%" height="1.2rem"></p-skeleton>
-            <p-skeleton width="80%" height="0.9rem"></p-skeleton>
-            <p-skeleton width="50%" height="0.9rem"></p-skeleton>
-            <p-skeleton width="70%" height="0.9rem"></p-skeleton>
-          </div>
-        </p-card>
-      </div>
-    </ng-template>
-  `,
+  templateUrl: './student-profile.component.html',
   styles: [`
     :host { display:block; }
   .profile-wrapper { display:flex; flex-direction:column; gap:1.5rem; background:#ffffff; padding:1rem 1.25rem 1.5rem; border-radius:12px; box-shadow:0 2px 8px -2px rgba(0,0,0,.08),0 4px 16px -4px rgba(0,0,0,.06); }
@@ -139,22 +55,66 @@ import { ChartConfiguration, ChartOptions } from 'chart.js';
 })
 export class StudentProfile implements OnInit {
   student = signal<Student & { FirstName?: string; MiddleName?: string; LastName?: string; ContactNumber?: string; EmailID?: string } | null>(null);
+  loading = signal<boolean>(true);
+  @Input() profileSetting: boolean = false;
+  public barChartPlugins = [ChartDataLabels];
+  public userService = inject(UserService);
   // Attendance chart state
   attendanceLineData: ChartConfiguration<'line'>['data'] = { labels: [], datasets: [] };
+  // summary array: { month: string, workingDays: number, present: number, percent: number }
+  attendanceSummary = signal<Array<{ month: string; workingDays: number; present: number; percent: number }>>([]);
   attendanceLineOptions: ChartOptions<'line'> = {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: { legend: { display: true }, title: { display: false } },
-    scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: '%' } } }
+    plugins: { legend: { display: true }, title: { display: false },
+    datalabels: {
+        color: '#ffffff',
+        anchor: 'center',
+        align: 'center',
+        formatter: (value: any) => {
+          const num = Number(value ?? 0);
+          return num > 0 ? num : '';
+        },
+        font: { weight: 600, size: 12 }
+      }
+   },
+    scales: {
+      counts: { // left axis for raw counts (hidden labels/ticks)
+        type: 'linear',
+        position: 'left',
+        beginAtZero: true,
+        display: false,
+        title: { display: false }
+      },
+      percent: { // right axis for percentage 0-100
+        type: 'linear',
+        position: 'right',
+        beginAtZero: true,
+        max: 100,
+        grid: { drawOnChartArea: false },
+        title: { display: true, text: '%' }
+      }
+    }
   };
   constructor(private route: ActivatedRoute, private router: Router, private students: StudentsService, private msg: MessageService) {}
+  @ViewChild('skeletonTpl', { static: true }) skeletonTpl!: TemplateRef<any>;
+  @ViewChild('notFoundTpl', { static: true }) notFoundTpl!: TemplateRef<any>;
   ngOnInit(): void {
-    const idParam = this.route.snapshot.queryParamMap.get('id') || this.route.snapshot.paramMap.get('id');
-    const id = idParam ? Number(idParam) : NaN;
-    if (!id) { this.msg.add({severity:'error', summary:'Error', detail:'Invalid student id'}); return; }
+  const idParam = this.route.snapshot.queryParamMap.get('id') || this.route.snapshot.paramMap.get('id');
+  const id = idParam ? Number(idParam) : NaN;
+    if(!this.profileSetting){
+      this.loadProfile(id);
+    }
+    else {
+      const studentId = this.userService.getStudentId();
+      this.loadProfile(studentId || 0);
+    }
+  }
+  loadProfile(id: number) {
+    this.loading.set(true);
     this.students.getStudent(id).subscribe({
-      next: (s: any) => { this.student.set(s); this.loadAttendance(); },
-      error: () => this.msg.add({severity:'error', summary:'Error', detail:'Failed to load'})
+      next: (s: any) => { this.student.set(s); this.loading.set(false); if (s) this.loadAttendance(); },
+      error: () => { this.loading.set(false); this.msg.add({severity:'error', summary:'Error', detail:'Failed to load'}); }
     });
   }
   back() { this.router.navigate(['/features/all-students']); }
@@ -170,42 +130,87 @@ export class StudentProfile implements OnInit {
   initials(name: string) {
     return name.split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join('');
   }
+
   loadAttendance() {
     const stu = this.student();
-    const admission = stu?.AdmissionDate ? new Date(stu.AdmissionDate) : null;
-    this.students.getStudentMonthlyAttendance().subscribe({
-      next: (chart: any) => {
-        if (chart?.labels && chart?.datasets && chart.labels.length) {
-          // Determine real month sequence corresponding to labels based on backend logic (chronological ending current month)
-          const total = chart.labels.length;
-          const months: Date[] = [];
-          const end = new Date(); end.setDate(1); end.setHours(0,0,0,0);
-          for (let i = total - 1; i >= 0; i--) {
-            const d = new Date(end); d.setMonth(end.getMonth() - (total - 1 - i)); months.push(d);
-          }
-          // If admission exists, remove months before admission month
-          if (admission) {
-            const admMonth = new Date(admission); admMonth.setDate(1); admMonth.setHours(0,0,0,0);
-            let firstIdx = months.findIndex(m => m.getTime() >= admMonth.getTime());
-            if (firstIdx > 0) {
-              chart.labels = chart.labels.slice(firstIdx);
-              chart.datasets = chart.datasets.map((ds: any) => ({ ...ds, data: ds.data.slice(firstIdx) }));
-            }
-          }
-          chart.datasets = chart.datasets.map((d: any) => ({
-            ...d,
-            borderColor: d.borderColor || 'var(--primary-color)',
-            backgroundColor: d.backgroundColor || 'rgba(99,102,241,0.15)',
-            tension: d.tension ?? 0.35,
-            fill: true,
-            pointRadius: d.pointRadius ?? 3
-          }));
-          this.attendanceLineData = chart;
-        } else {
-          this.attendanceLineData = { labels: [], datasets: [] };
-        }
-      },
-      error: () => { this.attendanceLineData = { labels: [], datasets: [] }; }
-    });
+  const admissionRaw = stu?.AdmissionDate ?? null;
+  const admission = admissionRaw ? new Date(String(admissionRaw)) : null;
+    const studentId = stu?.StudentID ? Number(stu.StudentID) : NaN;
+    const attendance$ = !isNaN(studentId) ? this.students.getStudentMonthlyAttendance(studentId) : this.students.getStudentMonthlyAttendanceFallback();
+    attendance$.subscribe({ next: (chart: any) => this.applyAttendanceChart(chart, admission), error: () => { this.attendanceLineData = { labels: [], datasets: [] }; this.attendanceSummary.set([]); } });
+  }
+
+  // Public helper to fetch monthly attendance (lightweight) for a given student id
+  getMonthlyAttendance(studentId?: number) {
+  const admissionRaw = this.student()?.AdmissionDate ?? null;
+  const admission = admissionRaw ? new Date(String(admissionRaw)) : null;
+    const sid = studentId ?? (this.student()?.StudentID ? Number(this.student()!.StudentID) : NaN);
+    const attendance$ = !isNaN(sid) ? this.students.getStudentMonthlyAttendance(sid) : this.students.getStudentMonthlyAttendanceFallback();
+    attendance$.subscribe({ next: (chart: any) => this.applyAttendanceChart(chart, admission), error: () => { this.attendanceLineData = { labels: [], datasets: [] }; this.attendanceSummary.set([]); } });
+  }
+
+  private applyAttendanceChart(chart: any, admission: Date | null) {
+    if (chart?.labels && chart?.datasets && chart.labels.length) {
+      const total = chart.labels.length;
+      const months: Date[] = [];
+      const end = new Date(); end.setDate(1); end.setHours(0,0,0,0);
+      for (let i = total - 1; i >= 0; i--) { const d = new Date(end); d.setMonth(end.getMonth() - (total - 1 - i)); months.push(d); }
+
+      // If admission exists, remove months before admission month
+      if (admission) {
+        const admMonth = new Date(admission); admMonth.setDate(1); admMonth.setHours(0,0,0,0);
+        let firstIdx = months.findIndex(m => m.getTime() >= admMonth.getTime());
+        if (firstIdx > 0) { chart.labels = chart.labels.slice(firstIdx); chart.datasets = chart.datasets.map((ds: any) => ({ ...ds, data: ds.data.slice(firstIdx) })); }
+      }
+
+      // transform datasets: render counts as bars on left axis and remove percent-only datasets
+      chart.datasets = (chart.datasets || []).filter((d: any) => { const lbl = (d.label || '').toString().toLowerCase(); return !(lbl.includes('%') || lbl.includes('attendance')); }).map((d: any) => {
+        const label = ((d.label || '') + '').toLowerCase();
+        let border = d.borderColor || 'var(--primary-color)';
+        let bg = d.backgroundColor || 'rgba(99,102,241,0.15)';
+        if (label.includes('working')) { border = d.borderColor || '#6b7280'; bg = d.backgroundColor || 'rgba(107,114,128,0.12)'; }
+        else if (label.includes('present')) { border = d.borderColor || '#059669'; bg = d.backgroundColor || 'rgba(5,150,105,0.12)'; }
+        const yAxisId = 'counts';
+        const base: any = { ...d, borderColor: border, backgroundColor: bg, yAxisID: yAxisId };
+        base.type = 'bar'; base.barThickness = d.barThickness ?? 'flex'; base.borderWidth = d.borderWidth ?? 0; return base;
+      });
+
+      // compute sensible max for left axis
+      try {
+        const numericDatasets = (chart.datasets || []);
+        const maxVal = numericDatasets.reduce((acc: number, ds: any) => { const localMax = (ds.data || []).reduce((a: number, v: any) => Math.max(a, Number(v || 0)), 0); return Math.max(acc, localMax); }, 0);
+        const buffer = Math.max(1, Math.ceil(maxVal * 0.1));
+        const suggestedMax = maxVal > 0 ? maxVal + buffer : undefined;
+        if (!this.attendanceLineOptions.scales) this.attendanceLineOptions.scales = {} as any;
+        (this.attendanceLineOptions.scales as any).counts = { ...(this.attendanceLineOptions.scales as any).counts, max: suggestedMax };
+      } catch (e) { /* ignore */ }
+      if (this.attendanceLineOptions.scales && (this.attendanceLineOptions.scales as any).percent) delete (this.attendanceLineOptions.scales as any).percent;
+
+      this.attendanceLineData = chart;
+
+      // build summary
+      try {
+        const labels: string[] = chart.labels || [];
+        const ds = chart.datasets || [];
+        const workingDs = ds.find((d: any) => (d.label || '').toString().toLowerCase().includes('working'));
+        const presentDs = ds.find((d: any) => (d.label || '').toString().toLowerCase().includes('present')) || ds[0];
+        const summary = labels.map((lab: any, idx: number) => { const working = workingDs ? Number(workingDs.data[idx] ?? 0) : 0; const present = presentDs ? Number(presentDs.data[idx] ?? 0) : 0; const percent = working > 0 ? Math.round((present / working) * 100) : 0; return { month: lab?.toString() || '', workingDays: working, present, percent }; });
+        this.attendanceSummary.set(summary);
+      } catch (e) { this.attendanceSummary.set([]); }
+    } else {
+      this.attendanceLineData = { labels: [], datasets: [] };
+    }
+  }
+
+  // compute display name from first/middle/last if present, fallback to StudentName
+  get displayName(): string {
+    const s = this.student();
+    if (!s) return '';
+    const parts: string[] = [];
+    if ((s as any).FirstName) parts.push((s as any).FirstName);
+    if ((s as any).MiddleName) parts.push((s as any).MiddleName);
+    if ((s as any).LastName) parts.push((s as any).LastName);
+    const joined = parts.join(' ').trim();
+    return joined || (s.StudentName || '');
   }
 }

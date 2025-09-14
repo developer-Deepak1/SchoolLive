@@ -1,0 +1,99 @@
+<p-toast></p-toast>
+@if (!profileSetting) {
+  <div class="flex flex-wrap items-center gap-3 mb-1">
+    <button pButton pRipple type="button" label="Back" icon="pi pi-arrow-left" class="p-button-text" (click)="back()"></button>
+  </div>
+}
+<h2 class="page-title">{{profileSetting ? 'My Profile' : 'Student Profile'}}</h2>
+
+<ng-container *ngIf="!loading(); else skeletonTpl">
+  <ng-container *ngIf="student(); else notFoundTpl">
+  <div class="profile-wrapper">
+    <p-card class="profile-hero">
+      <div class="hero-grid">
+        <div class="hero-avatar">
+          <p-avatar *ngIf="displayName; else fallbackIcon" [label]="initials(displayName)" size="xlarge" shape="circle" styleClass="surface-0 text-primary font-semibold text-lg shadow-2" ></p-avatar>
+          <ng-template #fallbackIcon>
+            <p-avatar icon="pi pi-user" size="xlarge" shape="circle" styleClass="shadow-2" />
+          </ng-template>
+        </div>
+        <div class="hero-main">
+          <div class="hero-name">{{displayName}}</div>
+          <div class="hero-meta flex gap-2 mt-2 items-center">
+            <p-tag *ngIf="student()!.Status" [severity]="statusSeverity(student()!.Status)" [value]="student()!.Status"></p-tag>
+            <p-tag *ngIf="student()!.ClassName" severity="info" [value]="student()!.ClassName + (student()!.SectionName ? (' - ' + student()!.SectionName) : '')"></p-tag>
+          </div>
+        </div>
+        @if (!profileSetting) {
+        <div class="hero-actions">
+          <button pButton pRipple icon="pi pi-pencil" label="Edit" (click)="edit()"></button>
+        </div>
+        }
+      </div>
+    </p-card>
+
+    <div class="grid info-grid three">
+      <p-card header="Identity" class="panel">
+        <div class="kv">
+          <div class="row"><span>Name</span><strong>{{displayName || '-'}}</strong></div>
+          <div class="row"><span>Username</span><strong>{{student()!.Username || '-'}}</strong></div>
+          <div class="row" *ngIf="student()!.MiddleName"><span>Middle Name</span><strong>{{student()!.MiddleName}}</strong></div>
+          <div class="row"><span>Gender</span><strong>{{student()!.Gender}}</strong></div>
+          <div class="row"><span>DOB</span><strong>{{student()!.DOB | date:'dd-MMM-yyyy'}}</strong></div>
+        </div>
+      </p-card>
+
+        <p-card header="Academic" class="panel">
+          <div class="kv">
+            <div class="row"><span>Class</span><strong>{{student()!.ClassName || '-'}}</strong></div>
+            <div class="row"><span>Section</span><strong>{{student()!.SectionName || '-'}}</strong></div>
+            <div class="row"><span>Admission</span><strong>{{student()!.AdmissionDate | date:'dd-MMM-yyyy'}}</strong></div>
+            <div class="row"><span>Status</span><strong>{{student()!.Status}}</strong></div>
+          </div>
+        </p-card>
+
+        <p-card header="Parent & Contact" class="panel">
+          <div class="kv">
+            <div class="row"><span>Father</span><strong>{{student()!.FatherName || '-'}}</strong></div>
+            <div class="row"><span>Father Contact</span><strong>{{student()!.FatherContactNumber || '-'}}</strong></div>
+            <div class="row"><span>Mother</span><strong>{{student()!.MotherName || '-'}}</strong></div>
+            <div class="row"><span>Mother Contact</span><strong>{{student()!.MotherContactNumber || '-'}}</strong></div>
+            <div class="row"><span>Student Contact</span><strong>{{student()!.ContactNumber || '-'}} </strong></div>
+            <div class="row"><span>Email</span><strong>{{student()!.EmailID || '-'}} </strong></div>
+          </div>
+        </p-card>
+    </div>
+    <div class="attendance-row">
+      <p-card header="Monthly Attendance Report">
+        <div class="chart-wrapper">
+          <canvas baseChart
+            [data]="attendanceLineData"
+            [options]="attendanceLineOptions"
+            [plugins]="barChartPlugins"
+            type="line"></canvas>
+        </div>
+      </p-card>
+    </div>
+    <div class="attendance-row">
+  </div>
+  </div>
+</ng-container>
+
+<ng-template #notFoundTpl>
+  <p-card>
+    <div class="p-4">Student not found.</div>
+  </p-card>
+</ng-template>
+
+<ng-template #skeletonTpl>
+  <div class="grid md:grid-cols-3 gap-4">
+    <p-card *ngFor="let i of [0,1,2,3]">
+      <div class="flex flex-col gap-2">
+        <p-skeleton width="60%" height="1.2rem"></p-skeleton>
+        <p-skeleton width="80%" height="0.9rem"></p-skeleton>
+        <p-skeleton width="50%" height="0.9rem"></p-skeleton>
+        <p-skeleton width="70%" height="0.9rem"></p-skeleton>
+      </div>
+    </p-card>
+  </div>
+</ng-template>

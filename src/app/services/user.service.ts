@@ -29,6 +29,11 @@ export interface AppUser {
 
     is_first_login?: number | boolean;
 
+    // canonical ids added by backend
+    tx_user_id?: number;
+    employee_id?: number;
+    student_id?: number;
+
     // allow other properties returned by the API
     [key: string]: any;
 }
@@ -180,5 +185,20 @@ export class UserService implements OnDestroy {
     // normalize to string for safe comparisons
     const s = String(v).toLowerCase();
     return s === '1' || s === 'true';
+    }
+    
+    // Employee/Student id helpers (sync)
+    getEmployeeId(): number | null {
+        const u = this.getUser();
+        if (!u) return null;
+        const eid = (u.employee_id as number) ?? (u['EmployeeID'] as number) ?? null;
+        return eid !== null && eid !== undefined ? Number(eid) : null;
+    }
+
+    getStudentId(): number | null {
+        const u = this.getUser();
+        if (!u) return null;
+        const sid = (u.student_id as number) ?? (u['StudentID'] as number) ?? null;
+        return sid !== null && sid !== undefined ? Number(sid) : null;
     }
 }

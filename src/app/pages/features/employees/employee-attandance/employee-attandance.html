@@ -1,1 +1,72 @@
-<p>employee-attandance works!</p>
+<div class="p-6">
+	<p-card class="mb-6" *ngIf="RoleId==userRoles.ROLE_TEACHER">
+		<h2 class="text-2xl font-semibold mb-4">Request Attendance / Leave</h2>
+		<form (ngSubmit)="submitRequest()" class="space-y-3 p-4">
+			<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+				<div>
+					<label class="block text-sm">Date</label>
+					<!-- PrimeNG datepicker -->
+					<p-datepicker [(ngModel)]="reqDate" (ngModelChange)="evaluateSelectedDate()" name="reqDate" dateFormat="yy-mm-dd" inputClass="p-2 border rounded" styleClass="w-full" [minDate]="minDateObj" [maxDate]="maxDateObj"></p-datepicker>
+					<div *ngIf="duplicateDateExists" class="text-sm text-red-600 mt-1">{{ duplicateMessage }}</div>
+					<div class="mt-2 text-sm">
+						<span *ngIf="selectedDateStatus === 'Holiday'" class="text-red-600">Selected date is a Holiday</span>
+						<span *ngIf="selectedDateStatus === 'WorkingDay'" class="text-green-600">Selected date is a Working Day</span>
+						<span *ngIf="selectedDateStatus === 'WeeklyOff'" class="text-yellow-600">Selected date is a Weekly Off</span>
+					</div>
+				</div>
+				<div>
+					<label class="block text-sm">Type</label>
+					<p-select [(ngModel)]="reqType" name="reqType" [options]="reqTypeOptions" placeholder="Select type" class="w-full"></p-select>
+				</div>
+				<div>
+					<label class="block text-sm">Reason (optional)</label>
+					<input pInputText [(ngModel)]="reqReason" name="reqReason" class="p-2 border rounded w-full" />
+				</div>
+			</div>
+			<div class="flex items-center gap-3">
+			<button pButton type="submit" label="Submit" icon="pi pi-check" class="p-button-success" [disabled]="loading || !reqDate || !reqType || duplicateDateExists || selectedDateStatus === 'Holiday' || selectedDateStatus === 'WeeklyOff'"></button>
+			<button pButton type="button" label="Reset" icon="pi pi-refresh" class="p-button-secondary" (click)="resetForm()"></button>
+				<span *ngIf="loading" class="text-sm text-gray-500">Processing...</span>
+			</div>
+		</form>
+	</p-card>
+	<p-card class="mb-6">
+		<h2 class="text-2xl font-semibold mb-4">List of Requests</h2>
+		<p-table [tableStyle]="{ 'min-width': '40rem' }" [value]="requests" [paginator]="true" [rows]="10" class="mt-2" [responsiveLayout]="'scroll'">
+			<ng-template pTemplate="header">
+				<tr>
+					<th class="sticky-col">#</th>
+					<th>Date</th>
+					<th>Type</th>
+					<th>Reason</th>
+					<th>Status</th>
+					<th *ngIf="RoleId==userRoles.ROLE_SCHOOLADMIN">Action</th>
+				</tr>
+			</ng-template>
+
+				<ng-template pTemplate="emptymessage">
+					<tr>
+						<td colspan="6" class="text-center text-gray-500 py-4">No Record Found</td>
+					</tr>
+				</ng-template>
+				<ng-template pTemplate="body" let-r let-i="rowIndex">
+				<tr>
+					<td class="sticky-col">{{ i + 1 }}</td>
+					<td>{{ r.Date || r.date || r.DateString || r.requestDate }}</td>
+					<td>{{ r.RequestType || r.request_type || r.Type || r.type }}</td>
+					<td>{{ r.Reason || r.reason || r.note || r.Note }}</td>
+					<td>
+						<span *ngIf="(r.Status || r.status || '').toString().toLowerCase() === 'approved' || r.approved" class="text-green-600 font-semibold">Approved</span>
+						<span *ngIf="(r.Status || r.status || '').toString().toLowerCase() === 'rejected' || r.rejected" class="text-red-600 font-semibold">Rejected</span>
+						<span *ngIf="!( (r.Status || r.status || '').toString().toLowerCase() === 'approved' || r.approved ) && !( (r.Status || r.status || '').toString().toLowerCase() === 'rejected' || r.rejected )" class="text-yellow-600 font-semibold">Pending</span>
+					</td>
+					<td *ngIf="RoleId==userRoles.ROLE_SCHOOLADMIN">
+						<button pButton type="button" icon="pi pi-check" class="p-button-success p-button-sm" (click)="onApproveRequest(r)" [disabled]="!isPending(r)"></button>
+						<button pButton type="button" icon="pi pi-times" class="p-button-danger p-button-sm ml-2" (click)="onRejectRequest(r)" [disabled]="!isPending(r)"></button>
+						<button pButton type="button" icon="pi pi-trash" class="p-button-warning p-button-sm ml-2" (click)="onDeleteRequest(r)" [disabled]="!isPending(r)"></button>
+					</td>
+				</tr>
+			</ng-template>
+		</p-table>
+	</p-card>
+</div>

@@ -43,6 +43,19 @@ h5.mt-0 {
   box-shadow: 3px 0 6px rgba(2,6,23,0.04);
 }
 
+/* Row number column and student name truncation */
+::ng-deep th[style*="width:48px"], ::ng-deep td[style*="width:48px"] {
+  text-align: center;
+  font-weight: 600;
+}
+
+.student-name-scroll {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Tag sizes and custom badge colors based on value */
 ::ng-deep .p-tag {
   padding: 0.25rem 0.5rem;
@@ -65,15 +78,7 @@ h5.mt-0 {
 }
 
 /* Mobile card styles */
-.mobile-list .p-card {
-  padding: 0.75rem;
-  border-radius: 0.5rem;
-  box-shadow: 0 4px 12px rgba(2,6,23,0.04);
-}
-
-.mobile-list .font-semibold {
-  font-size: 1rem;
-}
+/* mobile view removed - styles no longer needed */
 
 /* Dialog table for details */
 ::ng-deep .p-dialog .min-w-full {
@@ -93,4 +98,23 @@ h5.mt-0 {
 /* Make Export and Refresh buttons consistent */
 ::ng-deep .p-button {
   border-radius: 0.375rem;
+}
+
+.attendance-legend span {
+  font-size: 0.875rem;
+  color: #374151;
+  margin-right: 0.75rem;
+}
+
+/* Responsive: on small screens make legend stack and occupy full width */
+@media (max-width: 640px) {
+  .attendance-legend {
+    display: block !important;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+  .attendance-legend p-tag, .attendance-legend span {
+    display: inline-block;
+    margin-right: 0.5rem;
+  }
 }

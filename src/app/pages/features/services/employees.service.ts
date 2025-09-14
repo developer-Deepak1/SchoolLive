@@ -11,6 +11,7 @@ export class EmployeesService {
   private userService = inject(UserService);
   private baseUrl = `${environment.baseURL.replace(/\/+$/,'')}/api/employees`;
   private dashboardSummary = `${environment.baseURL.replace(/\/+$/, '')}/api/dashboard/summary`;
+  private teacherDashboard = `${environment.baseURL.replace(/\/+$/, '')}/api/dashboard/teacher`;
 
   getEmployees(filters: { role_id?: number; status?: string; search?: string; is_active?: number } = {}): Observable<Employee[]> {
     let params = new HttpParams();
@@ -36,8 +37,17 @@ export class EmployeesService {
     return this.http.get<any>(`${this.baseUrl}/${id}`).pipe(map(res => res?.data || null));
   }
 
-  // Fallback: use dashboard summary monthlyAttendance chart for employee profile when a specific API is not available
-  getEmployeeMonthlyAttendance(): Observable<{ labels: string[]; datasets: any[] }> {
+  // Primary: fetch employee-specific monthly attendance from teacher dashboard endpoint
+  getEmployeeMonthlyAttendance(employeeId: number): Observable<{ labels: string[]; datasets: any[] }> {
+    const params = new HttpParams().set('employee_id', String(employeeId));
+    return this.http.get<any>(this.teacherDashboard, { params }).pipe(map(res => res?.data?.charts?.monthlyAttendance || { labels: [], datasets: [] }));
+  }
+
+  // Backward-compatible fallback: use dashboard summary monthlyAttendance chart for employee profile when a specific API is not available
+  getEmployeeMonthlyAttendanceFallback(): Observable<{ labels: string[]; datasets: any[] }> {
     return this.http.get<any>(this.dashboardSummary).pipe(map(res => res?.data?.charts?.monthlyAttendance || { labels: [], datasets: [] }));
+  }
+  getEmployeeId(): Observable<number|null> {
+    return this.http.get<any>(`${environment.baseURL}/api/getEmployeeId`);
   }
 }

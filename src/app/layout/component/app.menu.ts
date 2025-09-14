@@ -27,45 +27,58 @@ export class AppMenu {
         this.LoadMenu();
     }
     private LoadMenu() {
+        if (this.userRoles === USER_ROLES.ROLE_SUPERADMIN) {
+            this.model = [
+                {
+                    label: 'Home',
+                    items: [
+                    { label: 'Dashboard', icon: 'pi pi-fw pi-home', routerLink: ['/'] },
+                    { label: 'Profile Settings', icon: 'pi pi-fw pi-user', routerLink: ['/features/profile-setting'] },
+                    { label: 'Add School', icon: 'pi pi-fw pi-plus', routerLink: ['/features/add-school'] },
+                    { label: 'Add User', icon: 'pi pi-fw pi-user-plus', routerLink: ['/features/add-user'] },
+                    { label: 'All Users', icon: 'pi pi-fw pi-users', routerLink: ['/features/all-users'] },
+                    { label: 'All Schools', icon: 'pi pi-fw pi-building', routerLink: ['/features/all-schools'] }
+                ]
+            }
+        ];
+        }
         if (this.userRoles === USER_ROLES.ROLE_SCHOOLADMIN) {
             this.model = [
                 {
                     label: 'Home',
                     items: [
                     { label: 'Dashboard', icon: 'pi pi-fw pi-home', routerLink: ['/'] },
-                    { label: 'Profile Settings', icon: 'pi pi-fw pi-cog', routerLink: ['/features/profile-setting'] }
+                    { label: 'Profile Settings', icon: 'pi pi-fw pi-user', routerLink: ['/features/profile-setting'] }
                 ]
             },
             {
                 label: 'Academic Management',
                 items: [
-                    { label: 'Academic years', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/academic-years'] },
-                    { label: 'Academic Calendar', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/academic-calendar'] },
-                    { label: 'Add/View Classes', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/add-edit-classes'] }
+                    { label: 'Academic years', icon: 'pi pi-fw pi-calendar', routerLink: ['/features/academic-years'] },
+                    { label: 'Academic Calendar', icon: 'pi pi-fw pi-calendar', routerLink: ['/features/academic-calendar'] },
+                    { label: 'Add/View Classes', icon: 'pi pi-fw pi-book', routerLink: ['/features/add-edit-classes'] }
                 ]
             },
             {
                 label: 'Employee Management',
                 items: [
-                    { label: 'All Employees', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/all-employees'] },
-                    { label: 'Add New', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/add-employees'] },
-                    { label: 'Take Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/employee-attendance'] }
+                    { label: 'All Employees', icon: 'pi pi-fw pi-users', routerLink: ['/features/all-employees'] },
+                    { label: 'Add New', icon: 'pi pi-fw pi-user-plus', routerLink: ['/features/add-employees'] },
+                    { label: 'Request Attendance', icon: 'pi pi-fw pi-clock', routerLink: ['/features/employee-attendance'] }
                 ]
             },
             {
                 label: 'Student Management',
                 items: [
-                    { label: 'All Students', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/all-students'] },
-                    { label: 'Admission', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/student-admission'] },
-                    { label: 'Take Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/student-attendance'] }
+                    { label: 'All Students', icon: 'pi pi-fw pi-users', routerLink: ['/features/all-students'] },
+                    { label: 'Admission', icon: 'pi pi-fw pi-user-plus', routerLink: ['/features/student-admission'] },
+                    { label: 'Take Attendance', icon: 'pi pi-fw pi-check-square', routerLink: ['/features/student-attendance'] }
                 ]
             },
             {
                 label: 'Reports',
                 items: [
-                    { label: 'Classwise Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/classwise-attendance'] },
-                    { label: 'Employee Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/employee-attendance-reports'] },
-                    { label: 'Studentwise Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/student-attendance-reports'] }
+                    { label: 'Classwise Attendance', icon: 'pi pi-fw pi-chart-bar', routerLink: ['/features/classwise-attendance'] },
                 ]
             }
         ];}
@@ -75,21 +88,22 @@ export class AppMenu {
                     label: 'Home',
                     items: [
                     { label: 'Dashboard', icon: 'pi pi-fw pi-home', routerLink: ['/'] },
-                    { label: 'Profile Settings', icon: 'pi pi-fw pi-cog', routerLink: ['/features/profile-setting'] }
+                    { label: 'Profile Settings', icon: 'pi pi-fw pi-user', routerLink: ['/features/profile-setting'] },
+                    { label: 'Academic Calendar', icon: 'pi pi-fw pi-calendar', routerLink: ['/features/academic-calendar'] },
+                    { label: 'Request Attendance', icon: 'pi pi-fw pi-clock', routerLink: ['/features/employee-attendance'] }
                 ]
             },
             {
                 label: 'Student Management',
                 items: [
-                    { label: 'All Students', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/all-students'] },
-                    { label: 'Take Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/student-attendance'] }
+                    { label: 'All Students', icon: 'pi pi-fw pi-users', routerLink: ['/features/all-students'] },
+                    { label: 'Take Attendance', icon: 'pi pi-fw pi-check-square', routerLink: ['/features/student-attendance'] }
                 ]
             },
             {
                 label: 'Reports',
                 items: [
-                    { label: 'Classwise Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/classwise-attendance'] },
-                    { label: 'Studentwise Attendance', icon: 'pi pi-fw pi-sitemap', routerLink: ['/features/student-attendance-reports'] }
+                    { label: 'Classwise Attendance', icon: 'pi pi-fw pi-chart-bar', routerLink: ['/features/classwise-attendance'] },
                 ]
             }
         ];}
@@ -99,7 +113,8 @@ export class AppMenu {
                     label: 'Home',
                     items: [
                     { label: 'Dashboard', icon: 'pi pi-fw pi-home', routerLink: ['/'] },
-                    { label: 'Profile Settings', icon: 'pi pi-fw pi-cog', routerLink: ['/features/profile-setting'] }
+                    { label: 'Profile Settings', icon: 'pi pi-fw pi-user', routerLink: ['/features/profile-setting'] },
+                    { label: 'Academic Calendar', icon: 'pi pi-fw pi-calendar', routerLink: ['/features/academic-calendar'] },
                 ]
             }
         ];}
