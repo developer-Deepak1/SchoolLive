@@ -97,32 +97,25 @@ const esbuild = require('esbuild');
     copyDirSync(mediaSrc, mediaDest);
   }
 
-  // Build a minimal index.html referencing the produced files. Preserve <base href> if present.
-  let baseHref = '/';
-  if (fs.existsSync(indexHtmlPath)) {
-    try {
-      const original = fs.readFileSync(indexHtmlPath, 'utf8');
-      const m = original.match(/<base href=\"([^\"]*)\">/i);
-      if (m && m[1]) baseHref = m[1];
-    } catch (e) {
-      // ignore
-    }
+  // Build index.html using `src/index.html` if available, else fallback to dist index.html or minimal template.
+  const srcIndexPath = path.resolve(__dirname, '../src/index.html');
+  let template = null;
+  if (fs.existsSync(srcIndexPath)) {
+    template = fs.readFileSync(srcIndexPath, 'utf8');
+  } else if (fs.existsSync(indexHtmlPath)) {
+    template = fs.readFileSync(indexHtmlPath, 'utf8');
   }
 
-  const indexHtml = `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <base href="${baseHref}">
-    <link rel="stylesheet" href="style.css">
-  </head>
-  <body>
-    <app-root></app-root>
-    <script src="app.bundle.js" defer></script>
-  </body>
-</html>`;
+  let finalHtml;
+  if (template) {
+    // Insert stylesheet link before closing </head> and script before closing </body>
+    finalHtml = template.replace(/<\/head>/i, '  <link rel="stylesheet" href="style.css">\n</head>');
+    finalHtml = finalHtml.replace(/<\/body>/i, '  <script src="app.bundle.js" defer></script>\n</body>');
+  } else {
+    // fallback minimal template
+    finalHtml = `<!doctype html>\n<html>\n  <head>\n    <meta charset="utf-8" />\n    <meta name="viewport" content="width=device-width, initial-scale=1" />\n    <base href="/">\n    <link rel="stylesheet" href="style.css">\n  </head>\n  <body>\n    <app-root></app-root>\n    <script src="app.bundle.js" defer></script>\n  </body>\n</html>`;
+  }
 
-  fs.writeFileSync(path.join(outDir, 'index.html'), indexHtml, 'utf8');
+  fs.writeFileSync(path.join(outDir, 'index.html'), finalHtml, 'utf8');
   console.log('Wrote single-folder to', outDir);
 })();
