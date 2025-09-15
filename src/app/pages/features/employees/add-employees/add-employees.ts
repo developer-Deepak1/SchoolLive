@@ -270,5 +270,5 @@ export class AddEmployees {
   viewProfile() {
     if (this.editingId) this.router.navigate(['/features/employee-profile', this.editingId]);
   }
-
+  back() {this.resetForm(); this.router.navigate(['/features/all-employees']); }
 }
