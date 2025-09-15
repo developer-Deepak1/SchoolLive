@@ -36,6 +36,7 @@
 			<ng-template pTemplate="header">
 				<tr>
 					<th class="sticky-col">#</th>
+					<th *ngIf="RoleId==userRoles.ROLE_SCHOOLADMIN">Employee Name</th>
 					<th>Date</th>
 					<th>Type</th>
 					<th>Reason</th>
@@ -46,12 +47,13 @@
 
 				<ng-template pTemplate="emptymessage">
 					<tr>
-						<td colspan="6" class="text-center text-gray-500 py-4">No Record Found</td>
+						<td [attr.colspan]="RoleId==userRoles.ROLE_SCHOOLADMIN ? 7 : 5" class="text-center text-gray-500 py-4">No Record Found</td>
 					</tr>
 				</ng-template>
 				<ng-template pTemplate="body" let-r let-i="rowIndex">
 				<tr>
 					<td class="sticky-col">{{ i + 1 }}</td>
+					<td *ngIf="RoleId==userRoles.ROLE_SCHOOLADMIN">{{ r.EmployeeName || r.employee_name || r.EmployeeFullName || r.Employee || ((r.FirstName || '') + (r.MiddleName ? ' ' + r.MiddleName : '') + (r.LastName ? ' ' + r.LastName : '')) || (r.EmployeeID || r.employee_id) }}</td>
 					<td>{{ r.Date || r.date || r.DateString || r.requestDate }}</td>
 					<td>{{ r.RequestType || r.request_type || r.Type || r.type }}</td>
 					<td>{{ r.Reason || r.reason || r.note || r.Note }}</td>
