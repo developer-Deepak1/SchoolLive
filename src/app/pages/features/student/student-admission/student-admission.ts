@@ -279,5 +279,5 @@ export class StudentAdmission {
       error: err => { this.loading = false; this.msg.add({severity:'error', summary:'Error', detail: err.error?.message || 'Reset failed'}); }
     });
   }
-
+  back() { this.router.navigate(['/features/all-students']); }
 }
