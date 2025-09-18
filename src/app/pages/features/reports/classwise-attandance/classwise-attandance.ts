@@ -1,6 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AcademicCalendarService } from '@/pages/features/services/academic-calendar.service';
+import { AcademicYearService } from '@/pages/features/services/academic-year.service';
 import { StudentsService } from '@/pages/features/services/students.service';
 import { AttendanceService } from '@/pages/features/services/attendance.service';
 import { firstValueFrom } from 'rxjs';
@@ -42,12 +43,7 @@ export class ClasswiseAttandance implements OnInit {
   // computed days for current month
   days: number[] = [];
 
-  // holiday map for current month keyed by 'YYYY-MM-DD'
-  holidayMap: Map<string, any> = new Map();
-
-  // cached calendar data to avoid repeated network calls
-  private cachedHolidays: Map<string, any> | null = null;
-  private cachedWeeklyOffs: Set<number> | null = null;
+  // holiday map removed - API handles this server-side
 
   rows: AttendanceRow[] = [];
 
@@ -77,6 +73,7 @@ export class ClasswiseAttandance implements OnInit {
   }
 
   ngOnInit() {
+    this.loadAcademicYearConstraints();
     this.updateGrid();
   }
 
@@ -86,26 +83,58 @@ export class ClasswiseAttandance implements OnInit {
     const month = this.date.getMonth(); // 0-based
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     this.days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-    // Only load holiday and attendance data when both class and section are selected
+    // Only load attendance data when both class and section are selected
     if (this.selectedClass && this.selectedSection) {
-      // load holidays for month and then build rows from API
-      this.loadHolidaysForMonth(year, month).then(() => this.loadMonthData(daysInMonth));
+      // load data directly from API - it handles holidays and weekly offs
+      this.loadMonthData(daysInMonth);
     } else {
       // clear any existing data if filters not selected
-      this.holidayMap.clear();
       this.rows = [];
     }
   }
 
   // inject AcademicCalendarService to fetch holidays
   private academicSvc = inject(AcademicCalendarService);
+  // inject AcademicYearService to fetch academic year details
+  private academicYearSvc = inject(AcademicYearService);
   // inject AttendanceService to fetch daily attendance
   private attendanceSvc = inject(AttendanceService);
   // inject StudentsService for classes/sections
   private studentsSvc = inject(StudentsService);
 
+  // Date range constraints for academic year
+  minDate: Date | null = null;
+  maxDate: Date | null = null;
+
   constructor() {
     this.loadClasses();
+  }
+
+  // Load academic year constraints to restrict date selection
+  async loadAcademicYearConstraints() {
+    try {
+      const academicYears = await firstValueFrom(this.academicYearSvc.getAcademicYears());
+      // Find the current/active academic year
+      const currentAY = academicYears.find(ay => ay.Status === 'Active' || ay.Status === 'active');
+      
+      if (currentAY && currentAY.StartDate && currentAY.EndDate) {
+        // Set min/max dates based on academic year start and end
+        this.minDate = new Date(currentAY.StartDate);
+        this.maxDate = new Date(currentAY.EndDate);
+        
+        // Ensure the current selected date is within the academic year range
+        if (this.date < this.minDate) {
+          this.date = new Date(this.minDate);
+        } else if (this.date > this.maxDate) {
+          this.date = new Date(this.maxDate);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load academic year constraints:', error);
+      // If we can't load constraints, allow all dates
+      this.minDate = null;
+      this.maxDate = null;
+    }
   }
 
   loadClasses() {
@@ -141,66 +170,6 @@ export class ClasswiseAttandance implements OnInit {
     }
   }
 
-  async loadHolidaysForMonth(year: number, monthZeroBased: number) {
-    this.holidayMap.clear();
-    try {
-      const first = new Date(year, monthZeroBased, 1).toISOString().split('T')[0];
-      const last = new Date(year, monthZeroBased + 1, 0).toISOString().split('T')[0];
-      // use cached holidays if available, otherwise fetch and cache once
-      if (!this.cachedHolidays) {
-        try {
-          const res: any = await firstValueFrom(this.academicSvc.getHolidays(null));
-          const list = Array.isArray(res) ? res : (res && res.data ? res.data : res);
-          const map = new Map<string, any>();
-          (list || []).forEach((h: any) => {
-            const d = (h.Date || h.date || '').split('T')[0];
-            if (d) map.set(d, h);
-          });
-          this.cachedHolidays = map;
-        } catch (e) {
-          this.cachedHolidays = new Map();
-        }
-      }
-
-      // populate holidayMap from cachedHolidays for the requested month
-      (this.cachedHolidays || new Map()).forEach((h: any, k: string) => {
-        if (k >= first && k <= last) this.holidayMap.set(k, h);
-      });
-
-      // use cached weekly offs if available, otherwise fetch and cache once
-      if (!this.cachedWeeklyOffs) {
-        try {
-          const offs: any = await firstValueFrom(this.academicSvc.getWeeklyOffs(null));
-          const offSet = new Set<number>();
-          (offs || []).forEach((o: any) => {
-            const val = o.DayOfWeek ?? o.day_of_week ?? o.day ?? o;
-            const n = parseInt(String(val), 10);
-            if (!isNaN(n)) offSet.add(n);
-          });
-          this.cachedWeeklyOffs = offSet;
-        } catch (e) {
-          this.cachedWeeklyOffs = new Set();
-        }
-      }
-
-      // mark weekly-offs for the month based on cachedWeeklyOffs
-      if (this.cachedWeeklyOffs && this.cachedWeeklyOffs.size > 0) {
-        const endDay = new Date(year, monthZeroBased + 1, 0).getDate();
-        for (let d = 1; d <= endDay; d++) {
-          const dt = new Date(year, monthZeroBased, d);
-          const dow = dt.getDay();
-          const dow1 = dow === 0 ? 7 : dow;
-          if (this.cachedWeeklyOffs.has(dow1)) {
-            const ymd = dt.toISOString().split('T')[0];
-            if (!this.holidayMap.has(ymd)) this.holidayMap.set(ymd, { Type: 'WeeklyOff', Title: 'Weekly Off' });
-          }
-        }
-      }
-    } catch (e) {
-      // ignore and leave map empty
-    }
-  }
-
   // Load attendance from API for each day of the month and aggregate per student
   async loadMonthData(daysInMonth: number) {
     const year = this.date.getFullYear();
@@ -217,13 +186,13 @@ export class ClasswiseAttandance implements OnInit {
     try {
       const res: any = await firstValueFrom(this.attendanceSvc.getMonthly(year, month, classId ?? null, sectionId ?? null));
       const records = res && res.records ? res.records : [];
-      // map API records to AttendanceRow
+      // map API records to AttendanceRow - API now handles holidays and weekly offs
       this.rows = (records || []).map((r: any) => {
         const statusesFromApi = Array.isArray(r.statuses) ? r.statuses : (r.statuses || []);
-        // convert statuses to short codes and ensure length
+        // convert statuses to short codes and ensure length - API provides canonical strings
         const statuses = Array.from({ length: daysInMonth }, (_, i) => {
           const v = statusesFromApi[i];
-          if (v == null) return this.holidayMap.has(new Date(this.date.getFullYear(), this.date.getMonth(), i+1).toISOString().split('T')[0]) ? '*' : '-';
+          if (v == null) return '-';
           return this.toShortLower(v);
         });
         return { studentName: r.StudentName || r.StudentName || 'Unknown', className: r.ClassName || String(this.selectedClass || '—'), statuses, remarks: r.Remarks || '' } as AttendanceRow;
@@ -292,11 +261,13 @@ export class ClasswiseAttandance implements OnInit {
   toShortLower(status: string): string {
     if (!status) return '-';
     const s = String(status).toLowerCase();
+    // handle canonical status strings from API
     if (s === 'present' || s === 'p') return 'p';
     if (s === 'leave' || s === 'l') return 'l';
     if (s === 'halfday' || s === 'half-day' || s === 'h' || s === 'half day') return 'h';
     if (s === 'absent' || s === 'a') return 'a';
-    if (s === 'holiday' || s === '*') return '*';
+    if (s === 'holiday' || s === 'weekly-off' || s === '*') return '*';
+    if (s === 'no status' || s === 'nostatus') return '-';
     return '-';
   }
 
