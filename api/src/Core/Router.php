@@ -115,6 +115,9 @@ class Router {
     $this->routes['POST']['/api/employee/attendance/requests/{id}/approve'] = ['handler' => ['SchoolLive\Controllers\EmployeeAttendanceController', 'approveRequest'], 'roles' => true];
     $this->routes['POST']['/api/employee/attendance/requests/{id}/reject'] = ['handler' => ['SchoolLive\Controllers\EmployeeAttendanceController', 'rejectRequest'], 'roles' => true];
 
+    // Employee attendance monthly reports
+    $this->routes['GET']['/api/employee/attendance/monthly'] = ['handler' => ['SchoolLive\Controllers\EmployeeAttendanceController', 'monthly'], 'roles' => true];
+
     // Attendance routes (daily mark & list)
     $this->routes['GET']['/api/attendance'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'list'], 'roles' => true];
     $this->routes['GET']['/api/attendance/monthly'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'monthly'], 'roles' => true];
