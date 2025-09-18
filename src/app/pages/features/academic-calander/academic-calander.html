@@ -45,7 +45,7 @@
     <div>
       <label for="holiday-date" class="block font-bold mb-2">Holiday Date <span class="text-red-600">*</span></label>
       <p-datepicker inputId="holiday-date" [(ngModel)]="holidayDate" dateFormat="yy-mm-dd" [style]="{'width':'100%'}"
-        styleClass="w-full" [minDate]="minHolidayDate" [maxDate]="maxHolidayDate">
+        styleClass="w-full" [minDate]="minHolidayDate" [maxDate]="maxHolidayDate" [readonlyInput]="true">
       </p-datepicker>
       <small class="text-xs text-gray-500 mt-1 block">
         <div *ngIf="minHolidayDate || maxHolidayDate" class="flex flex-wrap items-center gap-2">
@@ -78,7 +78,7 @@
         <div class="w-full md:w-auto">
           <label class="block font-bold mb-1">End Date</label>
           <p-datepicker [(ngModel)]="holidayEndDate" dateFormat="yy-mm-dd" [minDate]="holidayDate || minHolidayDate"
-            [maxDate]="maxHolidayDate" [style]="{'width':'100%'}"></p-datepicker>
+            [maxDate]="maxHolidayDate" [style]="{'width':'100%'}" [readonlyInput]="true"></p-datepicker>
         </div>
       </div>
     </div>

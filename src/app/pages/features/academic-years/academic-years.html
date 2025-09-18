@@ -10,7 +10,7 @@
     </div>
     <div>
       <label for="StartDate" class="block font-bold mb-2">Start Date *</label>
-      <p-datepicker id="StartDate" formControlName="StartDate" dateFormat="yy-mm-dd" [showIcon]="true" [timeOnly]="false" [showTime]="false" [minDate]="nextStartDate" class="w-full"></p-datepicker>
+  <p-datepicker id="StartDate" formControlName="StartDate" dateFormat="yy-mm-dd" [showIcon]="true" [timeOnly]="false" [showTime]="false" [minDate]="nextStartDate" [defaultDate]="nextStartDate" [readonlyInput]="true" class="w-full"></p-datepicker>
       <div class="mt-1">
         <div>
             <small class="text-xs text-gray-500">Start date must be on or after {{ nextStartDate | date:'yyyy-MM-dd' }}</small>
@@ -29,7 +29,7 @@
         End Date *
         <span class="text-sm font-normal text-gray-500" *ngIf="isEndDateDisabled">(Select Start Date first)</span>
       </label>
-      <p-datepicker id="EndDate" formControlName="EndDate" dateFormat="yy-mm-dd" [showIcon]="true" [minDate]="startDateValue" [timeOnly]="false" [showTime]="false" [disabled]="isEndDateDisabled" class="w-full"></p-datepicker>
+      <p-datepicker id="EndDate" formControlName="EndDate" dateFormat="yy-mm-dd" [showIcon]="true" [minDate]="startDateValue" [defaultDate]="startDateValue" [timeOnly]="false" [showTime]="false" [disabled]="isEndDateDisabled" [readonlyInput]="true" class="w-full"></p-datepicker>
       <div class="h-5 mt-1">
         <small class="text-red-500" *ngIf="isFieldInvalid('EndDate') && !isEndDateDisabled">Required</small>
         <small class="text-gray-500" *ngIf="isEndDateDisabled">Please select a start date first</small>

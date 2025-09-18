@@ -118,3 +118,32 @@ h5.mt-0 {
     margin-right: 0.5rem;
   }
 }
+
+
+.tag-present {
+  background: #4caf50;   /* Green */
+  color: white;
+}
+
+.tag-late {
+  background: #ff9800;   /* Orange */
+  color: white;
+}
+
+.tag-halfday {
+  background: #2196f3;   /* Blue */
+  color: white;
+}
+
+.tag-absent {
+  background: #f44336;   /* Red */
+  color: white;
+}
+.tag-nostatus {
+  background: #9e9e9e;   /* Grey */
+  color: white;
+}
+.tag-holiday {
+  background: #673ab7;   /* Purple */
+  color: white;
+}

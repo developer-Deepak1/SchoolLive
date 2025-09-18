@@ -61,6 +61,8 @@ export class AcademicYears implements OnInit {
   editing = false;            // true when editing existing record
   submitted = false;          // form submit attempt flag
   years = signal<AcademicYear[]>([]); // reactive list
+  nextStartDate: Date | null = null;  // Date object for earliest allowed start date
+  startDateValue: Date | null = null; // maintain StartDate as a Date property (avoid getter)
 
   // Options for status select (derived from constants)
   readonly statusOptions = STATUS_VALUES.map(v => ({ label: v, value: v }));
@@ -100,9 +102,11 @@ export class AcademicYears implements OnInit {
     });
     this.resetFormState();
 
-    // React to StartDate changes in one place
+    // React to StartDate changes in one place and update local startDateValue property
     this.yearForm.get('StartDate')?.valueChanges.subscribe(startDateValue => {
       const statusControl = this.yearForm.get('Status');
+      // keep a Date-typed property to avoid getter overhead in templates
+      this.startDateValue = this.toLocalDateOnly(startDateValue);
       if (startDateValue) {
         this.enable('EndDate');
         if (!statusControl?.disabled) {
@@ -110,7 +114,7 @@ export class AcademicYears implements OnInit {
         }
       } else {
         this.disable('EndDate');
-  this.yearForm.patchValue({ EndDate: null });
+        this.yearForm.patchValue({ EndDate: null });
         if (!statusControl?.disabled) statusControl?.setValue(STATUS_ACTIVE);
       }
     });
@@ -200,8 +204,10 @@ export class AcademicYears implements OnInit {
       next: response => {
         if (response.success && response.data) {
           this.years.set(response.data);
+          this.updateNextStartDate(); // Update nextStartDate when years data changes
         } else {
           this.years.set([]);
+          this.updateNextStartDate(); // Update even when empty
           if (response.message) {
             this.msg.add({ severity: 'warn', summary: 'Warning', detail: response.message.toString(), life: 3000 });
           }
@@ -217,6 +223,7 @@ export class AcademicYears implements OnInit {
   openNew() {
     this.editing = false;
     this.resetFormState();
+    this.updateNextStartDate(); // Recalculate for new record
   }
 
   editYear(y: AcademicYear) {
@@ -233,6 +240,9 @@ export class AcademicYears implements OnInit {
   // Status cannot be changed if Active (business rule)
   (y.Status === STATUS_ACTIVE) ? this.disable('Status') : this.enable('Status');
   formData.StartDate ? this.enable('EndDate') : this.disable('EndDate');
+  
+  // Update nextStartDate when editing to exclude current record
+  this.updateNextStartDate();
   }
 
   deleteYear(y: AcademicYear) {
@@ -318,6 +328,7 @@ export class AcademicYears implements OnInit {
   cancelEdit() {
     this.editing = false;
     this.resetFormState();
+    this.updateNextStartDate(); // Recalculate when canceling edit
   }
 
   onGlobalFilter(table: Table, event: Event) {
@@ -334,22 +345,19 @@ export class AcademicYears implements OnInit {
     return c.invalid && (c.dirty || c.touched || (this.submitted && !!c.errors));
   }
 
-  get startDateValue(): Date | null {
-  const startDate = this.yearForm.get('StartDate')?.value;
-  return this.toLocalDateOnly(startDate);
-  }
+  
 
   get isStatusDisabled(): boolean { return !!this.yearForm.get('Status')?.disabled; }
 
   get isEndDateDisabled(): boolean { return !this.yearForm.get('StartDate')?.value; }
 
-  // Earliest allowed StartDate: one day after the maximum EndDate among existing academic years
-  // If editing an existing year, exclude it from the scan so its own EndDate doesn't push the
-  // allowed earliest start past its current StartDate. This allows editing without being blocked
-  // by the min date rule derived from other records.
-  get nextStartDate(): Date | null {
+  // Calculate and update the nextStartDate as Date object
+  private updateNextStartDate() {
     const list = this.years();
-    if (!list || list.length === 0) return null;
+    if (!list || list.length === 0) {
+      this.nextStartDate = null;
+      return;
+    }
 
     const excludeId = this.yearForm.get('AcademicYearID')?.value ?? null;
     let maxEnd: Date | null = null;
@@ -360,8 +368,19 @@ export class AcademicYears implements OnInit {
       if (!d) continue;
       if (!maxEnd || d.getTime() > maxEnd.getTime()) maxEnd = d;
     }
-    if (!maxEnd) return null;
-    return new Date(maxEnd.getFullYear(), maxEnd.getMonth(), maxEnd.getDate() + 1);
+    
+    if (!maxEnd) {
+      this.nextStartDate = null;
+      return;
+    }
+    
+    // Set nextStartDate as Date object directly
+    this.nextStartDate = new Date(maxEnd.getFullYear(), maxEnd.getMonth(), maxEnd.getDate() + 1);
+  }
+
+  // Get nextStartDate as Date object for internal use (kept for compatibility but now just returns the property)
+  private getNextStartDateAsDate(): Date | null {
+    return this.nextStartDate;
   }
 
   // Helper: set StartDate to the earliest allowed date

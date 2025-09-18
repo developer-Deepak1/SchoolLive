@@ -16,7 +16,7 @@
 					</div>
 					<div class="toolbar-col">
 						<label for="attDate" class="input-label">Date</label>
-						<p-datepicker inputId="attDate" [(ngModel)]="dateModel" dateFormat="yy-mm-dd" styleClass="w-full" (onSelect)="checkHoliday($event)"></p-datepicker>
+						<p-datepicker inputId="attDate"  [readonlyInput]="true" [(ngModel)]="dateModel" dateFormat="yy-mm-dd" styleClass="w-full" (onSelect)="checkHoliday($event)"></p-datepicker>
 					</div>
 					<div class="toolbar-actions">
 						<p-button label="Search" icon="pi pi-search" (onClick)="search()" styleClass="mr-2 mb-2 w-full sm:w-auto" [disabled]="!selectedClass || !selectedSection || isHoliday()"></p-button>
