@@ -62,6 +62,7 @@ export class AcademicYears implements OnInit {
   submitted = false;          // form submit attempt flag
   years = signal<AcademicYear[]>([]); // reactive list
   nextStartDate: Date | null = null;  // Date object for earliest allowed start date
+  startDateValue: Date | null = null; // maintain StartDate as a Date property (avoid getter)
 
   // Options for status select (derived from constants)
   readonly statusOptions = STATUS_VALUES.map(v => ({ label: v, value: v }));
@@ -101,9 +102,11 @@ export class AcademicYears implements OnInit {
     });
     this.resetFormState();
 
-    // React to StartDate changes in one place
+    // React to StartDate changes in one place and update local startDateValue property
     this.yearForm.get('StartDate')?.valueChanges.subscribe(startDateValue => {
       const statusControl = this.yearForm.get('Status');
+      // keep a Date-typed property to avoid getter overhead in templates
+      this.startDateValue = this.toLocalDateOnly(startDateValue);
       if (startDateValue) {
         this.enable('EndDate');
         if (!statusControl?.disabled) {
@@ -111,7 +114,7 @@ export class AcademicYears implements OnInit {
         }
       } else {
         this.disable('EndDate');
-  this.yearForm.patchValue({ EndDate: null });
+        this.yearForm.patchValue({ EndDate: null });
         if (!statusControl?.disabled) statusControl?.setValue(STATUS_ACTIVE);
       }
     });
@@ -342,10 +345,7 @@ export class AcademicYears implements OnInit {
     return c.invalid && (c.dirty || c.touched || (this.submitted && !!c.errors));
   }
 
-  get startDateValue(): Date | null {
-  const startDate = this.yearForm.get('StartDate')?.value;
-  return this.toLocalDateOnly(startDate);
-  }
+  
 
   get isStatusDisabled(): boolean { return !!this.yearForm.get('Status')?.disabled; }
 
