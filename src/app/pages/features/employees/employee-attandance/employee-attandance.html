@@ -6,7 +6,7 @@
 				<div>
 					<label class="block text-sm">Date</label>
 					<!-- PrimeNG datepicker -->
-					<p-datepicker [(ngModel)]="reqDate" (ngModelChange)="evaluateSelectedDate()" name="reqDate" dateFormat="yy-mm-dd" inputClass="p-2 border rounded" styleClass="w-full" [minDate]="minDateObj" [maxDate]="maxDateObj"></p-datepicker>
+					<p-datepicker [(ngModel)]="reqDate" (ngModelChange)="evaluateSelectedDate()" name="reqDate" dateFormat="yy-mm-dd" inputClass="p-2 border rounded" styleClass="w-full" [minDate]="minDateObj" [maxDate]="maxDateObj" [readonlyInput]="true"></p-datepicker>
 					<div *ngIf="duplicateDateExists" class="text-sm text-red-600 mt-1">{{ duplicateMessage }}</div>
 					<div class="mt-2 text-sm">
 						<span *ngIf="selectedDateStatus === 'Holiday'" class="text-red-600">Selected date is a Holiday</span>
