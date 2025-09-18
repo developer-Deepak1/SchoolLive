@@ -85,7 +85,7 @@ class AttendanceController extends BaseController {
 
     // Determine who recorded attendance for this date/section (if any)
     $mv = $this->model->getAttendanceMeta($schoolId, $date, $section, $academicYearId);
-    $meta = $mv ? ['takenBy' => $mv['CreatedBy'] ?? null, 'takenAt' => $mv['CreatedAt'] ?? null] : null;
+    $meta = $mv ? ['takenBy' => $mv['CreatedByName'] ?? null, 'takenAt' => $mv['CreatedAt'] ?? null] : null;
 
         // Frontend expects { records: [...], meta: {...} }
         echo json_encode(['success' => true, 'records' => $rows, 'meta' => $meta]);
