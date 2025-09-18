@@ -5,6 +5,11 @@ const esbuild = require('esbuild');
 (async function(){
   const distDir = path.resolve(__dirname, '../dist/sakai-ng/browser');
   const outDir = path.resolve(__dirname, '../dist/sakai-ng/single');
+  
+  // Generate cache buster timestamp
+  const cacheBuster = Date.now();
+  console.log('Cache buster timestamp:', cacheBuster);
+  
   if (!fs.existsSync(distDir)) {
     console.error('dist directory not found:', distDir);
     process.exit(1);
@@ -56,7 +61,7 @@ const esbuild = require('esbuild');
   importLines.push(`import './${mainJs}';`);
 
   const virtualEntry = importLines.join('\n');
-  const bundleOut = path.join(outDir, 'app.bundle.js');
+  const bundleOut = path.join(outDir, `app.bundle.${cacheBuster}.js`);
   try {
     await esbuild.build({
       stdin: {
@@ -86,10 +91,10 @@ const esbuild = require('esbuild');
     cssContent = cssContent.replace(/url\((['\"]?)\.?\/media\//g, 'url($1media/');
     cssContent = cssContent.replace(/url\((['\"]?)\/media\//g, 'url($1media/');
     cssContent = cssContent.replace(/url\((['\"]?)media\//g, 'url($1media/');
-    fs.writeFileSync(path.join(outDir, 'style.css'), cssContent, 'utf8');
+    fs.writeFileSync(path.join(outDir, `style.${cacheBuster}.css`), cssContent, 'utf8');
   } else {
     // create an empty style.css for consistency
-    fs.writeFileSync(path.join(outDir, 'style.css'), '', 'utf8');
+    fs.writeFileSync(path.join(outDir, `style.${cacheBuster}.css`), '', 'utf8');
   }
 
   // Copy assets and media folders (if present) so media referenced by CSS/HTML is available.
@@ -128,13 +133,17 @@ const esbuild = require('esbuild');
   let finalHtml;
   if (template) {
     // Insert stylesheet link before closing </head> and script before closing </body>
-    finalHtml = template.replace(/<\/head>/i, '  <link rel="stylesheet" href="style.css">\n</head>');
-    finalHtml = finalHtml.replace(/<\/body>/i, '  <script src="app.bundle.js" defer></script>\n</body>');
+    finalHtml = template.replace(/<\/head>/i, `  <link rel="stylesheet" href="style.${cacheBuster}.css">\n</head>`);
+    finalHtml = finalHtml.replace(/<\/body>/i, `  <script src="app.bundle.${cacheBuster}.js" defer></script>\n</body>`);
   } else {
     // fallback minimal template
-    finalHtml = `<!doctype html>\n<html>\n  <head>\n    <meta charset="utf-8" />\n    <meta name="viewport" content="width=device-width, initial-scale=1" />\n    <base href="/">\n    <link rel="stylesheet" href="style.css">\n  </head>\n  <body>\n    <app-root></app-root>\n    <script src="app.bundle.js" defer></script>\n  </body>\n</html>`;
+    finalHtml = `<!doctype html>\n<html>\n  <head>\n    <meta charset="utf-8" />\n    <meta name="viewport" content="width=device-width, initial-scale=1" />\n    <base href="/">\n    <!-- Prevent HTML caching -->\n    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">\n    <meta http-equiv="Pragma" content="no-cache">\n    <meta http-equiv="Expires" content="0">\n    <link rel="stylesheet" href="style.${cacheBuster}.css">\n  </head>\n  <body>\n    <app-root></app-root>\n    <script src="app.bundle.${cacheBuster}.js" defer></script>\n  </body>\n</html>`;
   }
 
   fs.writeFileSync(path.join(outDir, 'index.html'), finalHtml, 'utf8');
   console.log('Wrote single-folder to', outDir);
+  console.log('Generated files:');
+  console.log(`  - app.bundle.${cacheBuster}.js`);
+  console.log(`  - style.${cacheBuster}.css`);
+  console.log(`  - index.html`);
 })();
