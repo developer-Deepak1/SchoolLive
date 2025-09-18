@@ -223,10 +223,75 @@ class EmployeeAttendanceModel extends Model {
             }
         }
         
-        // Apply holiday and weekly-off logic (similar to student attendance)
-        // This would require integrating with AcademicCalendarModel
-        // For now, return the basic attendance data
+        // Apply holiday and weekly-off logic
+        $this->applyHolidaysAndWeeklyOffs($result, $schoolId, $year, $month, $daysInMonth, $academicYearId);
         
         return array_values($result);
+    }
+
+    /**
+     * Apply holiday and weekly-off logic to mark appropriate days
+     */
+    private function applyHolidaysAndWeeklyOffs(&$result, $schoolId, $year, $month, $daysInMonth, $academicYearId = null) {
+        // Get holidays for the month
+        $holidaySql = "SELECT Date FROM Tx_Holidays 
+                       WHERE SchoolID = :school 
+                       AND YEAR(Date) = :year 
+                       AND MONTH(Date) = :month 
+                       AND Type = 'Holiday'
+                       AND IsActive = 1";
+        
+        $holidayParams = [':school' => $schoolId, ':year' => $year, ':month' => $month];
+        
+        if ($academicYearId) {
+            $holidaySql .= " AND AcademicYearID = :ay";
+            $holidayParams[':ay'] = $academicYearId;
+        }
+        
+        $stmt = $this->conn->prepare($holidaySql);
+        $stmt->execute($holidayParams);
+        $holidays = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        // Get weekly offs
+        $weeklyOffSql = "SELECT DayOfWeek FROM Tx_WeeklyOffs 
+                         WHERE SchoolID = :school 
+                         AND IsActive = 1";
+        
+        $weeklyOffParams = [':school' => $schoolId];
+        
+        if ($academicYearId) {
+            $weeklyOffSql .= " AND AcademicYearID = :ay";
+            $weeklyOffParams[':ay'] = $academicYearId;
+        }
+        
+        $stmt = $this->conn->prepare($weeklyOffSql);
+        $stmt->execute($weeklyOffParams);
+        $weeklyOffs = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        // Apply holidays and weekly offs to all employees
+        foreach ($result as &$employee) {
+            for ($day = 1; $day <= $daysInMonth; $day++) {
+                $currentDate = sprintf('%04d-%02d-%02d', $year, $month, $day);
+                $dayIndex = $day - 1; // 0-based index
+                
+                // Check if it's a holiday
+                if (in_array($currentDate, $holidays)) {
+                    // Only mark as holiday if no attendance record exists
+                    if ($employee['statuses'][$dayIndex] === null) {
+                        $employee['statuses'][$dayIndex] = 'Holiday';
+                    }
+                    continue;
+                }
+                
+                // Check if it's a weekly off (1=Monday, 7=Sunday)
+                $dayOfWeek = date('N', strtotime($currentDate)); // 1=Monday, 7=Sunday
+                if (in_array($dayOfWeek, $weeklyOffs)) {
+                    // Only mark as weekly off if no attendance record exists
+                    if ($employee['statuses'][$dayIndex] === null) {
+                        $employee['statuses'][$dayIndex] = 'Weekly-off';
+                    }
+                }
+            }
+        }
     }
 }
