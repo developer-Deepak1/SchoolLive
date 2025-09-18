@@ -132,4 +132,40 @@
     min-width: 35px;
     font-size: 0.75rem;
   }
+  
+  // Mobile legend improvements
+  .attendance-legend {
+    > div {
+      margin-right: 0.25rem;
+    }
+    
+    .small {
+      font-size: 0.75rem;
+    }
+  }
+}
+
+// Legend styling for all screen sizes
+.attendance-legend {
+  padding: 0.75rem;
+  background-color: #f8f9fa;
+  border-radius: 0.375rem;
+  border: 1px solid #dee2e6;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  
+  .small {
+    margin-left: 0.25rem;
+    color: #6c757d;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  
+  > div {
+    flex-shrink: 0;
+    margin-right: 0.5rem;
+    margin-bottom: 0;
+  }
 }
