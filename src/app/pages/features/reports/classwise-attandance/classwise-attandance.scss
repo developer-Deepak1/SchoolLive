@@ -118,3 +118,35 @@ h5.mt-0 {
     margin-right: 0.5rem;
   }
 }
+
+
+// Status tag styles
+.tag-present {
+  background-color: #d4edda !important;
+  color: #155724 !important;
+}
+
+.tag-absent {
+  background-color: #f8d7da !important;
+  color: #721c24 !important;
+}
+
+.tag-late {
+  background-color: #fff3cd !important;
+  color: #856404 !important;
+}
+
+.tag-halfday {
+  background-color: #d1ecf1 !important;
+  color: #0c5460 !important;
+}
+
+.tag-holiday {
+  background-color: #e2e3e5 !important;
+  color: #383d41 !important;
+}
+
+.tag-nostatus {
+  background-color: #f8f9fa !important;
+  color: #6c757d !important;
+}

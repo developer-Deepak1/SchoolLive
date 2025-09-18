@@ -1,0 +1,171 @@
+// Employee Attendance Reports Styles
+
+.sticky-col {
+  position: sticky;
+  background: white;
+  z-index: 1;
+  border-right: 1px solid #dee2e6;
+}
+
+.sticky-col-0 {
+  left: 0;
+  min-width: 50px;
+  text-align: center;
+}
+
+.day-header {
+  min-width: 45px;
+  font-size: 0.85rem;
+}
+
+// Status tag styles
+.tag-present {
+  background-color: #d4edda !important;
+  color: #155724 !important;
+}
+
+.tag-absent {
+  background-color: #f8d7da !important;
+  color: #721c24 !important;
+}
+
+.tag-late {
+  background-color: #fff3cd !important;
+  color: #856404 !important;
+}
+
+.tag-halfday {
+  background-color: #d1ecf1 !important;
+  color: #0c5460 !important;
+}
+
+.tag-holiday {
+  background-color: #e2e3e5 !important;
+  color: #383d41 !important;
+}
+
+.tag-nostatus {
+  background-color: #f8f9fa !important;
+  color: #6c757d !important;
+}
+
+// Table responsive improvements
+.table-responsive {
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+}
+
+// Ensure proper spacing for action buttons
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+// Card styling
+.card {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
+  border: none;
+}
+
+.card-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.card-body {
+  padding: 1.5rem;
+}
+
+// Dialog improvements
+:host ::ng-deep .p-dialog-content {
+  padding: 0 !important;
+}
+
+:host ::ng-deep .p-dialog-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+}
+
+// Form controls
+.form-label {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.form-control:focus {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+// Button improvements
+.btn {
+  font-weight: 500;
+}
+
+.btn-primary {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+.btn-success {
+  background-color: #198754;
+  border-color: #198754;
+}
+
+// Responsive improvements
+@media (max-width: 768px) {
+  .sticky-col-0 {
+    min-width: 40px;
+  }
+  
+  .sticky-col-1 {
+    left: 40px;
+    min-width: 120px;
+  }
+  
+  .sticky-col-2 {
+    left: 160px;
+    min-width: 100px;
+  }
+  
+  .day-header {
+    min-width: 35px;
+    font-size: 0.75rem;
+  }
+  
+  // Mobile legend improvements
+  .attendance-legend {
+    > div {
+      margin-right: 0.25rem;
+    }
+    
+    .small {
+      font-size: 0.75rem;
+    }
+  }
+}
+
+// Legend styling for all screen sizes
+.attendance-legend {
+  padding: 0.75rem;
+  background-color: #f8f9fa;
+  border-radius: 0.375rem;
+  border: 1px solid #dee2e6;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  
+  .small {
+    margin-left: 0.25rem;
+    color: #6c757d;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  
+  > div {
+    flex-shrink: 0;
+    margin-right: 0.5rem;
+    margin-bottom: 0;
+  }
+}

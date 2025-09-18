@@ -1,4 +1,7 @@
 <p-toast />
+<div class="flex flex-wrap items-center gap-3 mb-1">
+    <button pButton pRipple type="button" label="Back" icon="pi pi-arrow-left" class="p-button-text" (click)="back()"></button>
+  </div>
 <div class="grid gap-4 md:grid-cols-2">
 	<p-card header="Add Employee" class="col-span-2">
 		<form [formGroup]="form" class="grid gap-4 md:grid-cols-3 pt-4" (ngSubmit)="submit()">
@@ -72,7 +75,7 @@
 
 			<div class="field col-span-3 md:col-span-1">
 				<label class="block mb-2 font-medium">Date of Birth <span class="text-red-500 ml-1">*</span></label>
-				<p-datepicker formControlName="DOB" dateFormat="yy-mm-dd" [showIcon]="true" class="w-full"></p-datepicker>
+				<p-datepicker formControlName="DOB" dateFormat="yy-mm-dd" [showIcon]="true" [readonlyInput]="true" class="w-full"></p-datepicker>
 				<small class="text-red-500" [class.invisible]="!fieldInvalid('DOB')" style="min-height:1rem;display:block">Required</small>
 			</div>
 
@@ -84,7 +87,7 @@
 
 			<div class="field col-span-3 md:col-span-1">
 				<label class="block mb-2 font-medium">Joining Date <span class="text-red-500 ml-1">*</span></label>
-				<p-datepicker formControlName="JoiningDate" dateFormat="yy-mm-dd" [showIcon]="true" class="w-full" [class.border-red-500]="fieldInvalid('JoiningDate')"></p-datepicker>
+				<p-datepicker formControlName="JoiningDate" dateFormat="yy-mm-dd" [showIcon]="true" [readonlyInput]="true" class="w-full" [class.border-red-500]="fieldInvalid('JoiningDate')"></p-datepicker>
 				<small class="text-red-500" [class.invisible]="!fieldInvalid('JoiningDate')" style="min-height:1rem;display:block">Required</small>
 			</div>
 

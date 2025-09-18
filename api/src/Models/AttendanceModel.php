@@ -35,6 +35,8 @@ class AttendanceModel extends Model {
     public function upsert(int $schoolId, ?int $academicYearId, int $studentId, string $date, string $status, ?string $remarks, string $username, ?int $classId = null, ?int $sectionId = null): array {
         $ay = $academicYearId ?? 1;
         // Check existing
+        $updatedAt=date('Y-m-d H:i:s');
+        $createdAt=date('Y-m-d H:i:s');
         $checkSql = "SELECT StudentAttendanceID, Status FROM Tx_Students_Attendance WHERE SchoolID=:school AND StudentID=:sid AND Date=:dt AND AcademicYearID=:ay LIMIT 1";
         $chk = $this->conn->prepare($checkSql);
         $chk->execute([':school'=>$schoolId, ':sid'=>$studentId, ':dt'=>$date, ':ay'=>$ay]);
@@ -43,17 +45,17 @@ class AttendanceModel extends Model {
             if ($existing['Status'] === $status && $remarks === null) {
                 return ['created'=>false,'updated'=>false,'row'=>['StudentAttendanceID'=>$existing['StudentAttendanceID'],'Status'=>$existing['Status']]];
             }
-            $upd = $this->conn->prepare("UPDATE Tx_Students_Attendance SET Status=:st, Remarks=:rm, UpdatedBy=:ub, UpdatedAt=NOW() WHERE StudentAttendanceID=:id");
-            $upd->execute([':st'=>$status, ':rm'=>$remarks, ':ub'=>$username, ':id'=>$existing['StudentAttendanceID']]);
+            $upd = $this->conn->prepare("UPDATE Tx_Students_Attendance SET Status=:st, Remarks=:rm, UpdatedBy=:ub, UpdatedAt=:ua WHERE StudentAttendanceID=:id");
+            $upd->execute([':st'=>$status, ':rm'=>$remarks, ':ub'=>$username, ':ua'=>$updatedAt, ':id'=>$existing['StudentAttendanceID']]);
             return ['created'=>false,'updated'=>true,'row'=>['StudentAttendanceID'=>$existing['StudentAttendanceID'],'Status'=>$status]];
         }
              // Include ClassID/SectionID in the insert. Prefer client-provided values when available,
              // otherwise fall back to student's stored values.
-             $insSql = "INSERT INTO Tx_Students_Attendance (Date, Status, StudentID, SectionID, ClassID, SchoolID, AcademicYearID, Remarks, CreatedBy)
+             $insSql = "INSERT INTO Tx_Students_Attendance (Date, Status, StudentID, SectionID, ClassID, SchoolID, AcademicYearID, Remarks, CreatedAt, CreatedBy)
                         SELECT :dt, :st, s.StudentID,
                              COALESCE(:sectionId, s.SectionID) AS SectionID,
                              COALESCE(:classId, s.ClassID) AS ClassID,
-                             s.SchoolID, :ay, :rm, :cb
+                             s.SchoolID, :ay, :rm, :ca, :cb
                          FROM Tx_Students s
                         WHERE s.StudentID = :sid AND s.SchoolID = :school
                         LIMIT 1";
@@ -64,6 +66,7 @@ class AttendanceModel extends Model {
              $ins->bindValue(':school',$schoolId,PDO::PARAM_INT);
              $ins->bindValue(':ay',$ay,PDO::PARAM_INT);
              $ins->bindValue(':rm',$remarks);
+             $ins->bindValue(':ca',$createdAt);
              $ins->bindValue(':cb',$username);
              // sectionId/classId may be null; bind as integers when non-null
              if ($sectionId !== null) $ins->bindValue(':sectionId',$sectionId,PDO::PARAM_INT); else $ins->bindValue(':sectionId',null,PDO::PARAM_NULL);
@@ -91,10 +94,17 @@ class AttendanceModel extends Model {
 
     /** Return meta information for attendance for a given date/section (last recorder). */
     public function getAttendanceMeta(int $schoolId, string $date, ?int $sectionId = null, ?int $academicYearId = null): ?array {
-        $sql = "SELECT CreatedBy, CreatedAt FROM Tx_Students_Attendance WHERE SchoolID = :school AND Date = :dt";
-        if ($academicYearId) $sql .= " AND AcademicYearID = :ay";
-        if ($sectionId) $sql .= " AND SectionID = :sid";
-        $sql .= " ORDER BY CreatedAt DESC LIMIT 1";
+        // Fetch latest attendance row and attempt to resolve the CreatedBy username
+        // into a full name by joining Tx_Users on Username = CreatedBy.
+        $sql = "SELECT a.CreatedBy, a.CreatedAt,
+                       CONCAT_WS(' ', u.FirstName, u.MiddleName, u.LastName) AS CreatedByName
+                FROM Tx_Students_Attendance a
+                LEFT JOIN Tx_Users u ON u.Username = a.CreatedBy AND u.SchoolID = a.SchoolID
+                WHERE a.SchoolID = :school AND a.Date = :dt";
+        if ($academicYearId) $sql .= " AND a.AcademicYearID = :ay";
+        if ($sectionId) $sql .= " AND a.SectionID = :sid";
+        $sql .= " ORDER BY a.CreatedAt DESC LIMIT 1";
+
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':school', $schoolId, PDO::PARAM_INT);
         $stmt->bindValue(':dt', $date);
@@ -102,6 +112,14 @@ class AttendanceModel extends Model {
         if ($sectionId) $stmt->bindValue(':sid', $sectionId, PDO::PARAM_INT);
         $stmt->execute();
         $r = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $r ?: null;
+
+        if (!$r) return null;
+
+        // If CreatedByName is empty/null, fall back to the raw CreatedBy value (username or string)
+        if (empty($r['CreatedByName']) && !empty($r['CreatedBy'])) {
+            $r['CreatedByName'] = $r['CreatedBy'];
+        }
+
+        return $r;
     }
 }

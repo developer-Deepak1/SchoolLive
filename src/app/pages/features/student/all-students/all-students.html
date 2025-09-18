@@ -1,4 +1,4 @@
-<p-table #dt [value]="students()" dataKey="StudentID" [rows]="10" [paginator]="true" [rowsPerPageOptions]="[10,20,30]" [globalFilterFields]="['Username','StudentName','ClassName','SectionName','FatherName','MotherName','DOB','AdmissionDate','Gender']" [tableStyle]="{'min-width':'90rem'}" [rowHover]="true" [showCurrentPageReport]="true" currentPageReportTemplate="Showing {first} to {last} of {totalRecords}">
+<p-table #dt [value]="students()" dataKey="StudentID" [rows]="10" [paginator]="true" [rowsPerPageOptions]="[10,20,30]" [globalFilterFields]="['Username','StudentName','ClassName','SectionName','FatherName','MotherName','DOB','AdmissionDate','Gender']" [tableStyle]="{'min-width':'95rem'}" [rowHover]="true" [showCurrentPageReport]="true" currentPageReportTemplate="Showing {first} to {last} of {totalRecords}">
 	<ng-template pTemplate="caption">
         <h3 class="m-0">All Students</h3>
 		<div class="flex items-center justify-between">

@@ -41,7 +41,7 @@ class StudentController extends BaseController {
             'section_id' => $_GET['section_id'] ?? null,
             'gender' => $_GET['gender'] ?? null,
             'status' => $_GET['status'] ?? null,
-            'is_active' => isset($_GET['is_active']) ? $_GET['is_active'] : null,
+            'is_active' => isset($_GET['is_active']) ? $_GET['is_active'] : 1,
             'search' => $_GET['search'] ?? null
         ];
         $data = $this->students->listStudents($current['school_id'], $current['AcademicYearID'] ?? null, $filters);
@@ -60,9 +60,27 @@ class StudentController extends BaseController {
     if (!$this->requireMethod('POST')) return;
     $current = $this->currentUser(); if(!$current) return;
     $input = $this->input();
-        $required = ['StudentName','Gender','DOB','SectionID'];
+    $required = ['StudentName','Gender','DOB','SectionID'];
         foreach ($required as $f) {
             if (empty($input[$f])) { $this->fail("$f is required",400); return; }
+        }
+        
+        // If ClassID is provided, validate that it matches the section's ClassID
+        if (!empty($input['ClassID'])) {
+            $pdo = $this->students->getPdo();
+            $stmt = $pdo->prepare("SELECT ClassID FROM Tx_Sections WHERE SectionID = ? AND SchoolID = ?");
+            $stmt->execute([$input['SectionID'], $current['school_id']]);
+            $sectionData = $stmt->fetch();
+            
+            if (!$sectionData) {
+                $this->fail("Invalid SectionID for the given school", 400);
+                return;
+            }
+            
+            if ($sectionData['ClassID'] != $input['ClassID']) {
+                $this->fail("ClassID does not match the selected section", 400);
+                return;
+            }
         }
         // If name parts missing, attempt to split StudentName into First/Middle/Last
         if (empty($input['FirstName']) && !empty($input['StudentName'])) {
@@ -193,6 +211,7 @@ class StudentController extends BaseController {
                 'Gender' => $input['Gender'],
                 'DOB' => $input['DOB'],
                 'SectionID' => $input['SectionID'],
+                'ClassID' => $input['ClassID'] ?? null,
                 'FatherName' => $input['FatherName'] ?? null,
                 'FatherContactNumber' => $input['FatherContactNumber'] ?? null,
                 'MotherName' => $input['MotherName'] ?? null,

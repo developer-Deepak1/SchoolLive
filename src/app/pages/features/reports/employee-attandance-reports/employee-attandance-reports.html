@@ -1,1 +1,117 @@
-<p>employee-attandance-reports works!</p>
+<!-- Employee Attendance Reports -->
+ <p-card header="Employee Attendance Reports" class="mb-4">
+  <hr class="border-t border-gray-200 my-3" />
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div class="flex items-center gap-3">
+    <label for="academic-year" class="font-bold mr-2">Month</label>
+     <p-datepicker 
+        id="date" 
+        [(ngModel)]="date" 
+        view="month" 
+        dateFormat="MM yy" 
+        [showIcon]="true" 
+        [minDate]="minDate" 
+        [maxDate]="maxDate"
+        [readonlyInput]="true"
+        (onSelect)="updateGrid()" 
+        class="w-auto">
+    </p-datepicker>
+    </div>
+
+    <div class="text-right">
+      <div class="text-sm text-gray-600">Showing Attendance for</div>
+      <div class="font-semibold">{{ date | date:'MMMM yyyy' }}</div>
+    </div>
+  </div>
+</p-card>
+
+<p-table #table [value]="rows" [scrollable]="true" scrollHeight="600px" [rows]="50" [paginator]="true"
+    [showCurrentPageReport]="true" currentPageReportTemplate="Showing {first} to {last} of {totalRecords} employees"
+    [rowsPerPageOptions]="[25,50,100]" [globalFilterFields]="['employeeName', 'roleName']" styleClass="p-datatable-sm">
+    <ng-template pTemplate="caption">
+        <div class="flex items-center justify-end">
+            <!-- <h5 class="m-0">Attendance for ({{ date | date:'MMMM yyyy' }})</h5> -->
+            <div class="ml-4">
+                <input type="text" placeholder="Search Employee" class="p-inputtext p-component p-inputtext-sm"
+                    [(ngModel)]="filterText" />
+            </div>
+        </div>
+    </ng-template>
+
+    <ng-template pTemplate="header">
+        <tr>
+            <th rowspan="2" class="sticky-col sticky-col-0">#</th>
+            <th rowspan="2" class="min-width: 150px">Employee Name</th>
+            <th rowspan="2">Role</th>
+            <th [attr.colspan]="days.length" class="text-center">Days of Month</th>
+            <th rowspan="2">Total Present</th>
+            <th rowspan="2">Total Absent</th>
+            <th rowspan="2">Total Leave</th>
+            <th rowspan="2">Total Half Day</th>
+            <th rowspan="2">Total Holiday</th>
+            <th rowspan="2">Total No Status</th>
+        </tr>
+        <tr>
+            <th *ngFor="let day of days" class="text-center day-header">{{ day }}</th>
+        </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-row let-ri="rowIndex">
+        <tr>
+            <td class="sticky-col sticky-col-0">{{ ri + 1 }}</td>
+            <td class="min-width: 150px">{{ row.employeeName }}</td>
+            <td>{{ row.roleName }}</td>
+            <td *ngFor="let status of row.statuses; let i = index" class="text-center">
+                <p-tag [value]="status.toUpperCase()" [severity]="getSeverity(status)"
+                    [ngClass]="getClassForStatus(status)">
+                </p-tag>
+            </td>
+            <td class="text-center">{{ getPresentCount(row) }}</td>
+            <td class="text-center">{{ getAbsentCount(row) }}</td>
+            <td class="text-center">{{ getLeaveCount(row) }}</td>
+            <td class="text-center">{{ getHalfDayCount(row) }}</td>
+            <td class="text-center">{{ getHolidayCount(row) }}</td>
+            <td class="text-center">{{ getNoStatusCount(row) }}</td>
+        </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+        <tr>
+            <td [attr.colspan]="days.length + 9" class="text-center py-4">
+                No employee attendance data found for the selected month.
+            </td>
+        </tr>
+    </ng-template>
+</p-table>
+<div class="mt-3 d-flex flex-wrap gap-1 gap-md-2 align-items-center attendance-legend">
+    <div class="d-flex align-items-center gap-1">
+        <p-tag [value]="'P'" [severity]="getSeverity('p')"
+            styleClass="{{ getClassForStatus('p') }}"></p-tag>
+        <span class="small">Present</span>
+    </div>
+    <div class="d-flex align-items-center gap-1">
+        <p-tag [value]="'L'" [severity]="getSeverity('l')"
+            styleClass="{{ getClassForStatus('l') }}"></p-tag>
+        <span class="small">Leave</span>
+    </div>
+    <div class="d-flex align-items-center gap-1">
+        <p-tag [value]="'H'" [severity]="getSeverity('h')" 
+            styleClass="{{ getClassForStatus('h') }}"></p-tag>
+        <span class="small">Half Day</span>
+    </div>
+    <div class="d-flex align-items-center gap-1">
+        <p-tag [value]="'A'" [severity]="getSeverity('a')"
+            styleClass="{{ getClassForStatus('a') }}"></p-tag>
+        <span class="small">Absent</span>
+    </div>
+    <div class="d-flex align-items-center gap-1">
+        <p-tag [value]="'-'" [severity]="getSeverity('-')" 
+            styleClass="{{ getClassForStatus('-') }}"></p-tag>
+        <span class="small">No Status</span>
+    </div>
+    <div class="d-flex align-items-center gap-1">
+        <p-tag [value]="'*'" [severity]="getSeverity('*')"
+            styleClass="{{ getClassForStatus('*') }}"></p-tag>
+        <span class="small">Holiday</span>
+    </div>
+</div>

@@ -4,6 +4,7 @@ namespace SchoolLive\Controllers;
 use SchoolLive\Core\BaseController;
 use SchoolLive\Models\EmployeeAttendanceModel;
 use SchoolLive\Models\EmployeeAttendanceRequestsModel;
+use Exception;
 
 class EmployeeAttendanceController extends BaseController {
     private $model;
@@ -147,5 +148,29 @@ class EmployeeAttendanceController extends BaseController {
         $ok = $this->requestsModel->rejectRequest($id, $user['username'] ?? 'system');
         if ($ok) $this->ok('Request rejected', null);
         else $this->fail('Reject failed', 400);
+    }
+
+    // GET /api/employee/attendance/monthly?year=2025&month=9&role_id=2
+    public function monthly($params = []) {
+        $user = $this->currentUser(); if (!$user) return;
+        $year = isset($_GET['year']) ? (int)$_GET['year'] : (int)date('Y');
+        $month = isset($_GET['month']) ? (int)$_GET['month'] : (int)date('n');
+        $roleId = isset($_GET['role_id']) && $_GET['role_id'] !== '' ? (int)$_GET['role_id'] : null;
+        $schoolId = $user['school_id'] ?? null;
+        $academicYearId = $user['AcademicYearID'] ?? null;
+        
+        if ($year < 1900 || $year > 2100 || $month < 1 || $month > 12) {
+            $this->fail('Invalid year or month', 400);
+            return;
+        }
+
+        try {
+            $records = $this->model->getMonthlyAttendance($schoolId, $academicYearId, $year, $month, $roleId);
+            $this->ok('Monthly employee attendance', ['records' => $records]);
+        } catch (Exception $e) {
+            error_log("Error in employee monthly attendance: " . $e->getMessage());
+            // Include exception message in response for debugging (remove in production)
+            $this->fail('Failed to fetch monthly attendance: ' . $e->getMessage(), 500);
+        }
     }
 }

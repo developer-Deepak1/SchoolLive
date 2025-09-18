@@ -55,11 +55,12 @@ class EmployeeAttendanceRequestsModel extends Model {
     }
 
     public function listRequests($schoolId, $employeeId = null, $status = null, $academicYearId = null) {
-        $sql = "SELECT * FROM Tx_Employee_AttendanceRequests WHERE SchoolID = :school AND IsActive = 1";
-        if ($employeeId) $sql .= " AND EmployeeID = :eid";
-        if ($status) $sql .= " AND Status = :status";
-        if ($academicYearId) $sql .= " AND AcademicYearID = :ay";
-        $sql .= " ORDER BY AttendanceRequestID DESC";
+        // Include employee display name by joining Tx_Employees; keep legacy shape plus EmployeeName
+        $sql = "SELECT r.*, CONCAT_WS(' ', e.FirstName, e.MiddleName, e.LastName) AS EmployeeName FROM Tx_Employee_AttendanceRequests r LEFT JOIN Tx_Employees e ON e.EmployeeID = r.EmployeeID WHERE r.SchoolID = :school AND r.IsActive = 1";
+        if ($employeeId) $sql .= " AND r.EmployeeID = :eid";
+        if ($status) $sql .= " AND r.Status = :status";
+        if ($academicYearId) $sql .= " AND r.AcademicYearID = :ay";
+        $sql .= " ORDER BY r.AttendanceRequestID DESC";
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':school', $schoolId, PDO::PARAM_INT);
         if ($employeeId) $stmt->bindValue(':eid', $employeeId, PDO::PARAM_INT);

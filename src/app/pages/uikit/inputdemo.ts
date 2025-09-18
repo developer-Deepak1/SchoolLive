@@ -96,7 +96,7 @@ import { Country } from '../service/customer.service';
                     <p-autocomplete [(ngModel)]="selectedAutoValue" [suggestions]="autoFilteredValue" optionLabel="name" placeholder="Search" dropdown multiple display="chip" (completeMethod)="filterCountry($event)" />
 
                     <div class="font-semibold text-xl">DatePicker</div>
-                    <p-datepicker [showIcon]="true" [showButtonBar]="true" [(ngModel)]="calendarValue"></p-datepicker>
+                    <p-datepicker [showIcon]="true" [showButtonBar]="true" [readonlyInput]="true" [(ngModel)]="calendarValue"></p-datepicker>
 
                     <div class="font-semibold text-xl">InputNumber</div>
                     <p-inputnumber [(ngModel)]="inputNumberValue" showButtons mode="decimal"></p-inputnumber>

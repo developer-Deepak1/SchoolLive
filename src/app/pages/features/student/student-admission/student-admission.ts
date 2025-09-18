@@ -191,8 +191,8 @@ export class StudentAdmission {
   if (parts.length) {
     payload.StudentName = parts.join(' ');
   }
-  // Move selected Class/Section IDs
-  if (payload.ClassID) delete payload.ClassID; // backend expects SectionID only
+  // Move selected Class/Section IDs - send both ClassID and SectionID to backend
+  // Keep ClassID in payload since backend can now handle it
     const finish = () => { this.loading = false; };
     if (this.editingId) {
       // In edit mode, call updateStudent. Backend may expect different shape; try sending form values.
@@ -279,5 +279,5 @@ export class StudentAdmission {
       error: err => { this.loading = false; this.msg.add({severity:'error', summary:'Error', detail: err.error?.message || 'Reset failed'}); }
     });
   }
-
+  back() { this.router.navigate(['/features/all-students']); }
 }
