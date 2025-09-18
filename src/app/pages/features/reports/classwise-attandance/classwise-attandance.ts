@@ -80,31 +80,6 @@ export class ClasswiseAttandance implements OnInit {
     this.updateGrid();
   }
 
-  // initialize and cache holidays and weekly-offs once per session
-  private initCalendarCache() {
-    const ayId = null;
-    // fetch holidays
-    this.academicSvc.getHolidays(ayId).subscribe({ next: (list:any[]) => {
-      const map = new Map<string, any>();
-      (list || []).forEach(h => {
-        const d = (h.Date || h.date || '').split('T')[0];
-        if (d) map.set(d, h);
-      });
-      this.cachedHolidays = map;
-    }, error: () => { this.cachedHolidays = new Map(); }});
-
-    // fetch weekly offs
-    this.academicSvc.getWeeklyOffs().subscribe({ next: (offs:any[]) => {
-      const set = new Set<number>();
-      (offs || []).forEach(o => {
-        const val = o.DayOfWeek ?? o.day_of_week ?? o.day ?? o;
-        const n = parseInt(String(val), 10);
-        if (!isNaN(n)) set.add(n);
-      });
-      this.cachedWeeklyOffs = set;
-    }, error: () => { this.cachedWeeklyOffs = new Set(); }});
-  }
-
   // compute number of days for selected month/year and rebuild sample grid
   updateGrid() {
     const year = this.date.getFullYear();
@@ -259,12 +234,6 @@ export class ClasswiseAttandance implements OnInit {
     }
   }
 
-  randomStatus(): string {
-    // return 'p' (present), 'l' (late), 'h' (half-day), or 'a' (absent)
-  const pool = ['p', 'p', 'p', 'l', 'h', 'a', '-'];
-    return pool[Math.floor(Math.random() * pool.length)];
-  }
-
   refresh() {
   // require class & section before refreshing
   if (!this.selectedClass || !this.selectedSection) return;
@@ -279,14 +248,42 @@ export class ClasswiseAttandance implements OnInit {
     return row.statuses.filter(s => s === 'a').length;
   }
 
+  // New counts requested by user
+  getLeaveCount(row: AttendanceRow) {
+    return row.statuses.filter(s => s === 'l').length;
+  }
+
+  getHalfDayCount(row: AttendanceRow) {
+    return row.statuses.filter(s => s === 'h').length;
+  }
+
+  getHolidayCount(row: AttendanceRow) {
+    return row.statuses.filter(s => s === '*').length;
+  }
+
+  getNoStatusCount(row: AttendanceRow) {
+    return row.statuses.filter(s => s === '-' || s === null || s === undefined).length;
+  }
+
   getSeverity(status: string) {
     switch ((status || '').toLowerCase()) {
       case 'p': return 'success';
-      case 'l': return 'warning';
+      case 'l': return 'warn';
       case 'h': return 'info';
       case 'a': return 'danger';
-  case '*': return 'info';
-  case '-': return null;
+      case '*': return 'secondary';
+      case '-': return 'contrast';
+      default: return null;
+    }
+  }
+  getClassForStatus(status: string) {
+    switch ((status || '').toLowerCase()) {
+      case 'p': return 'tag-present';
+      case 'l': return 'tag-late';
+      case 'h': return 'tag-halfday';
+      case 'a': return 'tag-absent';
+      case '*': return 'tag-holiday';
+      case '-': return 'tag-nostatus';
       default: return null;
     }
   }
@@ -314,7 +311,7 @@ export class ClasswiseAttandance implements OnInit {
       if (!rows || rows.length === 0) return;
 
       // Header: #, Student, days..., Total Present, Total Absent
-      const header = ['#', 'Student', ...this.days.map(d => String(d)), 'Total Present', 'Total Absent'];
+      const header = ['#', 'Student', ...this.days.map(d => String(d)), 'Total Present', 'Total Absent', 'Total Leave', 'Total Half Day', 'Total Holiday', 'Total No Status'];
       const csvLines: string[] = [];
       // add BOM for Excel to recognize UTF-8
       // we will prepend BOM when creating blob
@@ -323,8 +320,12 @@ export class ClasswiseAttandance implements OnInit {
       rows.forEach((r, idx) => {
         const present = this.getPresentCount(r);
         const absent = this.getAbsentCount(r);
+          const leave = this.getLeaveCount(r);
+          const half = this.getHalfDayCount(r);
+          const holiday = this.getHolidayCount(r);
+          const nostatus = this.getNoStatusCount(r);
         const statusCells = (r.statuses || []).map(s => (s || '').toUpperCase());
-        const line = [String(idx + 1), `"${(r.studentName||'').replace(/"/g,'""')}"`, ...statusCells, String(present), String(absent)];
+          const line = [String(idx + 1), `"${(r.studentName||'').replace(/"/g,'""')}"`, ...statusCells, String(present), String(absent), String(leave), String(half), String(holiday), String(nostatus)];
         csvLines.push(line.join(','));
       });
 
