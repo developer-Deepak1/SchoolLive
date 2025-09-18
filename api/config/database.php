@@ -1,10 +1,10 @@
 <?php
 return [
-    'host' => 'srv1497.hstgr.io',
+    'host' => 'localhost',
     'port' => 3306,
-    'db_name' => 'u113962088_dev',
-    'username' => 'u113962088_dev',
-    'password' => 'b|:7H&7l9N8F',
+    'db_name' => 'u113962088_schoollive',
+    'username' => 'u113962088_Deepak20102001',
+    'password' => 'Dxy]vcqHb&2',
     'charset' => 'utf8mb4'
 ];
 ?>
