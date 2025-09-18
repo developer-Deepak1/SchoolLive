@@ -98,7 +98,7 @@ class StudentModel extends Model {
         if (!isset($data['FirstName']) || $data['FirstName'] === null) { $data['FirstName'] = ''; }
         // include IsActive only if caller provided it; otherwise let DB default apply
         $fields = [
-            'StudentName','FirstName','MiddleName','LastName','ContactNumber','EmailID','Gender','DOB','SchoolID','SectionID','UserID','AcademicYearID','FatherName','FatherContactNumber','MotherName','MotherContactNumber','AdmissionDate','Status','CreatedAt','CreatedBy'
+            'StudentName','FirstName','MiddleName','LastName','ContactNumber','EmailID','Gender','DOB','SchoolID','SectionID','ClassID','UserID','AcademicYearID','FatherName','FatherContactNumber','MotherName','MotherContactNumber','AdmissionDate','Status','CreatedAt','CreatedBy'
         ];
         if (array_key_exists('IsActive', $data)) {
             $pos = array_search('Status', $fields);
@@ -117,7 +117,7 @@ class StudentModel extends Model {
     }
 
     public function updateStudent($id, $schoolId, $data) {
-    $allowed = ['StudentName','FirstName','MiddleName','LastName','ContactNumber','EmailID','Gender','DOB','SectionID','FatherName','FatherContactNumber','MotherName','MotherContactNumber','AdmissionDate','Status','IsActive','UpdatedBy'];
+    $allowed = ['StudentName','FirstName','MiddleName','LastName','ContactNumber','EmailID','Gender','DOB','SectionID','ClassID','FatherName','FatherContactNumber','MotherName','MotherContactNumber','AdmissionDate','Status','IsActive','UpdatedBy'];
         // Auto-derive StudentName if not explicitly set but name parts are provided
         $namePartsChanged = false;
         foreach (['FirstName','MiddleName','LastName'] as $n) {
@@ -145,7 +145,7 @@ class StudentModel extends Model {
     }
 
     public function deleteStudent($id, $schoolId) {
-        $sql = 'DELETE FROM Tx_Students WHERE StudentID = :id AND SchoolID = :school';
+        $sql = 'UPDATE Tx_Students SET IsActive = 0 WHERE StudentID = :id AND SchoolID = :school';
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':id', $id, PDO::PARAM_INT);
         $stmt->bindValue(':school', $schoolId, PDO::PARAM_INT);

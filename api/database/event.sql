@@ -98,7 +98,7 @@ BEGIN
     DECLARE day_of_week INT;
     
     -- Set target date to previous day
-    SET target_date = DATE_SUB(CURDATE(), INTERVAL 1 DAY);
+    SET target_date = DATE_SUB(CONVERT_TZ(CURDATE(), '+00:00', '+05:30'), INTERVAL 1 DAY);
     
     -- Get day of week (1=Monday, 7=Sunday)
     SET day_of_week = WEEKDAY(target_date) + 1;
@@ -127,7 +127,7 @@ BEGIN
         s.AcademicYearID,
         'Auto-marked absent by system',
         'System',
-        NOW()
+        CONVERT_TZ(NOW(), '+00:00', '+05:30')
     FROM Tx_Students s
     INNER JOIN Tm_AcademicYears ay ON s.AcademicYearID = ay.AcademicYearID 
         AND ay.IsActive = TRUE

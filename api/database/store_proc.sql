@@ -30,7 +30,7 @@ BEGIN
         'Leave', -- Default status for absent employees
         CONCAT('Auto-marked absent for ', target_date),
         'System',
-        NOW()
+        CONVERT_TZ(NOW(), '+00:00', '+05:30')
     FROM Tx_Employees e
     INNER JOIN Tm_AcademicYears ay ON e.AcademicYearID = ay.AcademicYearID 
         AND ay.IsActive = TRUE
@@ -139,7 +139,7 @@ BEGIN
         s.AcademicYearID,
         CONCAT('Auto-marked absent for ', target_date),
         'System',
-        NOW()
+        CONVERT_TZ(NOW(), '+00:00', '+05:30')
     FROM Tx_Students s
     INNER JOIN Tm_AcademicYears ay ON s.AcademicYearID = ay.AcademicYearID 
         AND ay.IsActive = TRUE
