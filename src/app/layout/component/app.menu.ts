@@ -79,6 +79,7 @@ export class AppMenu {
                 label: 'Reports',
                 items: [
                     { label: 'Classwise Attendance', icon: 'pi pi-fw pi-chart-bar', routerLink: ['/features/classwise-attendance'] },
+                    { label: 'Employee Attendance', icon: 'pi pi-fw pi-chart-bar', routerLink: ['/features/employee-attendance-reports'] },
                 ]
             }
         ];}

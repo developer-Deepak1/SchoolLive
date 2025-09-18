@@ -125,4 +125,108 @@ class EmployeeAttendanceModel extends Model {
         }
         return null;
     }
+
+    /**
+     * Get monthly attendance for all employees with optional role filtering
+     * Similar to student attendance but for employees
+     */
+    public function getMonthlyAttendance($schoolId, $academicYearId, $year, $month, $roleId = null) {
+        // compute days in month
+        $daysInMonth = (int)date('t', strtotime(sprintf('%04d-%02d-01', $year, $month)));
+        
+        // Get all employees with optional filtering
+        $employeeSql = "SELECT e.EmployeeID, e.FirstName, e.MiddleName, e.LastName, e.RoleID, 
+                               r.RoleName
+                        FROM Tx_Employees e
+                        LEFT JOIN Tm_Roles r ON e.RoleID = r.RoleID
+                        WHERE e.SchoolID = :school";
+        
+        $params = [':school' => $schoolId];
+        
+        if ($academicYearId) {
+            $employeeSql .= " AND e.AcademicYearID = :ay";
+            $params[':ay'] = $academicYearId;
+        }
+        
+        if ($roleId) {
+            $employeeSql .= " AND e.RoleID = :role";
+            $params[':role'] = $roleId;
+        }
+        
+        $employeeSql .= " AND IFNULL(e.IsActive, 1) = 1 ORDER BY e.FirstName, e.LastName";
+        
+        $stmt = $this->conn->prepare($employeeSql);
+        $stmt->execute($params);
+        $employees = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Initialize result array
+        $result = [];
+        
+        // Get attendance data for all employees for the entire month
+        foreach ($employees as $emp) {
+            $employeeId = $emp['EmployeeID'];
+            $employeeName = trim(($emp['FirstName'] ?? '') . ' ' . ($emp['MiddleName'] ?? '') . ' ' . ($emp['LastName'] ?? ''));
+            
+            $result[$employeeId] = [
+                'EmployeeID' => $employeeId,
+                'EmployeeName' => $employeeName,
+                'RoleName' => $emp['RoleName'] ?? '',
+                'statuses' => array_fill(0, $daysInMonth, null)
+            ];
+        }
+        
+        // Get attendance records for the month
+        $attendanceSql = "SELECT ea.EmployeeID, ea.Date, ea.Status, ea.SignIn, ea.SignOut
+                          FROM Tx_Employee_Attendance ea
+                          WHERE ea.SchoolID = :school 
+                          AND YEAR(ea.Date) = :year 
+                          AND MONTH(ea.Date) = :month";
+        
+        $attendanceParams = [':school' => $schoolId, ':year' => $year, ':month' => $month];
+        
+        if ($academicYearId) {
+            $attendanceSql .= " AND ea.AcademicYearID = :ay";
+            $attendanceParams[':ay'] = $academicYearId;
+        }
+        
+        $stmt = $this->conn->prepare($attendanceSql);
+        $stmt->execute($attendanceParams);
+        $attendanceRecords = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Apply attendance data to result
+        foreach ($attendanceRecords as $record) {
+            $employeeId = $record['EmployeeID'];
+            $date = $record['Date'];
+            $day = (int)date('j', strtotime($date)) - 1; // 0-based index
+            
+            if (isset($result[$employeeId]) && $day >= 0 && $day < $daysInMonth) {
+                $status = $record['Status'] ?? null;
+                
+                // Normalize status similar to student attendance
+                if ($status) {
+                    $statusLower = strtolower(trim($status));
+                    if ($statusLower === 'p' || $statusLower === 'present') {
+                        $result[$employeeId]['statuses'][$day] = 'Present';
+                    } elseif ($statusLower === 'l' || $statusLower === 'leave') {
+                        $result[$employeeId]['statuses'][$day] = 'Leave';
+                    } elseif ($statusLower === 'h' || $statusLower === 'halfday' || $statusLower === 'half-day') {
+                        $result[$employeeId]['statuses'][$day] = 'HalfDay';
+                    } elseif ($statusLower === 'a' || $statusLower === 'absent') {
+                        $result[$employeeId]['statuses'][$day] = 'Absent';
+                    } else {
+                        $result[$employeeId]['statuses'][$day] = ucfirst($statusLower);
+                    }
+                } elseif (!empty($record['SignIn']) || !empty($record['SignOut'])) {
+                    // If no status but has sign in/out, mark as Present
+                    $result[$employeeId]['statuses'][$day] = 'Present';
+                }
+            }
+        }
+        
+        // Apply holiday and weekly-off logic (similar to student attendance)
+        // This would require integrating with AcademicCalendarModel
+        // For now, return the basic attendance data
+        
+        return array_values($result);
+    }
 }

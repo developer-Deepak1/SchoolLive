@@ -81,4 +81,13 @@ export class EmployeeAttendanceService {
     const url = `${environment.baseURL.replace(/\/+$/,'')}/api/employee/attendance/requests/${id}/reject`;
     return this.http.post<any>(url, {});
   }
+
+  // Get monthly attendance for all employees with optional role filter
+  getMonthly(year: number, month: number, roleId?: number | null): Observable<any> {
+    const url = `${environment.baseURL.replace(/\/+$/,'')}/api/employee/attendance/monthly`;
+    const paramsObj: any = { year: year.toString(), month: month.toString() };
+    if (roleId !== undefined && roleId !== null) paramsObj.role_id = roleId.toString();
+    const params = new HttpParams({ fromObject: paramsObj });
+    return this.http.get<any>(url, { params });
+  }
 }
