@@ -7,6 +7,7 @@ class EmployeeAttendanceRequestsModel extends Model {
     protected $table = 'Tx_Employee_AttendanceRequests';
 
     public function createRequest($schoolId, $employeeId, $date, $requestType, $reason, $createdBy, $academicYearId = 0) {
+        $nowDate = date('Y-m-d H:i:s');
         try {
             // check for existing request for the employee+date
             $chk = $this->conn->prepare("SELECT AttendanceRequestID, IsActive FROM Tx_Employee_AttendanceRequests WHERE EmployeeID = :eid AND Date = :dt LIMIT 1");
@@ -18,12 +19,12 @@ class EmployeeAttendanceRequestsModel extends Model {
                     return 'exists_active';
                 }
                 // if an inactive (soft-deleted) request exists, reactivate and update fields
-                $up = $this->conn->prepare("UPDATE Tx_Employee_AttendanceRequests SET IsActive = 1, RequestType = :rt, Reason = :rs, Status = 'Pending', UpdatedBy = :ub, UpdatedAt = NOW() WHERE AttendanceRequestID = :id");
-                $up->execute([':rt' => $requestType, ':rs' => $reason ?? null, ':ub' => $createdBy ?? 'system', ':id' => $existing['AttendanceRequestID']]);
+                $up = $this->conn->prepare("UPDATE Tx_Employee_AttendanceRequests SET IsActive = 1, RequestType = :rt, Reason = :rs, Status = 'Pending', UpdatedBy = :ub, UpdatedAt = :nowDate WHERE AttendanceRequestID = :id");
+                $up->execute([':rt' => $requestType, ':rs' => $reason ?? null, ':ub' => $createdBy ?? 'system', ':id' => $existing['AttendanceRequestID'], ':nowDate' => $nowDate]);
                 return (int)$existing['AttendanceRequestID'];
             }
 
-            $sql = "INSERT INTO Tx_Employee_AttendanceRequests (EmployeeID, Date, RequestType, Reason, Status, SchoolID, AcademicYearID, CreatedBy) VALUES (:eid, :dt, :rt, :rs, 'Pending', :school, :ay, :cb)";
+            $sql = "INSERT INTO Tx_Employee_AttendanceRequests (EmployeeID, Date, RequestType, Reason, Status, SchoolID, AcademicYearID, CreatedBy, CreatedAt) VALUES (:eid, :dt, :rt, :rs, 'Pending', :school, :ay, :cb, :nowDate)";
             $stmt = $this->conn->prepare($sql);
             $stmt->bindValue(':eid', $employeeId, PDO::PARAM_INT);
             $stmt->bindValue(':dt', $date);
@@ -32,6 +33,7 @@ class EmployeeAttendanceRequestsModel extends Model {
             $stmt->bindValue(':school', $schoolId, PDO::PARAM_INT);
             $stmt->bindValue(':ay', $academicYearId ?? 0, PDO::PARAM_INT);
             $stmt->bindValue(':cb', $createdBy ?? 'system');
+            $stmt->bindValue(':nowDate', $nowDate);
             if ($stmt->execute()) {
                 return (int)$this->conn->lastInsertId();
             }
@@ -45,8 +47,8 @@ class EmployeeAttendanceRequestsModel extends Model {
                 if ($existing) {
                     if ((int)$existing['IsActive'] === 1) return 'exists_active';
                     // reactivate
-                    $up = $this->conn->prepare("UPDATE Tx_Employee_AttendanceRequests SET IsActive = 1, RequestType = :rt, Reason = :rs, Status = 'Pending', UpdatedBy = :ub, UpdatedAt = NOW() WHERE AttendanceRequestID = :id");
-                    $up->execute([':rt' => $requestType, ':rs' => $reason ?? null, ':ub' => $createdBy ?? 'system', ':id' => $existing['AttendanceRequestID']]);
+                    $up = $this->conn->prepare("UPDATE Tx_Employee_AttendanceRequests SET IsActive = 1, RequestType = :rt, Reason = :rs, Status = 'Pending', UpdatedBy = :ub, UpdatedAt = :nowDate WHERE AttendanceRequestID = :id");
+                    $up->execute([':rt' => $requestType, ':rs' => $reason ?? null, ':ub' => $createdBy ?? 'system', ':id' => $existing['AttendanceRequestID'], ':nowDate' => $nowDate]);
                     return (int)$existing['AttendanceRequestID'];
                 }
             }
@@ -71,10 +73,12 @@ class EmployeeAttendanceRequestsModel extends Model {
     }
 
     public function cancelRequest($id, $updatedBy = null) {
-        $sql = "UPDATE Tx_Employee_AttendanceRequests SET IsActive = 0, Status = 'Rejected', UpdatedBy = :ub, UpdatedAt = NOW() WHERE AttendanceRequestID = :id AND IsActive = 1";
+        $nowDate = date('Y-m-d H:i:s');
+        $sql = "UPDATE Tx_Employee_AttendanceRequests SET IsActive = 0, Status = 'Rejected', UpdatedBy = :ub, UpdatedAt = :nowDate WHERE AttendanceRequestID = :id AND IsActive = 1";
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':ub', $updatedBy ?? 'system');
         $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':nowDate', $nowDate);
         $stmt->execute();
         return $stmt->rowCount() > 0;
     }
@@ -93,25 +97,25 @@ class EmployeeAttendanceRequestsModel extends Model {
             $schoolId = $req['SchoolID'];
             $academicYearId = $req['AcademicYearID'];
             $requestType = $req['RequestType'];
-
+            $nowDate = date('Y-m-d H:i:s');
             // check if attendance exists
             $chk = $this->conn->prepare("SELECT EmployeeAttendanceID FROM Tx_Employee_Attendance WHERE EmployeeID = :eid AND Date = :dt LIMIT 1");
             $chk->execute([':eid' => $employeeId, ':dt' => $date]);
             $att = $chk->fetch(PDO::FETCH_ASSOC);
             if ($att) {
                 // reactivate if previously soft-deleted
-                $upd = $this->conn->prepare("UPDATE Tx_Employee_Attendance SET IsActive = 1, UpdatedBy = :ub, UpdatedAt = NOW() WHERE EmployeeAttendanceID = :id");
-                $upd->execute([':ub' => $approvedBy ?? 'system', ':id' => $att['EmployeeAttendanceID']]);
+                $upd = $this->conn->prepare("UPDATE Tx_Employee_Attendance SET Status='Present',Remarks = 'Approved',IsActive = 1, UpdatedBy = :ub, UpdatedAt = :nowDate WHERE EmployeeAttendanceID = :id");
+                $upd->execute([':ub' => $approvedBy ?? 'system', ':id' => $att['EmployeeAttendanceID'], ':nowDate' => $nowDate]);
             } else {
                 // insert attendance row; map requestType to Status
                 $status = ($requestType === 'Attendance') ? 'Present' : 'Leave';
-                $ins = $this->conn->prepare("INSERT INTO Tx_Employee_Attendance (Date, EmployeeID, SchoolID, AcademicYearID, Status, CreatedBy) VALUES (:dt, :eid, :school, :ay, :st, :cb)");
-                $ins->execute([':dt' => $date, ':eid' => $employeeId, ':school' => $schoolId, ':ay' => $academicYearId ?? 0, ':st' => $status, ':cb' => $approvedBy ?? 'system']);
+                $ins = $this->conn->prepare("INSERT INTO Tx_Employee_Attendance (Date, EmployeeID, SchoolID, AcademicYearID, Status, CreatedBy, CreatedAt) VALUES (:dt, :eid, :school, :ay, :st, :cb, :nowDate)");
+                $ins->execute([':dt' => $date, ':eid' => $employeeId, ':school' => $schoolId, ':ay' => $academicYearId ?? 0, ':st' => $status, ':cb' => $approvedBy ?? 'system', ':nowDate' => $nowDate]);
             }
 
             // mark request approved
-            $up = $this->conn->prepare("UPDATE Tx_Employee_AttendanceRequests SET Status = 'Approved', UpdatedBy = :ub, UpdatedAt = NOW() WHERE AttendanceRequestID = :id");
-            $up->execute([':ub' => $approvedBy ?? 'system', ':id' => $id]);
+            $up = $this->conn->prepare("UPDATE Tx_Employee_AttendanceRequests SET Status = 'Approved', UpdatedBy = :ub, UpdatedAt = :nowDate WHERE AttendanceRequestID = :id");
+            $up->execute([':ub' => $approvedBy ?? 'system', ':id' => $id, ':nowDate' => $nowDate]);
 
             $this->conn->commit();
             return true;
@@ -128,12 +132,13 @@ class EmployeeAttendanceRequestsModel extends Model {
             $stmt = $this->conn->prepare("UPDATE Tx_Employee_AttendanceRequests SET Status = 'Rejected', UpdatedBy = :ub, UpdatedAt = NOW() WHERE AttendanceRequestID = :id AND IsActive = 1");
             $stmt->execute([':ub' => $rejectedBy ?? 'system', ':id' => $id]);
             // if attendance row exists, soft-delete it (IsActive = 0)
+            $nowDate = date('Y-m-d H:i:s');
             $chk = $this->conn->prepare("SELECT EmployeeID, Date FROM Tx_Employee_AttendanceRequests WHERE AttendanceRequestID = :id LIMIT 1");
             $chk->execute([':id' => $id]);
             $req = $chk->fetch(PDO::FETCH_ASSOC);
             if ($req) {
-                $dstmt = $this->conn->prepare("UPDATE Tx_Employee_Attendance SET IsActive = 0, UpdatedBy = :ub, UpdatedAt = NOW() WHERE EmployeeID = :eid AND Date = :dt");
-                $dstmt->execute([':ub' => $rejectedBy ?? 'system', ':eid' => $req['EmployeeID'], ':dt' => $req['Date']]);
+                $dstmt = $this->conn->prepare("UPDATE Tx_Employee_Attendance SET IsActive = 0, UpdatedBy = :ub, UpdatedAt = :nowDate WHERE EmployeeID = :eid AND Date = :dt");
+                $dstmt->execute([':ub' => $rejectedBy ?? 'system', ':eid' => $req['EmployeeID'], ':dt' => $req['Date'], ':nowDate' => $nowDate]);
             }
             $this->conn->commit();
             return true;
