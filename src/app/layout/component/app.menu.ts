@@ -64,7 +64,8 @@ export class AppMenu {
                 items: [
                     { label: 'All Employees', icon: 'pi pi-fw pi-users', routerLink: ['/features/all-employees'] },
                     { label: 'Add New', icon: 'pi pi-fw pi-user-plus', routerLink: ['/features/add-employees'] },
-                    { label: 'Request Attendance', icon: 'pi pi-fw pi-clock', routerLink: ['/features/employee-attendance'] }
+                    { label: 'Request Attendance', icon: 'pi pi-fw pi-clock', routerLink: ['/features/employee-attendance'] },
+                    { label: 'Attendance Details', icon: 'pi pi-fw pi-list', routerLink: ['/features/employee-attendance-details'] }
                 ]
             },
             {
@@ -79,7 +80,7 @@ export class AppMenu {
                 label: 'Reports',
                 items: [
                     { label: 'Classwise Attendance', icon: 'pi pi-fw pi-chart-bar', routerLink: ['/features/classwise-attendance'] },
-                    { label: 'Employee Attendance', icon: 'pi pi-fw pi-chart-bar', routerLink: ['/features/employee-attendance-reports'] },
+                    { label: 'Employee Attendance', icon: 'pi pi-fw pi-briefcase', routerLink: ['/features/employee-attendance-reports'] },
                 ]
             }
         ];}
@@ -91,7 +92,8 @@ export class AppMenu {
                     { label: 'Dashboard', icon: 'pi pi-fw pi-home', routerLink: ['/'] },
                     { label: 'Profile Settings', icon: 'pi pi-fw pi-user', routerLink: ['/features/profile-setting'] },
                     { label: 'Academic Calendar', icon: 'pi pi-fw pi-calendar', routerLink: ['/features/academic-calendar'] },
-                    { label: 'Request Attendance', icon: 'pi pi-fw pi-clock', routerLink: ['/features/employee-attendance'] }
+                    { label: 'Request Attendance', icon: 'pi pi-fw pi-clock', routerLink: ['/features/employee-attendance'] },
+                    { label: 'Attendance Details', icon: 'pi pi-fw  pi-list', routerLink: ['/features/employee-attendance-details'] }
                 ]
             },
             {

@@ -117,6 +117,10 @@ class Router {
 
     // Employee attendance monthly reports
     $this->routes['GET']['/api/employee/attendance/monthly'] = ['handler' => ['SchoolLive\Controllers\EmployeeAttendanceController', 'monthly'], 'roles' => true];
+    
+    // Employee attendance detail reports (new endpoints)
+    $this->routes['GET']['/api/employee/attendance/details'] = ['handler' => ['SchoolLive\Controllers\EmployeeAttendanceController', 'getAttendanceDetails'], 'roles' => true];
+    $this->routes['GET']['/api/employee/attendance/user-details'] = ['handler' => ['SchoolLive\Controllers\EmployeeAttendanceController', 'getUserAttendanceDetails'], 'roles' => true];
 
     // Attendance routes (daily mark & list)
     $this->routes['GET']['/api/attendance'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'list'], 'roles' => true];

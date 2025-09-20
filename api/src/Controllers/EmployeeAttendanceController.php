@@ -173,4 +173,54 @@ class EmployeeAttendanceController extends BaseController {
             $this->fail('Failed to fetch monthly attendance: ' . $e->getMessage(), 500);
         }
     }
+
+    // GET /api/employee/attendance/details?year=2025&month=9 (Admin view - all employees)
+    public function getAttendanceDetails($params = []) {
+        $user = $this->currentUser(); if (!$user) return;
+        $year = isset($_GET['year']) ? (int)$_GET['year'] : (int)date('Y');
+        $month = isset($_GET['month']) ? (int)$_GET['month'] : (int)date('n');
+        $schoolId = $user['school_id'] ?? null;
+        $academicYearId = $user['AcademicYearID'] ?? null;
+        
+        if ($year < 1900 || $year > 2100 || $month < 1 || $month > 12) {
+            $this->fail('Invalid year or month', 400);
+            return;
+        }
+
+        try {
+            $records = $this->model->getAttendanceDetailsByMonth($schoolId, $academicYearId, $year, $month);
+            $this->ok('Employee attendance details', $records);
+        } catch (Exception $e) {
+            error_log("Error in employee attendance details: " . $e->getMessage());
+            $this->fail('Failed to fetch attendance details: ' . $e->getMessage(), 500);
+        }
+    }
+
+    // GET /api/employee/attendance/user-details?year=2025&month=9 (User view - current user only)
+    public function getUserAttendanceDetails($params = []) {
+        $user = $this->currentUser(); if (!$user) return;
+        $year = isset($_GET['year']) ? (int)$_GET['year'] : (int)date('Y');
+        $month = isset($_GET['month']) ? (int)$_GET['month'] : (int)date('n');
+        $schoolId = $user['school_id'] ?? null;
+        $academicYearId = $user['AcademicYearID'] ?? null;
+        $employeeId = isset($_GET['employee_id']) ? (int)$_GET['employee_id'] : null;
+        
+        if (!$employeeId) { 
+            $this->fail('Employee not found for user', 400); 
+            return; 
+        }
+        
+        if ($year < 1900 || $year > 2100 || $month < 1 || $month > 12) {
+            $this->fail('Invalid year or month', 400);
+            return;
+        }
+
+        try {
+            $records = $this->model->getUserAttendanceDetailsByMonth($schoolId, $academicYearId, $employeeId, $year, $month);
+            $this->ok('User attendance details', $records);
+        } catch (Exception $e) {
+            error_log("Error in user attendance details: " . $e->getMessage());
+            $this->fail('Failed to fetch user attendance details: ' . $e->getMessage(), 500);
+        }
+    }
 }

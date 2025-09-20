@@ -33,7 +33,7 @@ class EmployeeAttendanceModel extends Model {
             // if SignIn already exists, leave it
             if (!empty($row['SignIn'])) return ['created'=>false,'updated'=>false,'row'=>$row];
             $upd = $this->conn->prepare("UPDATE Tx_Employee_Attendance SET SignIn = :si, Status = 'Present', Remarks = :rm, UpdatedBy = :ub, UpdatedAt = NOW() WHERE EmployeeAttendanceID = :id");
-            $upd->execute([':si'=>$signinAt, ':rm'=>'signin', ':ub'=>$username, ':id'=>$row['EmployeeAttendanceID']]);
+            $upd->execute([':si'=>$signinAt, ':rm'=>'SignIn Complete', ':ub'=>$username, ':id'=>$row['EmployeeAttendanceID']]);
             return ['created'=>false,'updated'=>true,'row'=>['EmployeeAttendanceID'=>$row['EmployeeAttendanceID'],'SignIn'=>$signinAt]];
         }
         // Insert
@@ -43,7 +43,7 @@ class EmployeeAttendanceModel extends Model {
         $ins->bindValue(':school', $schoolId, PDO::PARAM_INT);
         $ins->bindValue(':ay', $academicYearId ?? 0, PDO::PARAM_INT);
     $ins->bindValue(':si', $signinAt);
-    $ins->bindValue(':rm', 'signin');
+    $ins->bindValue(':rm', 'SignIn Complete');
     $ins->bindValue(':cb', $username);
         $ins->execute();
         $id = (int)$this->conn->lastInsertId();
@@ -76,7 +76,7 @@ class EmployeeAttendanceModel extends Model {
                 }
             }
             $upd = $this->conn->prepare("UPDATE Tx_Employee_Attendance SET SignOut = :so, TotalHours = :th, Status = 'Present', Remarks = :rm, UpdatedBy = :ub, UpdatedAt = NOW() WHERE EmployeeAttendanceID = :id");
-            $upd->execute([':so'=>$signoutAt, ':th'=>$totalHours, ':rm'=>'signin and signout complete', ':ub'=>$username, ':id'=>$row['EmployeeAttendanceID']]);
+            $upd->execute([':so'=>$signoutAt, ':th'=>$totalHours, ':rm'=>'SignIn and SignOut Complete', ':ub'=>$username, ':id'=>$row['EmployeeAttendanceID']]);
             $retRow = ['EmployeeAttendanceID'=>$row['EmployeeAttendanceID'],'SignOut'=>$signoutAt,'SignIn'=>$row['SignIn']];
             if ($totalHours !== null) $retRow['TotalHours'] = $totalHours;
             return ['created'=>false,'updated'=>true,'row'=>$retRow];
@@ -293,5 +293,84 @@ class EmployeeAttendanceModel extends Model {
                 }
             }
         }
+    }
+
+    /**
+     * Get detailed attendance records for all employees by month (Admin view)
+     * Returns Date, EmployeeName, SignIn, SignOut, Status, Remarks
+     */
+    public function getAttendanceDetailsByMonth($schoolId, $academicYearId, $year, $month) {
+        $sql = "SELECT 
+                    ea.Date,
+                    CONCAT(e.FirstName, 
+                           CASE WHEN e.MiddleName IS NOT NULL AND e.MiddleName != '' 
+                                THEN CONCAT(' ', e.MiddleName) 
+                                ELSE '' END,
+                           CASE WHEN e.LastName IS NOT NULL AND e.LastName != '' 
+                                THEN CONCAT(' ', e.LastName) 
+                                ELSE '' END) AS EmployeeName,
+                    TIME(ea.SignIn) AS SignInTime,
+                    TIME(ea.SignOut) AS SignOutTime,
+                    ea.Status,
+                    ea.Remarks,
+                    ea.EmployeeID
+                FROM Tx_Employee_Attendance ea
+                INNER JOIN Tx_Employees e ON ea.EmployeeID = e.EmployeeID
+                WHERE ea.SchoolID = :school
+                AND YEAR(ea.Date) = :year 
+                AND MONTH(ea.Date) = :month";
+        
+        $params = [
+            ':school' => $schoolId,
+            ':year' => $year,
+            ':month' => $month
+        ];
+        
+        if ($academicYearId) {
+            $sql .= " AND ea.AcademicYearID = :ay";
+            $params[':ay'] = $academicYearId;
+        }
+        
+        $sql .= " ORDER BY ea.Date DESC, EmployeeName ASC";
+        
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Get detailed attendance records for current user by month (Teacher/User view)
+     * Returns Date, SignIn, SignOut, Status, Remarks
+     */
+    public function getUserAttendanceDetailsByMonth($schoolId, $academicYearId, $employeeId, $year, $month) {
+        $sql = "SELECT 
+                    ea.Date,
+                    TIME(ea.SignIn) AS SignInTime,
+                    TIME(ea.SignOut) AS SignOutTime,
+                    ea.Status,
+                    ea.Remarks
+                FROM Tx_Employee_Attendance ea
+                WHERE ea.SchoolID = :school
+                AND ea.EmployeeID = :employee_id
+                AND YEAR(ea.Date) = :year 
+                AND MONTH(ea.Date) = :month";
+        
+        $params = [
+            ':school' => $schoolId,
+            ':employee_id' => $employeeId,
+            ':year' => $year,
+            ':month' => $month
+        ];
+        
+        if ($academicYearId) {
+            $sql .= " AND ea.AcademicYearID = :ay";
+            $params[':ay'] = $academicYearId;
+        }
+        
+        $sql .= " ORDER BY ea.Date DESC";
+        
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
