@@ -33,7 +33,7 @@ class EmployeeAttendanceModel extends Model {
             // if SignIn already exists, leave it
             if (!empty($row['SignIn'])) return ['created'=>false,'updated'=>false,'row'=>$row];
             $upd = $this->conn->prepare("UPDATE Tx_Employee_Attendance SET SignIn = :si, Status = 'Present', Remarks = :rm, UpdatedBy = :ub, UpdatedAt = NOW() WHERE EmployeeAttendanceID = :id");
-            $upd->execute([':si'=>$signinAt, ':rm'=>'signin', ':ub'=>$username, ':id'=>$row['EmployeeAttendanceID']]);
+            $upd->execute([':si'=>$signinAt, ':rm'=>'SignIn Complete', ':ub'=>$username, ':id'=>$row['EmployeeAttendanceID']]);
             return ['created'=>false,'updated'=>true,'row'=>['EmployeeAttendanceID'=>$row['EmployeeAttendanceID'],'SignIn'=>$signinAt]];
         }
         // Insert
@@ -43,7 +43,7 @@ class EmployeeAttendanceModel extends Model {
         $ins->bindValue(':school', $schoolId, PDO::PARAM_INT);
         $ins->bindValue(':ay', $academicYearId ?? 0, PDO::PARAM_INT);
     $ins->bindValue(':si', $signinAt);
-    $ins->bindValue(':rm', 'signin');
+    $ins->bindValue(':rm', 'SignIn Complete');
     $ins->bindValue(':cb', $username);
         $ins->execute();
         $id = (int)$this->conn->lastInsertId();
@@ -76,7 +76,7 @@ class EmployeeAttendanceModel extends Model {
                 }
             }
             $upd = $this->conn->prepare("UPDATE Tx_Employee_Attendance SET SignOut = :so, TotalHours = :th, Status = 'Present', Remarks = :rm, UpdatedBy = :ub, UpdatedAt = NOW() WHERE EmployeeAttendanceID = :id");
-            $upd->execute([':so'=>$signoutAt, ':th'=>$totalHours, ':rm'=>'signin and signout complete', ':ub'=>$username, ':id'=>$row['EmployeeAttendanceID']]);
+            $upd->execute([':so'=>$signoutAt, ':th'=>$totalHours, ':rm'=>'SignIn and SignOut Complete', ':ub'=>$username, ':id'=>$row['EmployeeAttendanceID']]);
             $retRow = ['EmployeeAttendanceID'=>$row['EmployeeAttendanceID'],'SignOut'=>$signoutAt,'SignIn'=>$row['SignIn']];
             if ($totalHours !== null) $retRow['TotalHours'] = $totalHours;
             return ['created'=>false,'updated'=>true,'row'=>$retRow];
