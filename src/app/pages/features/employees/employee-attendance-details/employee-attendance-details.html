@@ -114,12 +114,12 @@
         <td *ngIf="isSchoolAdmin">{{ attendance.EmployeeName }}</td>
         <td>
           <span [class]="getTimeStatusClass(attendance.SignInTime, 'signin')">
-            {{ attendance.SignInTime || 'Not Signed In' }}
+            {{ attendance.SignInTime ? formatTime(attendance.SignInTime) : 'Not Signed In' }}
           </span>
         </td>
         <td>
           <span [class]="getTimeStatusClass(attendance.SignOutTime, 'signout')">
-            {{ attendance.SignOutTime || 'Not Signed Out' }}
+            {{ attendance.SignOutTime ? formatTime(attendance.SignOutTime) : 'Not Signed Out' }}
           </span>
         </td>
         <td>

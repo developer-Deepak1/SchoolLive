@@ -7,6 +7,7 @@ import { AppMenu } from './app.menu';
     imports: [AppMenu],
     template: ` <div class="layout-sidebar">
         <app-menu></app-menu>
+        <div style="height: 50px;"></div>
     </div>`
 })
 export class AppSidebar {

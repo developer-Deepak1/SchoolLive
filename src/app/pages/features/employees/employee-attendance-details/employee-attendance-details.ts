@@ -272,6 +272,20 @@ export class EmployeeAttendanceDetailsComponent implements OnInit {
       }
     }
   }
+
+  formatTime(time: string | null): string {
+    if (!time) return '';
+    try {
+      // Ensure we have a parsable ISO time; append date if needed
+      const iso = time.includes('T') ? time : `1970-01-01T${time}`;
+      const dt = new Date(iso);
+      if (isNaN(dt.getTime())) return String(time);
+      // Use locale formatting to produce '9:30 am' style output
+      return dt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+    } catch (e) {
+      return String(time);
+    }
+  }
   
   getStatusSeverity(status: string): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' | undefined {
     switch (status?.toLowerCase()) {
