@@ -19,6 +19,7 @@ import { AddSchool } from './school/add-school/add-school';
 import { AddUsers } from './user/add-users/add-users';
 import { AllUsers } from './user/all-users/all-users';
 import { AllSchool } from './school/all-school/all-school';
+import { EmployeeAttendanceDetails } from './employees/employee-attendance-details/employee-attendance-details';
 
 export default [
     { path: 'profile-setting', component: ProfileSetting, canActivate: [AuthGuard] },
@@ -29,6 +30,7 @@ export default [
     { path: 'add-employees', component: AddEmployees, canActivate: [AuthGuard] },
     { path: 'employee-profile/:id', component: EmployeeProfile, canActivate: [AuthGuard] },
     { path: 'employee-attendance', component: EmployeeAttandance, canActivate: [AuthGuard] },
+    { path: 'employee-attendance-details', component: EmployeeAttendanceDetails, canActivate: [AuthGuard] },
     { path: 'student-profile/:id', component: StudentProfile, canActivate: [AuthGuard] },
     { path: 'all-students', component: AllStudents, canActivate: [AuthGuard] },
     { path: 'student-admission', component: StudentAdmission, canActivate: [AuthGuard] },

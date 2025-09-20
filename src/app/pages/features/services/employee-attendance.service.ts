@@ -90,4 +90,21 @@ export class EmployeeAttendanceService {
     const params = new HttpParams({ fromObject: paramsObj });
     return this.http.get<any>(url, { params });
   }
+
+  // Get attendance details for all employees (admin view)
+  getEmployeeAttendanceByMonth(year: number, month: number): Observable<any> {
+    const url = `${environment.baseURL.replace(/\/+$/,'')}/api/employee/attendance/details`;
+    const params = new HttpParams({ fromObject: { year: year.toString(), month: month.toString() } });
+    return this.http.get<any>(url, { params });
+  }
+
+  // Get attendance details for current user only (teacher view)
+  // Optional `employeeId` allows admins to request another user's attendance
+  getUserAttendanceByMonth(year: number, month: number, employeeId?: number): Observable<any> {
+    const url = `${environment.baseURL.replace(/\/+$/,'')}/api/employee/attendance/user-details`;
+    const paramsObj: any = { year: year.toString(), month: month.toString() };
+    if (employeeId !== undefined && employeeId !== null) paramsObj.employee_id = String(employeeId);
+    const params = new HttpParams({ fromObject: paramsObj });
+    return this.http.get<any>(url, { params });
+  }
 }
