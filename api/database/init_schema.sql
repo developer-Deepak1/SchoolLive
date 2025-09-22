@@ -524,40 +524,8 @@ CREATE TABLE IF NOT EXISTS Tx_StudentGrades (
     INDEX idx_grade_ac_year (AcademicYearID)
 );
 
--- Fees (payments) table
-CREATE TABLE IF NOT EXISTS Tx_Fees (
-    FeeID BIGINT AUTO_INCREMENT PRIMARY KEY,
-    SchoolID INT NOT NULL,
-    AcademicYearID INT NOT NULL,
-    Category VARCHAR(50) NOT NULL, -- Tuition, Extra, Transport
-    Amount DECIMAL(12,2) NOT NULL,
-    PaymentDate DATE NOT NULL,
-    IsActive BOOLEAN NOT NULL DEFAULT TRUE,
-    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CreatedBy VARCHAR(100),
-    FOREIGN KEY (SchoolID) REFERENCES Tm_Schools(SchoolID) ON DELETE CASCADE,
-    FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID) ON DELETE CASCADE,
-    INDEX idx_fees_school_date (SchoolID, PaymentDate)
-);
 
--- Fee Invoices for pending fee calculation
-CREATE TABLE IF NOT EXISTS Tx_FeeInvoices (
-    InvoiceID BIGINT AUTO_INCREMENT PRIMARY KEY,
-    SchoolID INT NOT NULL,
-    AcademicYearID INT NOT NULL,
-    StudentID BIGINT NULL,
-    AmountDue DECIMAL(12,2) NOT NULL,
-    AmountPaid DECIMAL(12,2) NOT NULL DEFAULT 0,
-    Status VARCHAR(20) NOT NULL DEFAULT 'Pending', -- Pending, Partial, Paid
-    DueDate DATE NULL,
-    IsActive BOOLEAN NOT NULL DEFAULT TRUE,
-    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CreatedBy VARCHAR(100),
-    FOREIGN KEY (SchoolID) REFERENCES Tm_Schools(SchoolID) ON DELETE CASCADE,
-    FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID) ON DELETE CASCADE,
-    FOREIGN KEY (StudentID) REFERENCES Tx_Students(StudentID) ON DELETE SET NULL,
-    INDEX idx_invoice_school_status (SchoolID, Status)
-);
+
 
 -- Dummy Events (future dates)
 INSERT INTO Tx_Events (SchoolID, AcademicYearID, Title, EventDate, StartTime, EndTime, Location, Type, Priority, CreatedBy) VALUES
@@ -586,32 +554,6 @@ INSERT INTO Tx_StudentGrades (StudentID, AcademicYearID, Subject, GradeLetter, M
 (2,1,'English','B',75,'System'),
 (3,1,'English','C',62,'System');
 
--- Dummy Fees (last 6 months)
-INSERT INTO Tx_Fees (SchoolID, AcademicYearID, Category, Amount, PaymentDate, CreatedBy) VALUES
-(1000,1,'Tuition',450000,'2025-03-15','System'),
-(1000,1,'Extra',45000,'2025-03-20','System'),
-(1000,1,'Transport',35000,'2025-03-25','System'),
-(1000,1,'Tuition',465000,'2025-04-15','System'),
-(1000,1,'Extra',48000,'2025-04-20','System'),
-(1000,1,'Transport',36000,'2025-04-25','System'),
-(1000,1,'Tuition',470000,'2025-05-15','System'),
-(1000,1,'Extra',52000,'2025-05-20','System'),
-(1000,1,'Transport',37000,'2025-05-25','System'),
-(1000,1,'Tuition',480000,'2025-06-15','System'),
-(1000,1,'Extra',55000,'2025-06-20','System'),
-(1000,1,'Transport',38000,'2025-06-25','System'),
-(1000,1,'Tuition',485000,'2025-07-15','System'),
-(1000,1,'Extra',58000,'2025-07-20','System'),
-(1000,1,'Transport',39000,'2025-07-25','System'),
-(1000,1,'Tuition',490000,'2025-08-15','System'),
-(1000,1,'Extra',60000,'2025-08-20','System'),
-(1000,1,'Transport',40000,'2025-08-25','System');
-
--- Dummy Fee Invoices (some pending/partial)
-INSERT INTO Tx_FeeInvoices (SchoolID, AcademicYearID, StudentID, AmountDue, AmountPaid, Status, DueDate, CreatedBy) VALUES
-(1000,1,1,2500,2500,'Paid','2025-04-10','System'),
-(1000,1,2,2500,1500,'Partial','2025-04-10','System'),
-(1000,1,3,2500,0,'Pending','2025-04-10','System');
 
 -- ================= GYAN GANGA public school demo data (6 months) =================
 -- Insert new school
@@ -711,32 +653,6 @@ INSERT INTO Tx_StudentGrades (StudentID, AcademicYearID, Subject, GradeLetter, M
 ((SELECT StudentID FROM Tx_Students WHERE StudentName='Meera Singh' AND SchoolID=@school LIMIT 1), @ay, 'Science', 'B+', 82, 'System'),
 ((SELECT StudentID FROM Tx_Students WHERE StudentName='Rajat Patel' AND SchoolID=@school LIMIT 1), @ay, 'English', 'A+', 95, 'System');
 
--- Insert fees payments for last 6 months (Mar-Aug 2025) for Gyan Ganga
-INSERT INTO Tx_Fees (SchoolID, AcademicYearID, Category, Amount, PaymentDate, CreatedBy) VALUES
-(@school,@ay,'Tuition',120000,'2025-03-15','System'),
-(@school,@ay,'Extra',12000,'2025-03-20','System'),
-(@school,@ay,'Transport',8000,'2025-03-25','System'),
-(@school,@ay,'Tuition',125000,'2025-04-15','System'),
-(@school,@ay,'Extra',13000,'2025-04-20','System'),
-(@school,@ay,'Transport',8200,'2025-04-25','System'),
-(@school,@ay,'Tuition',127000,'2025-05-15','System'),
-(@school,@ay,'Extra',13500,'2025-05-20','System'),
-(@school,@ay,'Transport',8400,'2025-05-25','System'),
-(@school,@ay,'Tuition',128500,'2025-06-15','System'),
-(@school,@ay,'Extra',13800,'2025-06-20','System'),
-(@school,@ay,'Transport',8600,'2025-06-25','System'),
-(@school,@ay,'Tuition',130000,'2025-07-15','System'),
-(@school,@ay,'Extra',14000,'2025-07-20','System'),
-(@school,@ay,'Transport',8800,'2025-07-25','System'),
-(@school,@ay,'Tuition',132000,'2025-08-15','System'),
-(@school,@ay,'Extra',14500,'2025-08-20','System'),
-(@school,@ay,'Transport',9000,'2025-08-25','System');
-
--- Insert fee invoices for some students (pending/partial)
-INSERT INTO Tx_FeeInvoices (SchoolID, AcademicYearID, StudentID, AmountDue, AmountPaid, Status, DueDate, CreatedBy) VALUES
-(@school,@ay,(SELECT StudentID FROM Tx_Students WHERE StudentName='Anil Kumar' AND SchoolID=@school LIMIT 1),2500,2500,'Paid','2025-04-10','System'),
-(@school,@ay,(SELECT StudentID FROM Tx_Students WHERE StudentName='Meera Singh' AND SchoolID=@school LIMIT 1),2500,1200,'Partial','2025-04-10','System'),
-(@school,@ay,(SELECT StudentID FROM Tx_Students WHERE StudentName='Neha Das' AND SchoolID=@school LIMIT 1),2500,0,'Pending','2025-04-10','System');
 
 -- Events for Gyan Ganga
 INSERT INTO Tx_Events (SchoolID, AcademicYearID, Title, EventDate, StartTime, EndTime, Location, Type, Priority, CreatedBy) VALUES
