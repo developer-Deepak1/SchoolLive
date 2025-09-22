@@ -1,0 +1,307 @@
+.fee-management-container {
+  min-height: 100vh;
+  background: #f8fafc;
+
+  .card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e2e8f0;
+    margin-bottom: 1.5rem;
+
+    @media (min-width: 768px) {
+      padding: 2rem;
+    }
+
+    &:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      transition: box-shadow 0.3s ease;
+    }
+  }
+
+  // Responsive grid system
+  .grid {
+    display: grid;
+    gap: 1rem;
+
+    &.grid-cols-1 {
+      grid-template-columns: 1fr;
+    }
+
+    @media (min-width: 1024px) {
+      &.lg\\:grid-cols-2 {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+      }
+
+      &.lg\\:grid-cols-4 {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    @media (min-width: 768px) {
+      &.md\\:grid-cols-4 {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    @media (min-width: 640px) {
+      &.sm\\:grid-cols-2 {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    &.grid-cols-12 {
+      grid-template-columns: repeat(12, 1fr);
+    }
+  }
+
+  // Column spans
+  .col-span-1 { grid-column: span 1; }
+  .col-span-3 { grid-column: span 3; }
+  .col-span-4 { grid-column: span 4; }
+  .col-span-12 { grid-column: span 12; }
+
+  // Form enhancements
+  .p-component {
+    font-family: inherit;
+  }
+
+  .p-inputtext, .p-dropdown, .p-inputnumber, .p-datepicker {
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    
+    &:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+  }
+
+  .p-button {
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+
+    &.p-button-sm {
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+    }
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    &.p-button-text {
+      &:hover {
+        transform: none;
+        box-shadow: none;
+        background-color: rgba(59, 130, 246, 0.1);
+      }
+    }
+  }
+
+  // Class section table
+  .class-section-row {
+    transition: background-color 0.2s ease;
+    
+    &:hover {
+      background-color: #f9fafb;
+    }
+  }
+
+  // Template buttons
+  .template-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    
+    .p-button {
+      border-radius: 20px;
+      padding: 0.25rem 0.75rem;
+      font-size: 0.75rem;
+      border: 1px solid #e2e8f0;
+      color: #6b7280;
+      background: white;
+
+      &:hover {
+        background: #3b82f6;
+        color: white;
+        border-color: #3b82f6;
+        transform: translateY(-1px);
+      }
+    }
+  }
+
+  // Tab styling
+  .tab-button {
+    position: relative;
+    padding: 0.75rem 1rem;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    color: #6b7280;
+    transition: all 0.2s ease;
+    
+    &.active {
+      color: #3b82f6;
+      border-bottom-color: #3b82f6;
+    }
+
+    &:hover:not(.active) {
+      color: #374151;
+      background-color: #f9fafb;
+    }
+
+    i {
+      font-size: 0.875rem;
+    }
+  }
+
+  // Fee list items
+  .fee-item {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.5rem;
+    background: white;
+    transition: all 0.3s ease;
+
+    &:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      transform: translateY(-2px);
+    }
+
+    &.inactive {
+      opacity: 0.7;
+      background: #f9fafb;
+    }
+
+    .fee-badge {
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .fee-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+  }
+
+  // Empty state
+  .empty-state {
+    padding: 3rem 1rem;
+    text-align: center;
+    color: #6b7280;
+
+    .empty-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      opacity: 0.3;
+    }
+  }
+
+  // Responsive adjustments
+  @media (max-width: 768px) {
+    padding: 1rem;
+
+    .card {
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .grid.grid-cols-12 {
+      grid-template-columns: 1fr;
+      
+      .col-span-4,
+      .col-span-3,
+      .col-span-1 {
+        grid-column: span 1;
+      }
+    }
+
+    .fee-item {
+      padding: 1rem;
+      
+      .fee-actions {
+        margin-top: 1rem;
+        justify-content: flex-start;
+      }
+    }
+
+    .template-buttons {
+      justify-content: flex-start;
+    }
+
+    // Stack form elements on mobile
+    .form-actions {
+      flex-direction: column;
+      gap: 0.75rem;
+      
+      .p-button {
+        width: 100%;
+      }
+    }
+  }
+
+  @media (max-width: 640px) {
+    .fee-item {
+      .fee-details {
+        grid-template-columns: 1fr !important;
+        gap: 0.75rem;
+      }
+    }
+
+    .tab-button {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+    }
+  }
+
+  // Loading states
+  .p-button[data-loading="true"] {
+    pointer-events: none;
+    opacity: 0.7;
+  }
+
+  // Focus states for accessibility
+  .p-component:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+  }
+
+  // Animation classes
+  .fade-in {
+    animation: fadeIn 0.3s ease-in;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  // Success/error states
+  .p-inputtext.ng-invalid.ng-touched,
+  .p-dropdown.ng-invalid.ng-touched {
+    border-color: #ef4444;
+    
+    &:focus {
+      border-color: #ef4444;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+    }
+  }
+
+  .p-inputtext.ng-valid.ng-touched {
+    border-color: #10b981;
+  }
+}

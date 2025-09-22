@@ -1,0 +1,309 @@
+<!-- Toast Messages -->
+<p-toast position="top-right"></p-toast>
+<p-card class="mb-6" header="Quick Templates">
+        <p-button *ngFor="let template of feeTemplates" [label]="template.name" size="small" severity="secondary"
+            [text]="true" (onClick)="applyTemplate(template)" class="p-button-sm">
+        </p-button>
+</p-card>
+
+<!-- Fee Creation Form -->
+<p-card class="mb-6" header="Create Fee">
+    <!-- <ng-template #header>
+        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <h2 class="text-2xl font-semibold text-gray-800">Create Fee</h2>
+        </div>
+    </ng-template> -->
+
+    <form #feeForm="ngForm" (ngSubmit)="onSubmit()" class="space-y-6">
+        <!-- Basic Fee Information -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+            <!-- Fee Name -->
+            <div class="flex flex-col gap-2 lg:col-span-1">
+                <label for="feeName" class="font-medium text-gray-700">Fee Name <span class="text-red-500">*</span></label>
+                <input type="text" id="feeName" [(ngModel)]="feeData.feeName" name="feeName"
+                    placeholder="Enter fee name (e.g., Admission Fee, Tuition Fee)"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                    required>
+                <small class="text-gray-500">You can enter any custom fee name</small>
+            </div>
+
+            <!-- Frequency -->
+            <div class="flex flex-col gap-2 lg:col-span-1">
+                <label for="frequency" class="font-medium text-gray-700">Frequency <span class="text-red-500">*</span></label>
+                <p-select id="frequency" [(ngModel)]="feeData.frequency" name="frequency" [options]="frequencyOptions"
+                    optionLabel="label" optionValue="value" placeholder="Select Frequency" class="w-full" required>
+                </p-select>
+            </div>
+
+            <!-- Start Date -->
+            <div class="flex flex-col gap-2 lg:col-span-1">
+                <label for="startDate" class="font-medium text-gray-700">Start Date <span class="text-red-500">*</span></label>
+                <p-datepicker id="startDate" [(ngModel)]="feeData.startDate" name="startDate" [showIcon]="true"
+                    iconDisplay="input" class="w-full" placeholder="Select start date" dateFormat="dd/mm/yy" required>
+                </p-datepicker>
+            </div>
+
+            <!-- Last Due Date -->
+            <div class="flex flex-col gap-2 lg:col-span-1">
+                <label for="lastDueDate" class="font-medium text-gray-700">Last Due Date <span class="text-red-500">*</span></label>
+                <p-datepicker id="lastDueDate" [(ngModel)]="feeData.lastDueDate" name="lastDueDate" [showIcon]="true"
+                    iconDisplay="input" class="w-full" placeholder="Select last due date" dateFormat="dd/mm/yy"
+                    required>
+                </p-datepicker>
+            </div>
+
+            <!-- Default Amount -->
+            <div class="flex flex-col gap-2 lg:col-span-1">
+                <label for="amount" class="font-medium text-gray-700">Default Amount <span class="text-red-500">*</span></label>
+                <p-inputnumber id="amount" [(ngModel)]="feeData.amount" name="amount" mode="currency" currency="INR"
+                    locale="en-IN" class="w-full" placeholder="Enter amount" [min]="0" [maxFractionDigits]="2"
+                    (onInput)="onDefaultAmountChange()" required>
+                </p-inputnumber>
+                <small class="text-gray-500">This amount will be applied to all selected classes</small>
+            </div>
+        </div>
+
+        <!-- Class and Section Assignment -->
+        <div class="mt-6 lg:mt-8">
+            <h5 class="text-lg font-semibold text-gray-800 mb-4">Class & Section Assignment</h5>
+            
+            <p-table 
+                [value]="classSections" 
+                [scrollable]="true" 
+                scrollHeight="400px"
+                styleClass="p-datatable-sm"
+                [tableStyle]="{'min-width': '10rem'}">
+                
+                <ng-template pTemplate="header">
+                    <tr>
+                        <th style="width: 3rem">
+                            <p-checkbox
+                                [(ngModel)]="allSelected"
+                                [ngModelOptions]="{standalone: true}"
+                                binary="true">
+                            </p-checkbox>
+                        </th>
+                        <th pSortableColumn="className">
+                            Class Name
+                            <p-sortIcon field="className"></p-sortIcon>
+                        </th>
+                        <th pSortableColumn="sectionName">
+                            Section Name
+                            <p-sortIcon field="sectionName"></p-sortIcon>
+                        </th>
+                        <th style="width: 12rem">Amount (₹)</th>
+                    </tr>
+                </ng-template>
+                
+                <ng-template pTemplate="body" let-classSection let-i="rowIndex">
+                    <tr [class.bg-blue-50]="classSection.selected">
+                        <td>
+                            <p-checkbox 
+                                [(ngModel)]="classSection.selected"
+                                [name]="'selected_' + i"
+                                [ngModelOptions]="{standalone: true}"
+                                binary="true">
+                            </p-checkbox>
+                        </td>
+                        <td>
+                            <span class="font-medium text-gray-900">{{ classSection.className }}</span>
+                        </td>
+                        <td>
+                            <span class="text-gray-700">{{ classSection.sectionName }}</span>
+                        </td>
+                        <td>
+                            <p-inputnumber
+                                [(ngModel)]="classSection.amount"
+                                [name]="'amount_' + i"
+                                [ngModelOptions]="{standalone: true}"
+                                mode="currency"
+                                currency="INR"
+                                locale="en-IN"
+                                [min]="0"
+                                [maxFractionDigits]="2"
+                                size="small"
+                                class="w-full">
+                            </p-inputnumber>
+                        </td>
+                    </tr>
+                </ng-template>
+                
+                <ng-template pTemplate="emptymessage">
+                    <tr>
+                        <td colspan="4" class="text-center py-4 text-gray-500">
+                            No class sections available
+                        </td>
+                    </tr>
+                </ng-template>
+            </p-table>
+            
+            <div class="mt-4 p-4 bg-gray-50">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div class="flex flex-wrap gap-2">
+                        <p-button 
+                            label="Select All" 
+                            (onClick)="selectAllClassSections()"
+                            [text]="true"
+                            size="small"
+                            icon="pi pi-check-square">
+                        </p-button>
+                        <!-- Removed "Select All + Amount" per request -->
+                        <p-button 
+                            label="Deselect All" 
+                            (onClick)="deselectAllClassSections()"
+                            [text]="true"
+                            size="small"
+                            icon="pi pi-minus-circle">
+                        </p-button>
+                        <!-- 'Apply Default' removed per request -->
+                    </div>
+                    <div class="text-sm text-gray-600 font-medium">
+                        {{ getSelectedCount() }} of {{ classSections.length }} selected
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="flex flex-col sm:flex-row justify-start gap-3">
+            <p-button label="Reset" severity="secondary" (onClick)="onCancel()" type="button"
+                [style]="{'min-width': '120px'}" icon="pi pi-times">
+            </p-button>
+            <p-button [label]="editMode ? 'Update Fee' : 'Save Fee'" type="submit"
+                [disabled]="!feeForm.valid || getSelectedCount() === 0" [loading]="isLoading"
+                [style]="{'min-width': '120px'}" icon="pi pi-save">
+            </p-button>
+        </div>
+    </form>
+</p-card>
+
+<!-- Fee List with Tabs -->
+<p-card header="Fee Management">
+    <!-- Tab Navigation -->
+    <div class="flex flex-wrap border-b border-gray-200 mb-6 gap-2">
+        <button type="button" class="px-4 py-2 font-medium text-sm border-b-2 transition-colors flex-shrink-0"
+            [class.border-blue-500]="activeTabIndex === 0" [class.text-blue-600]="activeTabIndex === 0"
+            [class.border-transparent]="activeTabIndex !== 0" [class.text-gray-500]="activeTabIndex !== 0"
+            (click)="activeTabIndex = 0">
+            <i class="pi pi-check-circle mr-2"></i>
+            Active Fees ({{ activeFees.length }})
+        </button>
+        <button type="button" class="px-4 py-2 font-medium text-sm border-b-2 transition-colors flex-shrink-0"
+            [class.border-blue-500]="activeTabIndex === 1" [class.text-blue-600]="activeTabIndex === 1"
+            [class.border-transparent]="activeTabIndex !== 1" [class.text-gray-500]="activeTabIndex !== 1"
+            (click)="activeTabIndex = 1">
+            <i class="pi pi-times-circle mr-2"></i>
+            Inactive Fees ({{ inactiveFees.length }})
+        </button>
+    </div>
+
+    <!-- Active Fees Tab -->
+    <div *ngIf="activeTabIndex === 0">
+        <div class="space-y-4">
+            <div *ngIf="activeFees.length === 0" class="text-center py-8 text-gray-500">
+                No active fees found.
+            </div>
+
+            <p-card *ngFor="let fee of activeFees" class="mb-4 hover:shadow-md transition-shadow">
+                <div class="flex flex-col lg:flex-row justify-between items-start gap-4">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-3">
+                            <h3 class="text-lg font-semibold text-gray-900 truncate">{{ fee.feeName }}</h3>
+                            <span class="px-3 py-1 bg-green-100 text-green-800 text-xs rounded-full self-start">
+                                {{ getFrequencyLabel(fee.frequency) }}
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-gray-600">
+                            <div class="flex items-center">
+                                <i class="pi pi-money-bill mr-2 text-green-600"></i>
+                                <span class="font-medium">Amount:</span>
+                                <span class="ml-1">₹{{ fee.amount | number }}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="pi pi-calendar mr-2 text-blue-600"></i>
+                                <span class="font-medium">Start:</span>
+                                <span class="ml-1">{{ fee.startDate | date:'mediumDate' }}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="pi pi-calendar-times mr-2 text-red-600"></i>
+                                <span class="font-medium">Due:</span>
+                                <span class="ml-1">{{ fee.lastDueDate | date:'mediumDate' }}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="pi pi-users mr-2 text-purple-600"></i>
+                                <span class="font-medium">Classes:</span>
+                                <span class="ml-1">{{ fee.classCount }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 flex-shrink-0">
+                        <p-button icon="pi pi-pencil" severity="secondary" size="small" (onClick)="editFee(fee)"
+                            pTooltip="Edit Fee" tooltipPosition="top">
+                        </p-button>
+                        <div class="flex flex-col items-center gap-1">
+                            <p-toggleswitch [(ngModel)]="fee.isActive" (onChange)="toggleFeeStatus(fee)"
+                                pTooltip="Toggle Active/Inactive" tooltipPosition="top">
+                            </p-toggleswitch>
+                            <small class="text-xs text-gray-500">Active</small>
+                        </div>
+                    </div>
+                </div>
+            </p-card>
+        </div>
+    </div>
+
+    <!-- Inactive Fees Tab -->
+    <div *ngIf="activeTabIndex === 1">
+        <div class="space-y-4">
+            <div *ngIf="inactiveFees.length === 0" class="text-center py-8 text-gray-500">
+                No inactive fees found.
+            </div>
+
+            <p-card *ngFor="let fee of inactiveFees" class="mb-4 hover:shadow-md transition-shadow opacity-75">
+                <div class="flex flex-col lg:flex-row justify-between items-start gap-4">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-3">
+                            <h3 class="text-lg font-semibold text-gray-900 truncate">{{ fee.feeName }}</h3>
+                            <span class="px-3 py-1 bg-gray-100 text-gray-800 text-xs rounded-full self-start">
+                                {{ getFrequencyLabel(fee.frequency) }}
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-gray-600">
+                            <div class="flex items-center">
+                                <i class="pi pi-money-bill mr-2 text-green-600"></i>
+                                <span class="font-medium">Amount:</span>
+                                <span class="ml-1">₹{{ fee.amount | number }}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="pi pi-calendar mr-2 text-blue-600"></i>
+                                <span class="font-medium">Start:</span>
+                                <span class="ml-1">{{ fee.startDate | date:'mediumDate' }}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="pi pi-calendar-times mr-2 text-red-600"></i>
+                                <span class="font-medium">Due:</span>
+                                <span class="ml-1">{{ fee.lastDueDate | date:'mediumDate' }}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="pi pi-users mr-2 text-purple-600"></i>
+                                <span class="font-medium">Classes:</span>
+                                <span class="ml-1">{{ fee.classCount }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 flex-shrink-0">
+                        <p-button icon="pi pi-pencil" severity="secondary" size="small" (onClick)="editFee(fee)"
+                            pTooltip="Edit Fee" tooltipPosition="top">
+                        </p-button>
+                        <div class="flex flex-col items-center gap-1">
+                            <p-toggleswitch [(ngModel)]="fee.isActive" (onChange)="toggleFeeStatus(fee)"
+                                pTooltip="Toggle Active/Inactive" tooltipPosition="top">
+                            </p-toggleswitch>
+                            <small class="text-xs text-gray-500">Inactive</small>
+                        </div>
+                    </div>
+                </div>
+            </p-card>
+        </div>
+    </div>
+</p-card>

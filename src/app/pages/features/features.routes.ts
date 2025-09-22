@@ -20,6 +20,10 @@ import { AddUsers } from './user/add-users/add-users';
 import { AllUsers } from './user/all-users/all-users';
 import { AllSchool } from './school/all-school/all-school';
 import { EmployeeAttendanceDetails } from './employees/employee-attendance-details/employee-attendance-details';
+import { FeesCreate } from './fee-management/fees-create/fees-create';
+import { FinePolicy } from './fee-management/fine-policy/fine-policy';
+import { CollectFees } from './fee-management/collect-fees/collect-fees';
+import { FeesReport } from './fee-management/fees-report/fees-report';
 
 export default [
     { path: 'profile-setting', component: ProfileSetting, canActivate: [AuthGuard] },
@@ -42,5 +46,10 @@ export default [
     { path: 'add-user', component: AddUsers, canActivate: [AuthGuard] },
     { path: 'all-users', component: AllUsers, canActivate: [AuthGuard] },
     { path: 'all-schools', component: AllSchool, canActivate: [AuthGuard] },
+    // Fees Management
+    { path: 'create-fees', component: FeesCreate, canActivate: [AuthGuard] },
+    { path: 'fine-policy', component: FinePolicy, canActivate: [AuthGuard] },
+    { path: 'collect-fees', component: CollectFees, canActivate: [AuthGuard] },
+    { path: 'fees-report', component: FeesReport, canActivate: [AuthGuard] },
     { path: '**', redirectTo: '/notfound' }
 ] as Routes;

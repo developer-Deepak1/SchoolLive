@@ -82,6 +82,15 @@ export class AppMenu {
                     { label: 'Classwise Attendance', icon: 'pi pi-fw pi-chart-bar', routerLink: ['/features/classwise-attendance'] },
                     { label: 'Employee Attendance', icon: 'pi pi-fw pi-briefcase', routerLink: ['/features/employee-attendance-reports'] },
                 ]
+            },
+            {
+                label: 'Fees Management',
+                items: [
+                    { label: 'Create Fees', icon: 'pi pi-fw pi-chart-bar', routerLink: ['/features/create-fees'] },
+                    { label: 'Fine Policy', icon: 'pi pi-fw pi-briefcase', routerLink: ['/features/fine-policy'] },
+                    { label: 'Collect Fees', icon: 'pi pi-fw pi-briefcase', routerLink: ['/features/collect-fees'] },
+                    { label: 'View Fees', icon: 'pi pi-fw pi-briefcase', routerLink: ['/features/fees-report'] },
+                ]
             }
         ];}
         if (this.userRoles === USER_ROLES.ROLE_TEACHER) {

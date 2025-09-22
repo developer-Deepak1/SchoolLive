@@ -126,6 +126,16 @@ class Router {
     $this->routes['GET']['/api/attendance'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'list'], 'roles' => true];
     $this->routes['GET']['/api/attendance/monthly'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'monthly'], 'roles' => true];
     $this->routes['POST']['/api/attendance'] = ['handler' => ['SchoolLive\\Controllers\\AttendanceController', 'save'], 'roles' => true];
+
+    // Fee Management routes
+    $this->routes['GET']['/api/fees/list'] = ['handler' => ['SchoolLive\\Controllers\\FeeController', 'list'], 'roles' => true];
+    $this->routes['GET']['/api/fees/{id}'] = ['handler' => ['SchoolLive\\Controllers\\FeeController', 'show'], 'roles' => true];
+    $this->routes['POST']['/api/fees/create'] = ['handler' => ['SchoolLive\\Controllers\\FeeController', 'create'], 'roles' => true];
+    $this->routes['PUT']['/api/fees/update/{id}'] = ['handler' => ['SchoolLive\\Controllers\\FeeController', 'update'], 'roles' => true];
+    $this->routes['PATCH']['/api/fees/{id}/status'] = ['handler' => ['SchoolLive\\Controllers\\FeeController', 'toggleStatus'], 'roles' => true];
+    $this->routes['DELETE']['/api/fees/{id}'] = ['handler' => ['SchoolLive\\Controllers\\FeeController', 'delete'], 'roles' => true];
+    $this->routes['GET']['/api/fees/frequency/{frequency}'] = ['handler' => ['SchoolLive\\Controllers\\FeeController', 'getByFrequency'], 'roles' => true];
+    $this->routes['GET']['/api/fees/status/{status}'] = ['handler' => ['SchoolLive\\Controllers\\FeeController', 'getByStatus'], 'roles' => true];
     }
 
     public function dispatch() {
