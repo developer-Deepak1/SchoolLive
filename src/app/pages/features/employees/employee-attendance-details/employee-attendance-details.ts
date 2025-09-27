@@ -167,7 +167,6 @@ export class EmployeeAttendanceDetailsComponent implements OnInit {
   private loadAllEmployeeAttendance(year: number, month: number): void {
     this.attendanceService.getEmployeeAttendanceByMonth(year, month).subscribe({
       next: (response: any) => {
-        console.log('API Response:', response);
   // Handle both direct array response and wrapped response with data property
   this.attendanceData = response.data || response || [];
   this.originalData = [...this.attendanceData];
@@ -184,7 +183,6 @@ export class EmployeeAttendanceDetailsComponent implements OnInit {
   private loadUserAttendance(year: number, month: number, employeeId: number): void {
     this.attendanceService.getUserAttendanceByMonth(year, month, employeeId).subscribe({
       next: (response: any) => {
-        console.log('API Response:', response);
   // Handle both direct array response and wrapped response with data property
   this.attendanceData = response.data || response || [];
   this.originalData = [...this.attendanceData];
