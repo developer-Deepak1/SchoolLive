@@ -351,9 +351,9 @@ export class FeesCreate implements OnInit {
       DayOfMonth: this.scheduleData.dayOfMonth !== undefined && this.scheduleData.dayOfMonth !== null
         ? Number(this.scheduleData.dayOfMonth)
         : undefined,
-      // Always send date-only strings (YYYY-MM-DD) to avoid timezone shifts; treat dates as IST calendar days
-      StartDate: this.formatAsDateOnly(this.scheduleData.startDate),
-      EndDate: this.formatAsDateOnly(this.scheduleData.endDate),
+  // Always send date-only strings (YYYY-MM-DD) to avoid timezone shifts; treat dates as IST calendar days
+  StartDate: this.formatAsDateOnly(this.scheduleData.startDate),
+  EndDate: this.formatAsDateOnly(this.scheduleData.endDate),
       NextDueDate: this.formatAsDateOnly(this.scheduleData.nextDueDate),
       ReminderDaysBefore: this.scheduleData.reminderDaysBefore !== undefined && this.scheduleData.reminderDaysBefore !== null
         ? Number(this.scheduleData.reminderDaysBefore)
@@ -426,6 +426,12 @@ export class FeesCreate implements OnInit {
       if (apiFeeData.Schedule && apiFeeData.Schedule.ScheduleType === 'OneTime') {
         (apiFeeData.Schedule as any).IntervalMonths = null;
         (apiFeeData.Schedule as any).DayOfMonth = null;
+      }
+
+      // For Recurring schedules explicitly set StartDate/EndDate to null (DB expects null when not applicable)
+      if (apiFeeData.Schedule && apiFeeData.Schedule.ScheduleType === 'Recurring') {
+        (apiFeeData.Schedule as any).StartDate = null;
+        (apiFeeData.Schedule as any).EndDate = null;
       }
 
   // Include startDate/endDate only when relevant (already formatted as YYYY-MM-DD)
@@ -770,42 +776,67 @@ export class FeesCreate implements OnInit {
   }
 
   onFrequencyChange() {
-    // Update scheduleData.scheduleType and only set defaults for missing values
+    // Normalize schedule type and reminder default
     this.scheduleData.scheduleType = this.scheduleData.scheduleType || 'OneTime';
     if (this.scheduleData.reminderDaysBefore === undefined || this.scheduleData.reminderDaysBefore === null) {
       this.scheduleData.reminderDaysBefore = 5;
     }
-    if (this.scheduleData.scheduleType === 'Recurring') {
-      if (!this.scheduleData.dayOfMonth) this.scheduleData.dayOfMonth = 1;
-      if (!this.scheduleData.intervalMonths) this.scheduleData.intervalMonths = 1;
+
+    const tomorrow = this.getTomorrowDate();
+    const ayEnd = this.academicYearEnd;
+
+    // Handle each schedule type in a single place
+    switch (this.scheduleData.scheduleType) {
+      case 'Recurring':
+        // sensible defaults for recurrence
+        if (this.scheduleData.dayOfMonth === undefined || this.scheduleData.dayOfMonth === null) this.scheduleData.dayOfMonth = 1;
+        if (this.scheduleData.intervalMonths === undefined || this.scheduleData.intervalMonths === null) this.scheduleData.intervalMonths = 1;
+
+        // For new Recurring fees default start/end to tomorrow (user may change or clear them).
+        if (!this.editMode) {
+          if (!this.scheduleData.startDate) this.scheduleData.startDate = ayEnd && tomorrow > ayEnd ? new Date(ayEnd.getTime()) : tomorrow;
+          if (!this.scheduleData.endDate) this.scheduleData.endDate = ayEnd && tomorrow > ayEnd ? new Date(ayEnd.getTime()) : tomorrow;
+        }
+        break;
+
+      case 'OneTime':
+        // Default end date 30 days ahead when absent
+        if (!this.scheduleData.endDate) {
+          const due = new Date(tomorrow.getTime());
+          due.setDate(due.getDate() + 30);
+          this.scheduleData.endDate = ayEnd && due > ayEnd ? new Date(ayEnd.getTime()) : due;
+        }
+        // Clear recurrence fields
+        this.scheduleData.intervalMonths = undefined;
+        this.scheduleData.dayOfMonth = undefined;
+        break;
+
+      case 'OnDemand':
+        // Require startDate and endDate for OnDemand; default to tomorrow (start) and same day (end)
+        if (!this.scheduleData.startDate) this.scheduleData.startDate = tomorrow;
+        if (!this.scheduleData.endDate) this.scheduleData.endDate = this.parseDate(this.scheduleData.startDate) || tomorrow;
+        // Clear recurrence fields
+        this.scheduleData.intervalMonths = undefined;
+        this.scheduleData.dayOfMonth = undefined;
+        break;
+
+      default:
+        // fallback: clear recurrence fields
+        this.scheduleData.intervalMonths = undefined;
+        this.scheduleData.dayOfMonth = undefined;
+        break;
     }
 
-    if (this.scheduleData.scheduleType === 'Recurring') {
-      // ensure endDate not auto-required but dayOfMonth/intervalMonths are set
-      if (!this.scheduleData.intervalMonths) this.scheduleData.intervalMonths = 1;
-    } else if (this.scheduleData.scheduleType === 'OneTime') {
-      // Provide a default end date 30 days ahead if missing (only if truly absent)
-      if (!this.scheduleData.endDate) {
-        const due = this.getTomorrowDate();
-        due.setDate(due.getDate() + 30);
-        // clamp to academic year end if present
-        if (this.academicYearEnd && due > this.academicYearEnd) {
-          this.scheduleData.endDate = new Date(this.academicYearEnd.getTime());
-        } else {
-          this.scheduleData.endDate = due; // keep as Date for datepicker
-        }
-      }
-      // For OneTime clear recurrence-specific fields
-      this.scheduleData.intervalMonths = undefined;
-      this.scheduleData.dayOfMonth = undefined;
-    } else if (this.scheduleData.scheduleType === 'OnDemand') {
-      // Require a startDate; set today if absent
-      if (!this.scheduleData.startDate) this.scheduleData.startDate = this.getTomorrowDate();
-      // If endDate not provided, default to same as startDate
-      if (!this.scheduleData.endDate) this.scheduleData.endDate = this.parseDate(this.scheduleData.startDate);
-      // OnDemand is a single occurrence — clear recurrence fields
-      this.scheduleData.intervalMonths = undefined;
-      this.scheduleData.dayOfMonth = undefined;
+    // Clamp dates to academic year end and ensure start <= end
+    const sd = this.parseDate(this.scheduleData.startDate);
+    const ed = this.parseDate(this.scheduleData.endDate);
+    if (sd && ayEnd && sd > ayEnd) this.scheduleData.startDate = new Date(ayEnd.getTime());
+    if (ed && ayEnd && ed > ayEnd) this.scheduleData.endDate = new Date(ayEnd.getTime());
+    const newSd = this.parseDate(this.scheduleData.startDate);
+    const newEd = this.parseDate(this.scheduleData.endDate);
+    if (newSd && newEd && newSd.getTime() > newEd.getTime()) {
+      // Make endDate at least startDate
+      this.scheduleData.endDate = new Date(newSd.getTime());
     }
   }
 
