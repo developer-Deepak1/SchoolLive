@@ -30,48 +30,22 @@ class FeeController extends BaseController
             $schoolId = $user['school_id'] ?? 1;
             $academicYearId = $user['academic_year_id'] ?? 1;
 
-            $feesData = $this->feeModel->getFees($schoolId, $academicYearId);
-            
-            // Group by FeeID to structure the response properly
-            $groupedFees = [];
-            foreach ($feesData as $row) {
-                $feeId = $row['FeeID'];
-                
-                if (!isset($groupedFees[$feeId])) {
-                    $groupedFees[$feeId] = [
-                        'feeId' => $row['FeeID'],
-                        'feeName' => $row['FeeName'],
-                        'frequency' => $row['Frequency'],
-                        'startDate' => $row['StartDate'],
-                        'lastDueDate' => $row['LastDueDate'],
-                        'amount' => (float)$row['BaseAmount'],
-                        'isActive' => (bool)$row['FeeActive'],
-                        'status' => $row['Status'],
-                        'schoolId' => $row['SchoolID'],
-                        'academicYearId' => $row['AcademicYearID'],
-                        'createdAt' => $row['FeeCreatedAt'],
-                        'createdBy' => $row['FeeCreatedBy'],
-                        'updatedAt' => $row['FeeUpdatedAt'],
-                        'updatedBy' => $row['FeeUpdatedBy'],
-                        'classSections' => []
-                    ];
-                }
-                
-                // Add class-section mapping if it exists
-                if ($row['MappingID']) {
-                    $groupedFees[$feeId]['classSections'][] = [
-                        'mappingId' => $row['MappingID'],
-                        'classId' => $row['ClassID'],
-                        'className' => $row['ClassName'],
-                        'sectionId' => $row['SectionID'],
-                        'sectionName' => $row['SectionName'],
-                        'effectiveAmount' => (float)$row['EffectiveAmount'],
-                        'isActive' => (bool)$row['MappingActive']
-                    ];
-                }
+            $fees = $this->feeModel->getFees($schoolId, $academicYearId);
+            // Flatten to top-level DB columns with nested Schedule and ClassSectionMapping
+            $response = [];
+            foreach ($fees as $item) {
+                $fee = $item['Fee'];
+                // Only expose active class-section mappings to list responses so the UI marks selected correctly
+                $mappings = array_filter($item['ClassSectionMapping'] ?? [], function($m) {
+                    return isset($m['IsActive']) ? (int)$m['IsActive'] === 1 : false;
+                });
+                $response[] = array_merge($fee, [
+                    'Schedule' => $item['Schedule'],
+                    'ClassSectionMapping' => array_values($mappings)
+                ]);
             }
 
-            return $this->ok('Fees retrieved successfully', array_values($groupedFees));
+            return $this->ok('Fees retrieved successfully', $response);
 
         } catch (\Exception $e) {
             error_log("FeeController::list() - " . $e->getMessage());
@@ -87,45 +61,19 @@ class FeeController extends BaseController
     {
         try {
             $feeWithMappings = $this->feeModel->getFeeWithMappings($id);
-            
+
             if (empty($feeWithMappings)) {
                 return $this->fail('Fee not found', 404);
             }
-
-            // Structure the response similar to list method
-            $fee = $feeWithMappings[0]; // Get first row for main fee data
-            $response = [
-                'feeId' => $fee['FeeID'],
-                'feeName' => $fee['FeeName'],
-                'frequency' => $fee['Frequency'],
-                'startDate' => $fee['StartDate'],
-                'lastDueDate' => $fee['LastDueDate'],
-                'amount' => (float)$fee['BaseAmount'],
-                'isActive' => (bool)$fee['FeeActive'],
-                'status' => $fee['Status'],
-                'schoolId' => $fee['SchoolID'],
-                'academicYearId' => $fee['AcademicYearID'],
-                'createdAt' => $fee['FeeCreatedAt'],
-                'createdBy' => $fee['FeeCreatedBy'],
-                'updatedAt' => $fee['FeeUpdatedAt'],
-                'updatedBy' => $fee['FeeUpdatedBy'],
-                'classSections' => []
-            ];
-
-            // Add all class-section mappings
-            foreach ($feeWithMappings as $row) {
-                if ($row['MappingID']) {
-                    $response['classSections'][] = [
-                        'mappingId' => $row['MappingID'],
-                        'classId' => $row['ClassID'],
-                        'className' => $row['ClassName'],
-                        'sectionId' => $row['SectionID'],
-                        'sectionName' => $row['SectionName'],
-                        'effectiveAmount' => (float)$row['EffectiveAmount'],
-                        'isActive' => (bool)$row['MappingActive']
-                    ];
-                }
-            }
+            // First element holds the structured Fee, Schedule, and Mappings
+            $data = $feeWithMappings[0];
+            $mappings = array_filter($data['ClassSectionMapping'] ?? [], function($m) {
+                return isset($m['IsActive']) ? (int)$m['IsActive'] === 1 : false;
+            });
+            $response = array_merge($data['Fee'], [
+                'Schedule' => $data['Schedule'],
+                'ClassSectionMapping' => array_values($mappings)
+            ]);
 
             return $this->ok('Fee retrieved successfully', $response);
 
@@ -142,62 +90,93 @@ class FeeController extends BaseController
     public function create()
     {
         try {
-            $data = $this->input();
+            $input = $this->input();
             
             // Get user from session
             $user = $this->currentUser();
             if (!$user) return; // Error already sent by currentUser()
 
-            // Add school and academic year from user session
-            $data['schoolId'] = $user['school_id'] ?? 1;
-            $data['academicYearId'] = $user['academic_year_id'] ?? 1;
-            
-            // Validate required fields (top-level amount is optional when per-class amounts are provided)
-            $required = ['feeName', 'frequency', 'startDate', 'lastDueDate'];
+            // Build DB-native payload
+            $data = [];
+            $data['FeeName'] = $input['FeeName'] ?? $input['feeName'] ?? null;
+            $data['IsActive'] = isset($input['IsActive']) ? (bool)$input['IsActive'] : (isset($input['isActive']) ? (bool)$input['isActive'] : true);
+            $data['SchoolID'] = $user['school_id'] ?? 1;
+            $data['AcademicYearID'] = $user['academic_year_id'] ?? 1;
+            $data['CreatedBy'] = $user['username'] ?? 'System';
+
+            // Validate required fields
+            $required = ['FeeName'];
             if (!$this->ensure($data, $required)) {
                 return;
             }
 
-            // Normalize and validate frequency (accept frontend lowercase values)
-            $frequencyMap = [
-                'onetime' => 'OneTime',
-                'ondemand' => 'OnDemand',
-                'daily' => 'Daily',
-                'weekly' => 'Weekly',
-                'monthly' => 'Monthly',
-                'yearly' => 'Yearly'
-            ];
+            // Schedule (DB-native)
+            if (!empty($input['Schedule']) || !empty($input['schedule'])) {
+                $sch = $input['Schedule'] ?? $input['schedule'];
+                // Accept either DB-native or legacy camelCase keys
+                $data['Schedule'] = [
+                    'ScheduleType' => $sch['ScheduleType'] ?? $sch['scheduleType'] ?? 'OneTime',
+                    'IntervalMonths' => $sch['IntervalMonths'] ?? $sch['intervalMonths'] ?? null,
+                    'DayOfMonth' => $sch['DayOfMonth'] ?? $sch['dayOfMonth'] ?? null,
+                    'StartDate' => $sch['StartDate'] ?? $sch['startDate'] ?? null,
+                    'EndDate' => $sch['EndDate'] ?? $sch['endDate'] ?? null,
+                    'NextDueDate' => $sch['NextDueDate'] ?? $sch['nextDueDate'] ?? null,
+                    'ReminderDaysBefore' => $sch['ReminderDaysBefore'] ?? $sch['reminderDaysBefore'] ?? null,
+                ];
 
-            $freqKey = strtolower((string)($data['frequency'] ?? ''));
-            if (!isset($frequencyMap[$freqKey])) {
-                return $this->fail('Invalid frequency value', 400);
-            }
-
-            // Store normalized value that matches DB enum
-            $data['frequency'] = $frequencyMap[$freqKey];
-
-            // Validate top-level amount if provided. If not provided, default to 0.00
-            if (isset($data['amount'])) {
-                if (!is_numeric($data['amount']) || $data['amount'] < 0) {
-                    return $this->fail('Amount must be a valid positive number', 400);
+                // Normalize schedule fields depending on ScheduleType
+                $stype = $data['Schedule']['ScheduleType'] ?? 'OneTime';
+                // For non-recurring schedules, clear fields not applicable
+                if ($stype !== 'Recurring') {
+                    $data['Schedule']['IntervalMonths'] = null;
+                    $data['Schedule']['DayOfMonth'] = null;
+                    $data['Schedule']['ReminderDaysBefore'] = null;
                 }
-                // Normalize to numeric
-                $data['amount'] = (float)$data['amount'];
-            } else {
-                $data['amount'] = 0.00;
+
+                // For OneTime schedules, StartDate and EndDate should be null per requirement
+                if ($stype === 'OneTime') {
+                    $data['Schedule']['StartDate'] = null;
+                    $data['Schedule']['EndDate'] = null;
+                }
+
+                // For OnDemand ensure StartDate <= EndDate if both provided
+                if ($stype === 'OnDemand') {
+                    $start = $data['Schedule']['StartDate'] ?? null;
+                    $end = $data['Schedule']['EndDate'] ?? null;
+                    $parseDate = function ($d) {
+                        if ($d === null) return null;
+                        // Try strtotime first (ISO or common formats)
+                        $ts = strtotime($d);
+                        if ($ts !== false) return (new \DateTime())->setTimestamp($ts);
+                        // Try dd/mm/YYYY
+                        $dt = \DateTime::createFromFormat('d/m/Y', $d);
+                        if ($dt !== false) return $dt;
+                        // Try Y-m-d
+                        $dt = \DateTime::createFromFormat('Y-m-d', $d);
+                        if ($dt !== false) return $dt;
+                        return null;
+                    };
+                    $sd = $parseDate($start);
+                    $ed = $parseDate($end);
+                    if ($sd && $ed && $sd > $ed) {
+                        return $this->fail('StartDate must be before or equal to EndDate for OnDemand schedule', 400);
+                    }
+                }
             }
 
-            // Validate dates
-            if (!$this->isValidDate($data['startDate']) || !$this->isValidDate($data['lastDueDate'])) {
-                return $this->fail('Invalid date format. Use YYYY-MM-DD', 400);
+            // ClassSectionMapping
+            if (!empty($input['ClassSectionMapping']) || !empty($input['classSectionMapping'])) {
+                $mappings = $input['ClassSectionMapping'] ?? $input['classSectionMapping'];
+                $data['ClassSectionMapping'] = array_map(function($m) {
+                    return [
+                        'ClassID' => $m['ClassID'] ?? $m['classId'],
+                        'SectionID' => $m['SectionID'] ?? $m['sectionId'],
+                        'Amount' => $m['Amount'] ?? $m['amount'] ?? null,
+                    ];
+                }, $mappings);
             }
-
-            // Set default values
-            $data['isActive'] = $data['isActive'] ?? true;
-            $data['status'] = $data['status'] ?? 'Active';
-            $data['createdBy'] = $user['username'] ?? 'System';
             
-            // Create single fee record with class-section mappings
+            // Create the fee record with mappings and schedules
             $feeId = $this->feeModel->createFee($data);
             
             if ($feeId) {
@@ -208,39 +187,12 @@ class FeeController extends BaseController
                     return $this->fail('Failed to fetch created fee', 500);
                 }
 
-                // Structure response similar to show()
-                $feeRow = $feeWithMappings[0];
-                $response = [
-                    'feeId' => $feeRow['FeeID'],
-                    'feeName' => $feeRow['FeeName'],
-                    'frequency' => $feeRow['Frequency'],
-                    'startDate' => $feeRow['StartDate'],
-                    'lastDueDate' => $feeRow['LastDueDate'],
-                    'amount' => (float)$feeRow['BaseAmount'],
-                    'isActive' => (bool)$feeRow['FeeActive'],
-                    'status' => $feeRow['Status'],
-                    'schoolId' => $feeRow['SchoolID'],
-                    'academicYearId' => $feeRow['AcademicYearID'],
-                    'createdAt' => $feeRow['FeeCreatedAt'],
-                    'createdBy' => $feeRow['FeeCreatedBy'],
-                    'updatedAt' => $feeRow['FeeUpdatedAt'],
-                    'updatedBy' => $feeRow['FeeUpdatedBy'],
-                    'classSections' => []
-                ];
-
-                foreach ($feeWithMappings as $row) {
-                    if ($row['MappingID']) {
-                        $response['classSections'][] = [
-                            'mappingId' => $row['MappingID'],
-                            'classId' => $row['ClassID'],
-                            'className' => $row['ClassName'],
-                            'sectionId' => $row['SectionID'],
-                            'sectionName' => $row['SectionName'],
-                            'effectiveAmount' => (float)$row['EffectiveAmount'],
-                            'isActive' => (bool)$row['MappingActive']
-                        ];
-                    }
-                }
+                // Structure response
+                $dataOut = $feeWithMappings[0];
+                $response = array_merge($dataOut['Fee'], [
+                    'Schedule' => $dataOut['Schedule'],
+                    'ClassSectionMapping' => $dataOut['ClassSectionMapping']
+                ]);
 
                 return $this->ok('Fee created successfully with class-section mappings', $response, 201);
             } else {
@@ -260,7 +212,7 @@ class FeeController extends BaseController
     public function update($id)
     {
         try {
-            $data = $this->input();
+            $input = $this->input();
             
             // Check if fee exists
             $existingFee = $this->feeModel->getFeeById($id);
@@ -268,59 +220,145 @@ class FeeController extends BaseController
                 return $this->fail('Fee not found', 404);
             }
 
-            // Normalize and validate frequency if provided
-            if (isset($data['frequency'])) {
-                $frequencyMap = [
-                    'onetime' => 'OneTime',
-                    'ondemand' => 'OnDemand',
-                    'daily' => 'Daily',
-                    'weekly' => 'Weekly',
-                    'monthly' => 'Monthly',
-                    'yearly' => 'Yearly'
+            // Build DB-native payload for update
+            $data = [];
+            if (isset($input['FeeName']) || isset($input['feeName'])) $data['FeeName'] = $input['FeeName'] ?? $input['feeName'];
+            if (isset($input['IsActive']) || isset($input['isActive'])) $data['IsActive'] = isset($input['IsActive']) ? (bool)$input['IsActive'] : (bool)$input['isActive'];
+            $data['UpdatedBy'] = $this->currentUser(false)['username'] ?? 'System';
+
+            if (isset($input['Schedule']) || isset($input['schedule'])) {
+                $sch = $input['Schedule'] ?? $input['schedule'];
+                $data['Schedule'] = [
+                    'ScheduleType' => $sch['ScheduleType'] ?? $sch['scheduleType'] ?? null,
+                    'IntervalMonths' => $sch['IntervalMonths'] ?? $sch['intervalMonths'] ?? null,
+                    'DayOfMonth' => $sch['DayOfMonth'] ?? $sch['dayOfMonth'] ?? null,
+                    'StartDate' => $sch['StartDate'] ?? $sch['startDate'] ?? null,
+                    'EndDate' => $sch['EndDate'] ?? $sch['endDate'] ?? null,
+                    'NextDueDate' => $sch['NextDueDate'] ?? $sch['nextDueDate'] ?? null,
+                    'ReminderDaysBefore' => $sch['ReminderDaysBefore'] ?? $sch['reminderDaysBefore'] ?? null,
                 ];
 
-                $freqKey = strtolower((string)$data['frequency']);
-                if (!isset($frequencyMap[$freqKey])) {
-                    return $this->fail('Invalid frequency value', 400);
+                // Normalize depending on ScheduleType
+                $stype = $data['Schedule']['ScheduleType'] ?? null;
+                if ($stype !== 'Recurring') {
+                    $data['Schedule']['IntervalMonths'] = null;
+                    $data['Schedule']['DayOfMonth'] = null;
+                    $data['Schedule']['ReminderDaysBefore'] = null;
                 }
 
-                $data['frequency'] = $frequencyMap[$freqKey];
+                // For OneTime schedules, StartDate and EndDate should be null
+                if ($stype === 'OneTime') {
+                    $data['Schedule']['StartDate'] = null;
+                    $data['Schedule']['EndDate'] = null;
+                }
+
+                if ($stype === 'OnDemand') {
+                    $parseDate = function ($d) {
+                        if ($d === null) return null;
+                        $ts = strtotime($d);
+                        if ($ts !== false) return (new \DateTime())->setTimestamp($ts);
+                        $dt = \DateTime::createFromFormat('d/m/Y', $d);
+                        if ($dt !== false) return $dt;
+                        $dt = \DateTime::createFromFormat('Y-m-d', $d);
+                        if ($dt !== false) return $dt;
+                        return null;
+                    };
+                    $sd = $parseDate($data['Schedule']['StartDate'] ?? null);
+                    $ed = $parseDate($data['Schedule']['EndDate'] ?? null);
+                    if ($sd && $ed && $sd > $ed) {
+                        return $this->fail('StartDate must be before or equal to EndDate for OnDemand schedule', 400);
+                    }
+                }
             }
 
-            // Accept optional classId and sectionId for updates
-            if (isset($data['classId'])) {
-                // Optional: validate classId exists in database
-            }
-            if (isset($data['sectionId'])) {
-                // Optional: validate sectionId exists in database
-            }
-
-            // Validate amount if provided
-            if (isset($data['amount']) && (!is_numeric($data['amount']) || $data['amount'] < 0)) {
-                return $this->fail('Amount must be a valid positive number', 400);
-            }
-
-            // Validate dates if provided
-            if (isset($data['startDate']) && !$this->isValidDate($data['startDate'])) {
-                return $this->fail('Invalid start date format. Use YYYY-MM-DD', 400);
-            }
-            if (isset($data['lastDueDate']) && !$this->isValidDate($data['lastDueDate'])) {
-                return $this->fail('Invalid last due date format. Use YYYY-MM-DD', 400);
+            if (isset($input['ClassSectionMapping']) || isset($input['classSectionMapping'])) {
+                $mappings = $input['ClassSectionMapping'] ?? $input['classSectionMapping'];
+                $data['ClassSectionMapping'] = array_map(function($m) {
+                    $out = [
+                        'ClassID' => $m['ClassID'] ?? $m['classId'],
+                        'SectionID' => $m['SectionID'] ?? $m['sectionId'],
+                        'Amount' => $m['Amount'] ?? $m['amount'] ?? null,
+                    ];
+                    // Preserve MappingID when present for precise updates
+                    if (isset($m['MappingID'])) {
+                        $out['MappingID'] = (int)$m['MappingID'];
+                    } elseif (isset($m['mappingId'])) {
+                        $out['MappingID'] = (int)$m['mappingId'];
+                    }
+                    return $out;
+                }, $mappings);
             }
 
-            $data['updatedBy'] = $this->currentUser(false)['username'] ?? 'System';
+            // Sanitize scalar fields to avoid accidental arrays (which cause "Array to string conversion")
+            if (isset($data['FeeName']) && is_array($data['FeeName'])) {
+                // Coerce to string using first element if array provided
+                $data['FeeName'] = reset($data['FeeName']);
+            }
+            if (isset($data['IsActive']) && is_array($data['IsActive'])) {
+                $data['IsActive'] = (bool)reset($data['IsActive']);
+            }
+            if (isset($data['UpdatedBy']) && is_array($data['UpdatedBy'])) {
+                $data['UpdatedBy'] = reset($data['UpdatedBy']);
+            }
+
+            // Validate Schedule structure if present
+            if (isset($data['Schedule']) && !is_array($data['Schedule'])) {
+                // If it's a scalar, wrap into array? better to reject — coerce to null
+                $data['Schedule'] = null;
+            } elseif (is_array($data['Schedule'])) {
+                // Ensure scalar values inside Schedule are scalars or null
+                foreach (['ScheduleType','IntervalMonths','DayOfMonth','StartDate','EndDate','NextDueDate','ReminderDaysBefore'] as $k) {
+                    if (array_key_exists($k, $data['Schedule']) && is_array($data['Schedule'][$k])) {
+                        // Coerce to first element
+                        $data['Schedule'][$k] = reset($data['Schedule'][$k]);
+                    }
+                }
+            }
+
+            // Validate ClassSectionMapping if present
+            if (isset($data['ClassSectionMapping']) && is_array($data['ClassSectionMapping'])) {
+                $cleanMappings = [];
+                foreach ($data['ClassSectionMapping'] as $m) {
+                    if (!is_array($m)) continue;
+                    $row = [
+                        'ClassID' => isset($m['ClassID']) ? (int)$m['ClassID'] : (isset($m['classId']) ? (int)$m['classId'] : 0),
+                        'SectionID' => isset($m['SectionID']) ? (int)$m['SectionID'] : (isset($m['sectionId']) ? (int)$m['sectionId'] : 0),
+                        'Amount' => array_key_exists('Amount', $m) ? $m['Amount'] : (array_key_exists('amount', $m) ? $m['amount'] : null)
+                    ];
+                    if (isset($m['MappingID'])) {
+                        $row['MappingID'] = (int)$m['MappingID'];
+                    } elseif (isset($m['mappingId'])) {
+                        $row['MappingID'] = (int)$m['mappingId'];
+                    }
+                    $cleanMappings[] = $row;
+                }
+                $data['ClassSectionMapping'] = $cleanMappings;
+            }
+
+            // Log class-section mapping payload for debugging amount update issues
+            if (isset($data['ClassSectionMapping'])) {
+                error_log('FeeController::update - ClassSectionMapping payload: ' . json_encode($data['ClassSectionMapping']));
+            }
 
             $success = $this->feeModel->updateFee($id, $data);
             
             if ($success) {
-                $fee = $this->feeModel->getFeeById($id);
-                return $this->ok('Fee updated successfully', $fee);
+                $feeWithMappings = $this->feeModel->getFeeWithMappings($id);
+                if (empty($feeWithMappings)) return $this->ok('Fee updated successfully', []);
+                $dataOut = $feeWithMappings[0];
+                $response = array_merge($dataOut['Fee'], [
+                    'Schedule' => $dataOut['Schedule'],
+                    'ClassSectionMapping' => $dataOut['ClassSectionMapping']
+                ]);
+                return $this->ok('Fee updated successfully', $response);
             } else {
                 return $this->fail('Failed to update fee', 500);
             }
 
         } catch (\Exception $e) {
-            error_log("FeeController::update() - " . $e->getMessage());
+            // Better error logging with file/line/trace for debugging
+            $msg = sprintf("%s in %s:%d\n%s", $e->getMessage(), $e->getFile(), $e->getLine(), $e->getTraceAsString());
+            error_log("FeeController::update() - " . $msg);
             return $this->fail('Failed to update fee', 500);
         }
     }
@@ -333,8 +371,10 @@ class FeeController extends BaseController
     {
         try {
             $data = $this->input();
-            
-            if (!isset($data['isActive'])) {
+            // Log incoming payload for troubleshooting
+            error_log('FeeController::toggleStatus payload: ' . json_encode($data));
+
+            if (!isset($data['IsActive']) && !isset($data['isActive'])) {
                 return $this->fail('isActive field is required', 400);
             }
 
@@ -343,17 +383,37 @@ class FeeController extends BaseController
                 return $this->fail('Fee not found', 404);
             }
 
+            // Determine boolean value, accept arrays/strings/ints
+            $raw = isset($data['IsActive']) ? $data['IsActive'] : $data['isActive'];
+            if (is_array($raw)) $raw = reset($raw);
+            if (is_string($raw)) {
+                $rawLower = strtolower($raw);
+                if (in_array($rawLower, ['true','1','yes','on'])) $isActiveVal = true;
+                elseif (in_array($rawLower, ['false','0','no','off'])) $isActiveVal = false;
+                else $isActiveVal = (bool)$raw;
+            } else {
+                $isActiveVal = (bool)$raw;
+            }
+
+            $currentUser = $this->currentUser(false);
+            $updatedBy = is_array($currentUser) ? ($currentUser['username'] ?? 'System') : 'System';
+
             $updateData = [
-                'isActive' => (bool)$data['isActive'],
-                'status' => $data['isActive'] ? 'Active' : 'Inactive',
-                'updatedBy' => $this->currentUser(false)['username'] ?? 'System'
+                'IsActive' => $isActiveVal,
+                'UpdatedBy' => $updatedBy
             ];
 
             $success = $this->feeModel->updateFee($id, $updateData);
             
             if ($success) {
-                $fee = $this->feeModel->getFeeById($id);
-                return $this->ok('Fee status updated successfully', $fee);
+                $feeWithMappings = $this->feeModel->getFeeWithMappings($id);
+                if (empty($feeWithMappings)) return $this->ok('Fee status updated successfully', []);
+                $dataOut = $feeWithMappings[0];
+                $response = array_merge($dataOut['Fee'], [
+                    'Schedule' => $dataOut['Schedule'],
+                    'ClassSectionMapping' => $dataOut['ClassSectionMapping']
+                ]);
+                return $this->ok('Fee status updated successfully', $response);
             } else {
                 return $this->fail('Failed to update fee status', 500);
             }
@@ -362,100 +422,5 @@ class FeeController extends BaseController
             error_log("FeeController::toggleStatus() - " . $e->getMessage());
             return $this->fail('Failed to update fee status', 500);
         }
-    }
-
-    /**
-     * Delete fee
-     * DELETE /api/fees/{id}
-     */
-    public function delete($id)
-    {
-        try {
-            $existingFee = $this->feeModel->getFeeById($id);
-            if (!$existingFee) {
-                return $this->fail('Fee not found', 404);
-            }
-
-            $success = $this->feeModel->deleteFee($id);
-            
-            if ($success) {
-                return $this->ok('Fee deleted successfully');
-            } else {
-                return $this->fail('Failed to delete fee', 500);
-            }
-
-        } catch (\Exception $e) {
-            error_log("FeeController::delete() - " . $e->getMessage());
-            return $this->fail('Failed to delete fee', 500);
-        }
-    }
-
-    /**
-     * Get fees by frequency
-     * GET /api/fees/frequency/{frequency}
-     */
-    public function getByFrequency($frequency)
-    {
-        try {
-            $user = $this->currentUser();
-            if (!$user) return; // Error already sent by currentUser()
-
-            $schoolId = $user['school_id'] ?? 1;
-            $academicYearId = $user['academic_year_id'] ?? 1;
-
-            $frequencyMap = [
-                'onetime' => 'OneTime',
-                'ondemand' => 'OnDemand',
-                'daily' => 'Daily',
-                'weekly' => 'Weekly',
-                'monthly' => 'Monthly',
-                'yearly' => 'Yearly'
-            ];
-
-            $freqKey = strtolower((string)$frequency);
-            if (!isset($frequencyMap[$freqKey])) {
-                return $this->fail('Invalid frequency value', 400);
-            }
-
-            $normalizedFrequency = $frequencyMap[$freqKey];
-            $fees = $this->feeModel->getFeesByFrequency($normalizedFrequency, $schoolId, $academicYearId);
-            return $this->ok('Fees retrieved successfully', $fees);
-
-        } catch (\Exception $e) {
-            error_log("FeeController::getByFrequency() - " . $e->getMessage());
-            return $this->fail('Failed to fetch fees by frequency', 500);
-        }
-    }
-
-    /**
-     * Get active/inactive fees
-     * GET /api/fees/status/{status}
-     */
-    public function getByStatus($status)
-    {
-        try {
-            $user = $this->currentUser();
-            if (!$user) return; // Error already sent by currentUser()
-
-            $schoolId = $user['school_id'] ?? 1;
-            $academicYearId = $user['academic_year_id'] ?? 1;
-
-            $isActive = strtolower($status) === 'active';
-            $fees = $this->feeModel->getFeesByStatus($isActive, $schoolId, $academicYearId);
-            return $this->ok('Fees retrieved successfully', $fees);
-
-        } catch (\Exception $e) {
-            error_log("FeeController::getByStatus() - " . $e->getMessage());
-            return $this->fail('Failed to fetch fees by status', 500);
-        }
-    }
-
-    /**
-     * Validate date format
-     */
-    private function isValidDate($date)
-    {
-        $d = \DateTime::createFromFormat('Y-m-d', $date);
-        return $d && $d->format('Y-m-d') === $date;
     }
 }

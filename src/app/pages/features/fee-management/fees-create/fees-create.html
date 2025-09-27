@@ -1,67 +1,83 @@
 <!-- Toast Messages -->
 <p-toast position="top-right"></p-toast>
-<p-card class="mb-6" header="Quick Templates">
-        <p-button *ngFor="let template of feeTemplates" [label]="template.name" size="small" severity="secondary"
-            [text]="true" (onClick)="applyTemplate(template)" class="p-button-sm">
-        </p-button>
-</p-card>
 
 <!-- Fee Creation Form -->
 <p-card class="mb-6" header="Create Fee">
-    <!-- <ng-template #header>
-        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            <h2 class="text-2xl font-semibold text-gray-800">Create Fee</h2>
-        </div>
-    </ng-template> -->
-
     <form #feeForm="ngForm" (ngSubmit)="onSubmit()" class="space-y-6">
         <!-- Basic Fee Information -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
             <!-- Fee Name -->
             <div class="flex flex-col gap-2 lg:col-span-1">
                 <label for="feeName" class="font-medium text-gray-700">Fee Name <span class="text-red-500">*</span></label>
-                <input type="text" id="feeName" [(ngModel)]="feeData.feeName" name="feeName"
+                <input type="text" id="feeName" [(ngModel)]="feeData.FeeName" name="FeeName"
                     placeholder="Enter fee name (e.g., Admission Fee, Tuition Fee)"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                     required>
                 <small class="text-gray-500">You can enter any custom fee name</small>
             </div>
 
-            <!-- Frequency -->
+            <!-- Schedule Type (OneTime, OnDemand, Recurring) -->
             <div class="flex flex-col gap-2 lg:col-span-1">
-                <label for="frequency" class="font-medium text-gray-700">Frequency <span class="text-red-500">*</span></label>
-                <p-select id="frequency" [(ngModel)]="feeData.frequency" name="frequency" [options]="frequencyOptions"
-                    optionLabel="label" optionValue="value" placeholder="Select Frequency" class="w-full" required>
+                <label for="scheduleType" class="font-medium text-gray-700">Schedule Type <span class="text-red-500">*</span></label>
+                <p-select id="scheduleType" [(ngModel)]="scheduleData.scheduleType" name="ScheduleType" [options]="scheduleTypeOptions"
+                    optionLabel="label" optionValue="value" placeholder="Select Schedule Type" class="w-full" required
+                    (onChange)="onFrequencyChange()"
+                    [disabled]="editMode"
+                    pTooltip="Schedule type cannot be changed while editing an existing fee" tooltipPosition="top">
                 </p-select>
             </div>
 
-            <!-- Start Date -->
-            <div class="flex flex-col gap-2 lg:col-span-1">
+            <!-- Start Date (OnDemand) -->
+            <div class="flex flex-col gap-2 lg:col-span-1" *ngIf="scheduleData.scheduleType === 'OnDemand'">
                 <label for="startDate" class="font-medium text-gray-700">Start Date <span class="text-red-500">*</span></label>
-                <p-datepicker id="startDate" [(ngModel)]="feeData.startDate" name="startDate" [showIcon]="true"
-                    iconDisplay="input" class="w-full" placeholder="Select start date" dateFormat="dd/mm/yy" required>
+                <p-datepicker id="startDate" [(ngModel)]="scheduleData.startDate" name="StartDate" [showIcon]="true"
+                    iconDisplay="input" class="w-full" placeholder="Start date" dateFormat="dd/mm/yy" required
+                    [minDate]="academicYearStart" [maxDate]="academicYearEnd">
                 </p-datepicker>
+                <small class="text-red-500" *ngIf="scheduleData.startDate && academicYearStart && scheduleData.startDate < academicYearStart">Start date must be on or after academic year start ({{ academicYearStart | date:'dd/MM/yyyy' }})</small>
+                <small class="text-red-500" *ngIf="scheduleData.startDate && academicYearEnd && scheduleData.startDate > academicYearEnd">Start date must be on or before academic year end ({{ academicYearEnd | date:'dd/MM/yyyy' }})</small>
             </div>
 
-            <!-- Last Due Date -->
-            <div class="flex flex-col gap-2 lg:col-span-1">
-                <label for="lastDueDate" class="font-medium text-gray-700">Last Due Date <span class="text-red-500">*</span></label>
-                <p-datepicker id="lastDueDate" [(ngModel)]="feeData.lastDueDate" name="lastDueDate" [showIcon]="true"
-                    iconDisplay="input" class="w-full" placeholder="Select last due date" dateFormat="dd/mm/yy"
-                    required>
+            <!-- End/Due Date (OnDemand only). OneTime no longer requires an end date per requirement -->
+            <div class="flex flex-col gap-2 lg:col-span-1" *ngIf="scheduleData.scheduleType === 'OnDemand'">
+                <label for="endDate" class="font-medium text-gray-700">End / Due Date <span class="text-red-500">*</span></label>
+                <p-datepicker id="endDate" [(ngModel)]="scheduleData.endDate" name="EndDate" [showIcon]="true"
+                    iconDisplay="input" class="w-full" placeholder="End / Due" dateFormat="dd/mm/yy" required
+                    [minDate]="academicYearStart" [maxDate]="academicYearEnd">
                 </p-datepicker>
+                <small class="text-red-500" *ngIf="scheduleData.endDate && academicYearStart && scheduleData.endDate < academicYearStart">End date must be on or after academic year start ({{ academicYearStart | date:'dd/MM/yyyy' }})</small>
+                <small class="text-red-500" *ngIf="scheduleData.endDate && academicYearEnd && scheduleData.endDate > academicYearEnd">End date must be on or before academic year end ({{ academicYearEnd | date:'dd/MM/yyyy' }})</small>
             </div>
 
-            <!-- Default Amount -->
-            <div class="flex flex-col gap-2 lg:col-span-1">
-                <label for="amount" class="font-medium text-gray-700">Default Amount <span class="text-red-500">*</span></label>
-                <p-inputnumber id="amount" [(ngModel)]="feeData.amount" name="amount" mode="currency" currency="INR"
-                    locale="en-IN" class="w-full" placeholder="Enter amount" [min]="0" [maxFractionDigits]="2"
-                    (onInput)="onDefaultAmountChange()" required>
+            <!-- Recurring Settings -->
+            <div class="flex flex-col gap-2 lg:col-span-1" *ngIf="scheduleData.scheduleType === 'Recurring'">
+                <label for="intervalMonths" class="font-medium text-gray-700">Interval <span class="text-red-500">*</span></label>
+                <p-select id="intervalMonths" [(ngModel)]="scheduleData.intervalMonths" name="intervalMonths"
+                    [options]="recurringIntervalOptions" optionLabel="label" optionValue="value" 
+                    placeholder="Select interval" class="w-full" required>
+                </p-select>
+                <small class="text-gray-500">How often the fee recurs</small>
+            </div>
+            <div class="flex flex-col gap-2 lg:col-span-1" *ngIf="scheduleData.scheduleType === 'Recurring'">
+                <label for="dayOfMonth" class="font-medium text-gray-700">Due Day <span class="text-red-500">*</span></label>
+                <p-select id="dayOfMonth" [(ngModel)]="scheduleData.dayOfMonth" name="dayOfMonth"
+                    [options]="daysOfMonth" optionLabel="label" optionValue="value" 
+                    placeholder="Select day of month" class="w-full" required>
+                </p-select>
+                <small class="text-gray-500">Day of month when fee is due (1st-31st)</small>
+            </div>
+
+            <div class="flex flex-col gap-2 lg:col-span-1" *ngIf="scheduleData.scheduleType === 'Recurring'">
+                <label for="reminderDays" class="font-medium text-gray-700">Reminder Days Before Due</label>
+                <p-inputnumber id="reminderDays" [(ngModel)]="scheduleData.reminderDaysBefore" name="reminderDays"
+                    [min]="0" [max]="30" class="w-full" placeholder="5">
                 </p-inputnumber>
-                <small class="text-gray-500">This amount will be applied to all selected classes</small>
             </div>
+
+            <!-- Removed Default Amount input (amount managed per class/section) -->
         </div>
+
+        <!-- Advanced Schedule Settings (moved/condensed) -->
 
         <!-- Class and Section Assignment -->
         <div class="mt-6 lg:mt-8">
@@ -208,26 +224,26 @@
                 <div class="flex flex-col lg:flex-row justify-between items-start gap-4">
                     <div class="flex-1 min-w-0">
                         <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-3">
-                            <h3 class="text-lg font-semibold text-gray-900 truncate">{{ fee.feeName }}</h3>
+                            <h3 class="text-lg font-semibold text-gray-900 truncate">{{ fee.FeeName }}</h3>
                             <span class="px-3 py-1 bg-green-100 text-green-800 text-xs rounded-full self-start">
-                                {{ getFrequencyLabel(fee.frequency) }}
+                                {{ getFrequencyLabel(fee.Schedule?.ScheduleType) }}
                             </span>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-gray-600">
                             <div class="flex items-center">
-                                <i class="pi pi-money-bill mr-2 text-green-600"></i>
-                                <span class="font-medium">Amount:</span>
-                                <span class="ml-1">₹{{ fee.amount | number }}</span>
-                            </div>
-                            <div class="flex items-center">
                                 <i class="pi pi-calendar mr-2 text-blue-600"></i>
                                 <span class="font-medium">Start:</span>
-                                <span class="ml-1">{{ fee.startDate | date:'mediumDate' }}</span>
+                                <span class="ml-1">{{ (fee.Schedule?.StartDate | date:'mediumDate') || 'n/a' }}</span>
                             </div>
                             <div class="flex items-center">
                                 <i class="pi pi-calendar-times mr-2 text-red-600"></i>
-                                <span class="font-medium">Due:</span>
-                                <span class="ml-1">{{ fee.lastDueDate | date:'mediumDate' }}</span>
+                                <span class="font-medium">End:</span>
+                                <span class="ml-1">{{ (fee.Schedule?.EndDate | date:'mediumDate') || 'n/a' }}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="pi pi-bell mr-2 text-amber-600"></i>
+                                <span class="font-medium">Next Due:</span>
+                                <span class="ml-1">{{ (fee.Schedule?.NextDueDate | date:'mediumDate') || 'n/a' }}</span>
                             </div>
                             <div class="flex items-center">
                                 <i class="pi pi-users mr-2 text-purple-600"></i>
@@ -241,7 +257,7 @@
                             pTooltip="Edit Fee" tooltipPosition="top">
                         </p-button>
                         <div class="flex flex-col items-center gap-1">
-                            <p-toggleswitch [(ngModel)]="fee.isActive" (onChange)="toggleFeeStatus(fee)"
+                            <p-toggleswitch [(ngModel)]="fee.IsActive" (onChange)="toggleFeeStatus(fee, $event)"
                                 pTooltip="Toggle Active/Inactive" tooltipPosition="top">
                             </p-toggleswitch>
                             <small class="text-xs text-gray-500">Active</small>
@@ -263,26 +279,26 @@
                 <div class="flex flex-col lg:flex-row justify-between items-start gap-4">
                     <div class="flex-1 min-w-0">
                         <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-3">
-                            <h3 class="text-lg font-semibold text-gray-900 truncate">{{ fee.feeName }}</h3>
+                            <h3 class="text-lg font-semibold text-gray-900 truncate">{{ fee.FeeName }}</h3>
                             <span class="px-3 py-1 bg-gray-100 text-gray-800 text-xs rounded-full self-start">
-                                {{ getFrequencyLabel(fee.frequency) }}
+                                {{ getFrequencyLabel(fee.Schedule?.ScheduleType) }}
                             </span>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-gray-600">
                             <div class="flex items-center">
-                                <i class="pi pi-money-bill mr-2 text-green-600"></i>
-                                <span class="font-medium">Amount:</span>
-                                <span class="ml-1">₹{{ fee.amount | number }}</span>
-                            </div>
-                            <div class="flex items-center">
                                 <i class="pi pi-calendar mr-2 text-blue-600"></i>
                                 <span class="font-medium">Start:</span>
-                                <span class="ml-1">{{ fee.startDate | date:'mediumDate' }}</span>
+                                <span class="ml-1">{{ (fee.Schedule?.StartDate | date:'mediumDate') || 'n/a' }}</span>
                             </div>
                             <div class="flex items-center">
                                 <i class="pi pi-calendar-times mr-2 text-red-600"></i>
-                                <span class="font-medium">Due:</span>
-                                <span class="ml-1">{{ fee.lastDueDate | date:'mediumDate' }}</span>
+                                <span class="font-medium">End:</span>
+                                <span class="ml-1">{{ (fee.Schedule?.EndDate | date:'mediumDate') || 'n/a' }}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="pi pi-bell mr-2 text-amber-600"></i>
+                                <span class="font-medium">Next Due:</span>
+                                <span class="ml-1">{{ (fee.Schedule?.NextDueDate | date:'mediumDate') || 'n/a' }}</span>
                             </div>
                             <div class="flex items-center">
                                 <i class="pi pi-users mr-2 text-purple-600"></i>
@@ -296,7 +312,7 @@
                             pTooltip="Edit Fee" tooltipPosition="top">
                         </p-button>
                         <div class="flex flex-col items-center gap-1">
-                            <p-toggleswitch [(ngModel)]="fee.isActive" (onChange)="toggleFeeStatus(fee)"
+                            <p-toggleswitch [(ngModel)]="fee.IsActive" (onChange)="toggleFeeStatus(fee, $event)"
                                 pTooltip="Toggle Active/Inactive" tooltipPosition="top">
                             </p-toggleswitch>
                             <small class="text-xs text-gray-500">Inactive</small>

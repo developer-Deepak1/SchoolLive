@@ -20,19 +20,22 @@ import { ToastModule } from 'primeng/toast';
 // Services
 import { ClassesService } from '../../services/classes.service';
 import { SectionsService } from '../../services/sections.service';
+import { AcademicYearService } from '../../services/academic-year.service';
+import { UserService } from '@/services/user.service';
 import { FeeService, FeeData as ApiFeeData, FeeWithClassSections } from '../services/fee.service';
 import { Classes, Section } from '../../model/classes.model';
 
-// Interfaces
-interface FeeData {
-  feeId?: number;
-  feeName: string;
-  frequency: string;
-  startDate: Date | null;
-  lastDueDate: Date | null;
-  amount: number;
-  isActive: boolean;
-  classSectionMapping?: Array<{classId: number, sectionId: number, amount?: number}>;
+// Local UI-only interfaces
+
+interface ScheduleData {
+  scheduleType: string;
+  intervalMonths?: number;
+  dayOfMonth?: number;
+  // PrimeNG datepicker works with Date objects; accept either Date or ISO string
+  startDate?: Date | string;
+  endDate?: Date | string;
+  nextDueDate?: Date | string;
+  reminderDaysBefore?: number;
 }
 
 interface ClassSection {
@@ -40,7 +43,8 @@ interface ClassSection {
   className: string;
   sectionId: number;
   sectionName: string;
-  amount: number;
+  amount: number | string;
+  mappingId?: number;
   selected: boolean;
 }
 
@@ -72,66 +76,42 @@ export class FeesCreate implements OnInit {
   private feeService = inject(FeeService);
   private messageService = inject(MessageService);
   private router = inject(Router);
+  private academicYearService = inject(AcademicYearService);
+  private userService = inject(UserService);
 
-  // Form Data
-  feeData: FeeData = {
-    feeName: '',
-    frequency: '',
-    startDate: null,
-    lastDueDate: null,
-    amount: 0,
-    isActive: true,
-    classSectionMapping: []
+  // Form Data (DB-native names for API)
+  feeData: ApiFeeData = {
+    FeeName: '',
+    IsActive: true,
+    Schedule: null,
+    ClassSectionMapping: []
+  };
+
+  // Schedule data for new schema
+  scheduleData: ScheduleData = {
+    scheduleType: 'OneTime',
+    reminderDaysBefore: 5
   };
 
   // Options for dropdowns
-  feeTemplates = [
-    {
-      name: 'Admission Fee',
-      frequency: 'onetime',
-      amount: 5000,
-      description: 'One-time admission fee for new students'
-    },
-    {
-      name: 'Tuition Fee',
-      frequency: 'monthly',
-      amount: 3000,
-      description: 'Monthly tuition fee'
-    },
-    {
-      name: 'Exam Fee',
-      frequency: 'yearly',
-      amount: 1500,
-      description: 'Annual examination fee'
-    },
-    {
-      name: 'Library Fee',
-      frequency: 'yearly',
-      amount: 500,
-      description: 'Annual library subscription fee'
-    },
-    {
-      name: 'Sports Fee',
-      frequency: 'yearly',
-      amount: 800,
-      description: 'Annual sports and activities fee'
-    },
-    {
-      name: 'Transport Fee',
-      frequency: 'monthly',
-      amount: 2000,
-      description: 'Monthly transportation fee'
-    }
+  scheduleTypeOptions = [
+    { label: 'One Time', value: 'OneTime' },
+    { label: 'On Demand', value: 'OnDemand' },
+    { label: 'Recurring', value: 'Recurring' }
   ];
 
-  frequencyOptions = [
-    { label: 'One Time', value: 'onetime' },
-    { label: 'On Demand', value: 'ondemand' },
-    { label: 'Daily', value: 'daily' },
-    { label: 'Weekly', value: 'weekly' },
-    { label: 'Monthly', value: 'monthly' },
-    { label: 'Yearly', value: 'yearly' }
+  // Recurring interval options (maps to IntervalMonths column)
+  recurringIntervalOptions = [
+    { label: 'Monthly', value: 1 },
+    { label: 'Quarterly', value: 3 },
+    { label: 'Half Yearly', value: 6 },
+    { label: 'Yearly', value: 12 }
   ];
+
+  // Options for schedule-specific fields
+  daysOfMonth = Array.from({length: 31}, (_, i) => ({
+    label: `${i+1}${this.getOrdinalSuffix(i+1)}`, value: i+1
+  }));
 
   // Class and Section Data
   classes: Classes[] = [];
@@ -148,10 +128,49 @@ export class FeesCreate implements OnInit {
   isLoading = false;
   editMode = false;
   editingFeeId?: number;
+  // Human-readable validation message set by isFormValid()
+  validationErrorMessage?: string | null = null;
+
+  // Academic year bounds (used for date validation)
+  academicYearStart?: Date;
+  academicYearEnd?: Date;
 
   ngOnInit() {
+    this.loadAcademicYearBounds();
     this.loadClassesAndSections();
     this.loadFees();
+  }
+
+  async loadAcademicYearBounds() {
+    try {
+      const yrs = await this.academicYearService.getAcademicYears().toPromise();
+      if (!yrs || yrs.length === 0) return;
+
+      // Prefer academic year id from logged-in user when available
+      const userAcademicYearId = this.userService.getAcademicYearId();
+      let chosen: any;
+
+      if (userAcademicYearId) {
+        chosen = yrs.find((y: any) => (y.AcademicYearID || (y as any).id) === userAcademicYearId);
+      }
+
+      // Fallback: find an active/current academic year (Status === 'active' or truthy)
+      if (!chosen) {
+        chosen = yrs.find((y: any) => (y.Status && String(y.Status).toLowerCase() === 'active') || (y as any).isCurrent);
+      }
+
+      // Last resort: pick the latest by StartDate
+      if (!chosen) {
+        chosen = yrs.slice().sort((a: any, b: any) => new Date(b.StartDate).getTime() - new Date(a.StartDate).getTime())[0];
+      }
+
+      if (chosen) {
+        this.academicYearStart = this.parseDate(chosen.StartDate) || undefined;
+        this.academicYearEnd = this.parseDate(chosen.EndDate) || undefined;
+      }
+    } catch (err) {
+      console.error('Failed to load academic years', err);
+    }
   }
 
   async loadClassesAndSections() {
@@ -202,7 +221,7 @@ export class FeesCreate implements OnInit {
             className: classItem.ClassName,
             sectionId: sectionId,
             sectionName: sectionName,
-            amount: this.feeData.amount || 0,
+            amount: 0,
             selected: true
           });
         });
@@ -213,7 +232,7 @@ export class FeesCreate implements OnInit {
           className: classItem.ClassName,
           sectionId: 0,
           sectionName: 'Default',
-          amount: this.feeData.amount || 0,
+          amount: 0,
           selected: true
         });
       }
@@ -241,8 +260,8 @@ export class FeesCreate implements OnInit {
   }
 
   updateFeeArrays() {
-    this.activeFees = this.allFees.filter(fee => fee.isActive);
-    this.inactiveFees = this.allFees.filter(fee => !fee.isActive);
+    this.activeFees = this.allFees.filter(fee => !!fee.IsActive);
+    this.inactiveFees = this.allFees.filter(fee => !fee.IsActive);
   }
 
   selectAllClassSections() {
@@ -256,7 +275,7 @@ export class FeesCreate implements OnInit {
   applyDefaultAmount() {
     this.classSections.forEach(cs => {
       if (cs.selected) {
-        cs.amount = this.feeData.amount || 0;
+        cs.amount = 0; // Amount will be set per class section
       }
     });
     
@@ -269,11 +288,12 @@ export class FeesCreate implements OnInit {
 
   // Watch for amount changes and update selected sections
   onDefaultAmountChange() {
-    if (this.feeData.amount > 0) {
+    // Only auto-apply default amount if we're not in edit mode or if user explicitly wants it
+    if (!this.editMode) { // Set default amount for new fees
       const selectedSections = this.classSections.filter(cs => cs.selected);
       if (selectedSections.length > 0) {
         selectedSections.forEach(cs => {
-          cs.amount = this.feeData.amount;
+          cs.amount = 0; // Default amount, can be changed per class
         });
       }
     }
@@ -283,7 +303,7 @@ export class FeesCreate implements OnInit {
   selectAllClassSectionsWithAmount() {
     this.classSections.forEach(cs => {
       cs.selected = true;
-      cs.amount = this.feeData.amount || 0;
+      cs.amount = 0; // Default amount
     });
     
     this.messageService.add({
@@ -315,11 +335,30 @@ export class FeesCreate implements OnInit {
   }
 
   async onSubmit() {
+    // Ensure scheduleData is synced into feeData.schedule before validation
+    // Coerce numeric fields to numbers because some UI components may provide strings
+    // Merge top-level startDate/endDate (bound in template) as fallback for schedule
+    this.feeData.Schedule = {
+      ScheduleType: this.scheduleData.scheduleType,
+      IntervalMonths: this.scheduleData.intervalMonths !== undefined && this.scheduleData.intervalMonths !== null
+        ? Number(this.scheduleData.intervalMonths)
+        : undefined,
+      DayOfMonth: this.scheduleData.dayOfMonth !== undefined && this.scheduleData.dayOfMonth !== null
+        ? Number(this.scheduleData.dayOfMonth)
+        : undefined,
+      StartDate: this.scheduleData.startDate,
+      EndDate: this.scheduleData.endDate,
+      NextDueDate: this.scheduleData.nextDueDate,
+      ReminderDaysBefore: this.scheduleData.reminderDaysBefore !== undefined && this.scheduleData.reminderDaysBefore !== null
+        ? Number(this.scheduleData.reminderDaysBefore)
+        : undefined
+    };
+
     if (!this.isFormValid()) {
       this.messageService.add({
         severity: 'warn',
         summary: 'Validation Error',
-        detail: 'Please fill all required fields and select at least one class/section'
+        detail: this.validationErrorMessage || 'Please fill all required fields and select at least one class/section'
       });
       return;
     }
@@ -330,31 +369,61 @@ export class FeesCreate implements OnInit {
       // Get selected class/section combinations
       const selectedClassSections = this.classSections.filter(cs => cs.selected);
       const classSectionMapping = selectedClassSections.map(cs => {
-        const mapping: {classId: number, sectionId: number, amount?: number} = {
-          classId: cs.classId,
-          sectionId: cs.sectionId
-        };
-        
-        // Include amount only if it's different from 0 and set
-        if (cs.amount && cs.amount > 0) {
-          mapping.amount = cs.amount;
+        // Normalize amount: accept numbers, numeric strings, or currency formatted strings (e.g. "₹1,200.50")
+        const raw: number | string | null = (cs.amount !== undefined && cs.amount !== null) ? cs.amount as any : null;
+        let amount: number | null = null;
+
+        if (raw !== null && raw !== undefined && raw !== '') {
+          if (typeof raw === 'number') {
+            amount = raw;
+          } else if (typeof raw === 'string') {
+            // Strip anything that's not digit, dot, or minus sign
+            const cleaned = raw.replace(/[^0-9.\-]/g, '');
+            const parsed = cleaned === '' ? NaN : Number(cleaned);
+            amount = Number.isNaN(parsed) ? null : parsed;
+          } else {
+            // Fallback for other types
+            const parsed = Number(raw as any);
+            amount = Number.isNaN(parsed) ? null : parsed;
+          }
         }
-        
+
+        // When amount is null, backend expects null (not 0) for unspecified amounts; but keep 0 if user explicitly set 0
+        // Build mapping payload using DB-native keys
+        const mapping: any = {
+          ClassID: cs.classId,
+          SectionID: cs.sectionId,
+          Amount: amount
+        };
+
+        if ((cs as any).mappingId) mapping.MappingID = (cs as any).mappingId;
+
         return mapping;
       });
 
       // Convert FeeData to ApiFeeData
       const apiFeeData: ApiFeeData = {
-        feeId: this.editMode ? this.editingFeeId : undefined,
-        feeName: this.feeData.feeName,
-        frequency: this.feeData.frequency,
-        startDate: this.feeData.startDate!,
-        lastDueDate: this.feeData.lastDueDate!,
-        amount: this.feeData.amount,
-        isActive: this.feeData.isActive,
-        status: this.feeData.isActive ? 'Active' : 'Inactive',
-        classSectionMapping: classSectionMapping
+        FeeID: this.editMode ? this.editingFeeId : undefined,
+        FeeName: this.feeData.FeeName,
+        IsActive: this.feeData.IsActive,
+        ClassSectionMapping: classSectionMapping,
+        Schedule: this.feeData.Schedule
       };
+
+      // Ensure OnDemand explicitly sends IntervalMonths and DayOfMonth as null (DB expects null)
+      if (apiFeeData.Schedule && apiFeeData.Schedule.ScheduleType === 'OnDemand') {
+        (apiFeeData.Schedule as any).IntervalMonths = null;
+        (apiFeeData.Schedule as any).DayOfMonth = null;
+      }
+
+      // For OneTime also clear recurrence fields
+      if (apiFeeData.Schedule && apiFeeData.Schedule.ScheduleType === 'OneTime') {
+        (apiFeeData.Schedule as any).IntervalMonths = null;
+        (apiFeeData.Schedule as any).DayOfMonth = null;
+      }
+
+      // Include startDate/endDate only when relevant
+      // No extra top-level dates; all dates are within Schedule using DB-native names
 
       let result: FeeWithClassSections | null;
 
@@ -391,46 +460,95 @@ export class FeesCreate implements OnInit {
   }
 
   editFee(fee: FeeWithClassSections) {
+    if (!fee.FeeID) return;
+
     this.editMode = true;
-    this.editingFeeId = fee.feeId;
+    this.editingFeeId = fee.FeeID;
     
+    // Use the fee data that's already available (no need for additional API call)
     this.feeData = {
-      feeId: fee.feeId,
-      feeName: fee.feeName,
-      frequency: fee.frequency,
-      startDate: fee.startDate,
-      lastDueDate: fee.lastDueDate,
-      amount: fee.amount,
-      isActive: fee.isActive
+      FeeID: fee.FeeID,
+      FeeName: fee.FeeName,
+      IsActive: !!fee.IsActive,
+      Schedule: fee.Schedule ?? null,
+      ClassSectionMapping: fee.ClassSectionMapping ?? []
     };
 
-    // Since we're not storing class sections separately, just keep all selected
+    // Populate local scheduleData so the template controls for Recurring/OnDemand show current values
+    const sched = fee.Schedule || {} as any;
+    this.scheduleData = {
+      scheduleType: sched.ScheduleType ?? sched.scheduleType ?? 'OneTime',
+      intervalMonths: sched.IntervalMonths !== undefined && sched.IntervalMonths !== null ? Number(sched.IntervalMonths) : undefined,
+      dayOfMonth: sched.DayOfMonth !== undefined && sched.DayOfMonth !== null ? Number(sched.DayOfMonth) : undefined,
+      startDate: this.parseDate(sched.StartDate ?? sched.startDate),
+      endDate: this.parseDate(sched.EndDate ?? sched.endDate),
+      nextDueDate: this.parseDate(sched.NextDueDate ?? sched.nextDueDate),
+      reminderDaysBefore: sched.ReminderDaysBefore !== undefined && sched.ReminderDaysBefore !== null ? Number(sched.ReminderDaysBefore) : 5
+    };
+
+    // Reset all class sections to unselected first
     this.classSections.forEach(cs => {
-      cs.selected = true;
-      cs.amount = fee.amount;
+      cs.selected = false;
+      cs.amount = 0;
     });
+
+    // If fee has classSections data, map the amounts correctly using effectiveAmount
+    if (fee.ClassSectionMapping && fee.ClassSectionMapping.length > 0) {
+      fee.ClassSectionMapping.forEach(feeClassSection => {
+        const matchingCs = this.classSections.find(cs => 
+          cs.classId === feeClassSection.ClassID && cs.sectionId === feeClassSection.SectionID
+        );
+        if (matchingCs) {
+          matchingCs.selected = true;
+          matchingCs.amount = Number(feeClassSection.Amount || 0);
+          // Preserve mapping id so updates can reference existing DB rows
+          (matchingCs as any).mappingId = (feeClassSection as any).MappingID ?? (feeClassSection as any).mappingId ?? undefined;
+        }
+      });
+    } else {
+      // Fallback: select all and use base amount
+      this.classSections.forEach(cs => {
+        cs.selected = true;
+        cs.amount = 0; // Will be set from class section mapping
+      });
+    }
 
     // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  async toggleFeeStatus(fee: FeeWithClassSections) {
-    if (!fee.feeId) return;
+  async toggleFeeStatus(fee: FeeWithClassSections, event?: any) {
+    if (!fee.FeeID) return;
 
     try {
-      const newStatus = !fee.isActive;
-      const success = await this.feeService.toggleFeeStatus(fee.feeId, newStatus).toPromise();
-      
+      // The toggle component emits an event with the new checked state. Prefer that when available
+      const previousStatus = !!fee.IsActive;
+      let intendedStatus: boolean;
+
+      if (event && (typeof event.checked === 'boolean' || typeof event.value === 'boolean')) {
+        // PrimeNG ToggleSwitch may use `checked` or `value`
+        intendedStatus = typeof event.checked === 'boolean' ? event.checked : event.value;
+      } else {
+        // Fallback: invert the model (should not be necessary when event is passed)
+        intendedStatus = !previousStatus;
+      }
+
+      // Optimistically update UI so toggle feels responsive
+      fee.IsActive = intendedStatus;
+      this.updateFeeArrays();
+
+      const success = await this.feeService.toggleFeeStatus(fee.FeeID, intendedStatus).toPromise();
+
       if (success) {
-        fee.isActive = newStatus;
-        this.updateFeeArrays();
-        
         this.messageService.add({
           severity: 'info',
           summary: 'Status Updated',
-          detail: `Fee ${fee.isActive ? 'activated' : 'deactivated'} successfully`
+          detail: `Fee ${intendedStatus ? 'activated' : 'deactivated'} successfully`
         });
       } else {
+        // Revert UI to previous state if API failed
+        fee.IsActive = previousStatus;
+        this.updateFeeArrays();
         throw new Error('Failed to update fee status');
       }
     } catch (error) {
@@ -452,15 +570,24 @@ export class FeesCreate implements OnInit {
     this.editingFeeId = undefined;
     
     this.feeData = {
-      feeName: '',
-      frequency: '',
-      startDate: null,
-      lastDueDate: null,
-      amount: 0,
-      isActive: true,
-      classSectionMapping: []
+      FeeName: '',
+      IsActive: true,
+      Schedule: null,
+      ClassSectionMapping: []
     };
 
+    // Reset schedule UI state to defaults
+    this.scheduleData = {
+      scheduleType: 'OneTime',
+      intervalMonths: undefined,
+      dayOfMonth: undefined,
+      startDate: undefined,
+      endDate: undefined,
+      nextDueDate: undefined,
+      reminderDaysBefore: 5
+    };
+
+    // Reset class-section selections and amounts
     this.classSections.forEach(cs => {
       cs.selected = true;
       cs.amount = 0;
@@ -468,69 +595,167 @@ export class FeesCreate implements OnInit {
   }
 
   private isFormValid(): boolean {
-    return !!(
-      this.feeData.feeName &&
-      this.feeData.frequency &&
-      this.feeData.startDate &&
-      this.feeData.lastDueDate &&
-      this.feeData.amount > 0 &&
-      this.getSelectedCount() > 0
-    );
+    // Reset message
+    this.validationErrorMessage = null;
+
+    // Basic validation
+    if (!this.feeData.FeeName || !this.scheduleData.scheduleType || this.getSelectedCount() === 0) {
+      console.debug('Validation failed: basic checks', {
+        feeName: this.feeData.FeeName,
+        scheduleType: this.scheduleData.scheduleType,
+        selectedCount: this.getSelectedCount()
+      });
+      if (!this.feeData.FeeName) this.validationErrorMessage = 'Please enter a fee name.';
+      else if (!this.scheduleData.scheduleType) this.validationErrorMessage = 'Please select a schedule type.';
+      else if (this.getSelectedCount() === 0) this.validationErrorMessage = 'Please select at least one class/section.';
+      return false;
+    }
+
+    // Frequency-specific validation
+    switch (this.scheduleData.scheduleType) {
+      case 'OnDemand':
+        // Prefer scheduleData if available
+        const sdOn = this.scheduleData;
+        const okOn = !!(sdOn.startDate && sdOn.endDate);
+        if (!okOn) {
+          console.debug('Validation failed: OnDemand needs startDate and endDate', sdOn);
+          this.validationErrorMessage = 'Please provide both Start Date and End/Due Date for On Demand fees.';
+          return false;
+        }
+
+        // If academic bounds are available, ensure dates lie within them
+        if (this.academicYearStart && this.academicYearEnd) {
+          const s = this.parseDate(sdOn.startDate);
+          const e = this.parseDate(sdOn.endDate);
+          if (!s || !e) {
+            this.validationErrorMessage = 'Invalid Start Date or End/Due Date.';
+            return false;
+          }
+          if (!this.isWithinAcademicYear(s) || !this.isWithinAcademicYear(e)) {
+            console.debug('Validation failed: OnDemand dates outside academic year', { s, e, ayStart: this.academicYearStart, ayEnd: this.academicYearEnd });
+            return false;
+          }
+          // Also ensure start <= end
+          if (s.getTime() > e.getTime()) {
+            console.debug('Validation failed: OnDemand start is after end', { s, e });
+            this.validationErrorMessage = 'Start Date cannot be after End/Due Date.';
+            return false;
+          }
+        }
+
+        return true;
+      case 'OneTime':
+        // OneTime no longer requires an end date; basic existence of feeName and selection suffices
+        // If an endDate or nextDueDate is provided, ensure it's within academic year
+        if (this.academicYearStart && this.academicYearEnd) {
+          const ed = this.parseDate(this.scheduleData.endDate);
+          const nd = this.parseDate(this.scheduleData.nextDueDate);
+          if (ed && !this.isWithinAcademicYear(ed)) return false;
+          if (nd && !this.isWithinAcademicYear(nd)) return false;
+        }
+        return true;
+      case 'Recurring':
+        // Accept either feeData.schedule or the local scheduleData as the source of truth
+      const sd = this.scheduleData;
+      const day = sd.dayOfMonth !== undefined && sd.dayOfMonth !== null ? Number(sd.dayOfMonth) : NaN;
+      const interval = sd.intervalMonths !== undefined && sd.intervalMonths !== null ? Number(sd.intervalMonths) : NaN;
+      const dayOk = !Number.isNaN(day) && day > 0 && day <= 31;
+      const intervalOk = !Number.isNaN(interval) && [1,3,6,12].includes(interval);
+      const okRec = dayOk && intervalOk;
+      if (!okRec) console.debug('Validation failed: Recurring needs valid dayOfMonth and intervalMonths', { sd, dayOk, intervalOk, day, interval });
+      return okRec;
+      default:
+        return true;
+    }
+  }
+
+  private isWithinAcademicYear(d: Date): boolean {
+    if (!d) return false;
+    if (this.academicYearStart && d < this.academicYearStart) return false;
+    if (this.academicYearEnd && d > this.academicYearEnd) return false;
+    return true;
   }
 
   // Helper method to get fee name label (now just returns the name as is)
-  getFeeNameLabel(value: string): string {
-    return value; // Since we're using custom names now
+  getFeeNameLabel(value?: string): string {
+    return value ?? '';
   }
 
-  // Helper method to get frequency label
-  getFrequencyLabel(value: string): string {
-    const option = this.frequencyOptions.find(opt => opt.value === value);
+  // Helper method to get schedule type label (accept undefined safely)
+  getFrequencyLabel(value?: string): string {
+    if (!value) return '';
+    const option = this.scheduleTypeOptions.find((opt: any) => opt.value === value);
     return option ? option.label : value;
   }
 
-  // Apply template to form
-  applyTemplate(template: any) {
-    this.feeData.feeName = template.name;
-    this.feeData.frequency = template.frequency;
-    this.feeData.amount = template.amount;
-    
-    // Set default dates if not already set
-    if (!this.feeData.startDate) {
-      this.feeData.startDate = new Date();
+  // Helper methods for schedule-specific functionality
+  getOrdinalSuffix(n: number): string {
+    const s = ['th', 'st', 'nd', 'rd'];
+    const v = n % 100;
+    return s[(v - 20) % 10] || s[v] || s[0];
+  }
+
+  // Parse various incoming date formats into a Date object or undefined
+  private parseDate(val: any): Date | undefined {
+    if (val === null || val === undefined || val === '') return undefined;
+    if (val instanceof Date) return val;
+    if (typeof val === 'number') return new Date(val);
+    if (typeof val === 'string') {
+      const d = new Date(val);
+      if (!isNaN(d.getTime())) return d;
+      // Try adding time to date-only strings
+      const maybe = new Date(val + 'T00:00:00');
+      if (!isNaN(maybe.getTime())) return maybe;
     }
-    if (!this.feeData.lastDueDate) {
-      // Set due date based on frequency
-      const dueDate = new Date();
-      switch (template.frequency) {
-        case 'monthly':
-          dueDate.setMonth(dueDate.getMonth() + 1);
-          break;
-        case 'yearly':
-          dueDate.setFullYear(dueDate.getFullYear() + 1);
-          break;
-        case 'weekly':
-          dueDate.setDate(dueDate.getDate() + 7);
-          break;
-        case 'daily':
-          dueDate.setDate(dueDate.getDate() + 1);
-          break;
-        default:
-          dueDate.setMonth(dueDate.getMonth() + 1);
+    return undefined;
+  }
+
+  shouldShowStartDate(): boolean {
+    return this.scheduleData.scheduleType === 'OnDemand';
+  }
+
+  shouldShowLastDueDate(): boolean {
+    return ['OnDemand', 'OneTime'].includes(this.scheduleData.scheduleType || '');
+  }
+
+  shouldShowMonthlySettings(): boolean {
+    return this.scheduleData.scheduleType === 'Recurring';
+  }
+
+  shouldShowScheduleSettings(): boolean {
+    return this.scheduleData.scheduleType === 'Recurring';
+  }
+
+  onFrequencyChange() {
+    // Update scheduleData.scheduleType and only set defaults for missing values
+    this.scheduleData.scheduleType = this.scheduleData.scheduleType || 'OneTime';
+    if (this.scheduleData.reminderDaysBefore === undefined || this.scheduleData.reminderDaysBefore === null) {
+      this.scheduleData.reminderDaysBefore = 5;
+    }
+    if (this.scheduleData.scheduleType === 'Recurring') {
+      if (!this.scheduleData.dayOfMonth) this.scheduleData.dayOfMonth = 1;
+      if (!this.scheduleData.intervalMonths) this.scheduleData.intervalMonths = 1;
+    }
+
+    if (this.scheduleData.scheduleType === 'Recurring') {
+      // ensure endDate not auto-required but dayOfMonth/intervalMonths are set
+      if (!this.scheduleData.intervalMonths) this.scheduleData.intervalMonths = 1;
+    } else if (this.scheduleData.scheduleType === 'OneTime') {
+      // Provide a default end date 30 days ahead if missing (only if truly absent)
+      if (!this.scheduleData.endDate) {
+        const due = new Date();
+        due.setDate(due.getDate() + 30);
+        this.scheduleData.endDate = due; // keep as Date for datepicker
       }
-      this.feeData.lastDueDate = dueDate;
+      // For OneTime clear recurrence-specific fields
+      this.scheduleData.intervalMonths = undefined;
+      this.scheduleData.dayOfMonth = undefined;
+    } else if (this.scheduleData.scheduleType === 'OnDemand') {
+      // Require a startDate; set today if absent
+      if (!this.scheduleData.startDate) this.scheduleData.startDate = new Date();
+      // OnDemand is a single occurrence — clear recurrence fields
+      this.scheduleData.intervalMonths = undefined;
+      this.scheduleData.dayOfMonth = undefined;
     }
-
-    // Apply amount to all class sections and select them
-    this.classSections.forEach(cs => {
-      cs.amount = template.amount;
-      cs.selected = true;
-    });
-
-    this.messageService.add({
-      severity: 'info',
-      summary: 'Template Applied',
-      detail: `${template.name} template has been applied. You can modify the details as needed.`
-    });
   }
 }

@@ -5,21 +5,42 @@ import { environment } from '../../../../../environments/environment';
 import { UserService } from '@/services/user.service';
 
 export interface FeeData {
-  feeId?: number;
-  feeName: string;
-  frequency: string;
-  startDate: Date;
-  lastDueDate: Date;
-  amount: number;
-  isActive: boolean;
-  status: string;
-  classSectionMapping?: Array<{classId: number, sectionId: number, amount?: number}>;
-  academicYearId?: number;
-  schoolId?: number;
-  createdAt?: Date;
-  updatedAt?: Date;
-  createdBy?: string;
-  updatedBy?: string;
+  FeeID?: number;
+  FeeName: string;
+  IsActive: boolean;
+  SchoolID?: number;
+  AcademicYearID?: number;
+  CreatedAt?: Date;
+  UpdatedAt?: Date;
+  CreatedBy?: string;
+  UpdatedBy?: string;
+  Schedule?: {
+    ScheduleID?: number;
+    FeeID?: number;
+    ScheduleType: string;
+    IntervalMonths?: number;
+    DayOfMonth?: number;
+  StartDate?: string | Date;
+  EndDate?: string | Date;
+  NextDueDate?: string | Date;
+    ReminderDaysBefore?: number;
+    CreatedAt?: string;
+    UpdatedAt?: string;
+    CreatedBy?: string;
+    UpdatedBy?: string;
+  } | null;
+  ClassSectionMapping?: Array<{
+    MappingID?: number;
+    FeeID?: number;
+    ClassID: number;
+    SectionID: number;
+    Amount?: number;
+    IsActive?: boolean;
+    CreatedAt?: string;
+    UpdatedAt?: string;
+    CreatedBy?: string;
+    UpdatedBy?: string;
+  }>;
 }
 
 export interface FeeWithClassSections extends FeeData {
@@ -84,13 +105,13 @@ export class FeeService {
    * Update an existing fee
    */
   updateFee(feeData: FeeData): Observable<FeeWithClassSections | null> {
-    if (!feeData.feeId) {
+    if (!feeData.FeeID) {
       throw new Error('Fee ID is required for update');
     }
 
     const payload = this.mapFeeToApiRequest(feeData);
 
-    return this.http.put<any>(`${this.baseUrl}/update/${feeData.feeId}`, payload).pipe(
+    return this.http.put<any>(`${this.baseUrl}/update/${feeData.FeeID}`, payload).pipe(
       map(response => {
         if (response && response.success && response.data) {
           return this.mapApiResponseToFee(response.data);
@@ -104,7 +125,7 @@ export class FeeService {
    * Toggle fee active status
    */
   toggleFeeStatus(id: number, isActive: boolean): Observable<boolean> {
-    return this.http.patch<any>(`${this.baseUrl}/${id}/status`, { isActive }).pipe(
+    return this.http.patch<any>(`${this.baseUrl}/${id}/status`, { IsActive: isActive }).pipe(
       map(response => response && response.success === true)
     );
   }
@@ -153,39 +174,33 @@ export class FeeService {
   /**
    * Map API response to fee object
    */
-  private mapApiResponseToFee(apiData: any): FeeWithClassSections {
-    // Normalize classSections returned by the API (controller returns grouped structure)
-    const classSections = apiData.classSections || apiData.ClassSections || [];
-
-    // classCount should reflect number of unique classes represented in mappings
+  private mapApiResponseToFee(api: any): FeeWithClassSections {
+    const mappings = api.ClassSectionMapping || [];
     let classCount = 0;
-    if (Array.isArray(classSections) && classSections.length > 0) {
-      const uniqueClassIds = new Set<number>();
-      classSections.forEach((cs: any) => {
-        const cid = cs.classId ?? cs.ClassID ?? null;
-        if (cid !== null && cid !== undefined) uniqueClassIds.add(Number(cid));
-      });
-      classCount = uniqueClassIds.size;
-    } else if (typeof apiData.classCount === 'number') {
-      classCount = apiData.classCount;
+    if (Array.isArray(mappings) && mappings.length > 0) {
+      const s = new Set<number>();
+      for (const m of mappings) {
+        const id = m.ClassID;
+        if (id !== undefined && id !== null) s.add(Number(id));
+      }
+      classCount = s.size;
+    } else if (typeof api.classCount === 'number') {
+      classCount = api.classCount;
     }
 
     return {
-      feeId: apiData.FeeID || apiData.feeId,
-      feeName: apiData.FeeName || apiData.feeName || '',
-      frequency: apiData.Frequency || apiData.frequency || '',
-  startDate: new Date(apiData.StartDate || apiData.startDate || new Date()),
-  lastDueDate: new Date(apiData.LastDueDate || apiData.lastDueDate || new Date()),
-      amount: parseFloat(apiData.Amount || apiData.amount || apiData.BaseAmount || 0),
-      isActive: Boolean(apiData.IsActive !== undefined ? apiData.IsActive : apiData.isActive),
-      status: apiData.Status || apiData.status || 'Active',
-      academicYearId: apiData.AcademicYearID || apiData.academicYearId,
-      schoolId: apiData.SchoolID || apiData.schoolId,
-      createdAt: apiData.FeeCreatedAt || apiData.CreatedAt ? new Date(apiData.FeeCreatedAt || apiData.CreatedAt) : undefined,
-      updatedAt: apiData.FeeUpdatedAt || apiData.UpdatedAt ? new Date(apiData.FeeUpdatedAt || apiData.UpdatedAt) : undefined,
-      createdBy: apiData.FeeCreatedBy || apiData.CreatedBy || apiData.createdBy,
-      updatedBy: apiData.FeeUpdatedBy || apiData.UpdatedBy || apiData.updatedBy,
-      classCount: classCount
+      FeeID: api.FeeID,
+      FeeName: api.FeeName || '',
+      IsActive: Boolean(api.IsActive),
+      AcademicYearID: api.AcademicYearID,
+      SchoolID: api.SchoolID,
+      CreatedAt: api.CreatedAt ? new Date(api.CreatedAt) : undefined,
+      UpdatedAt: api.UpdatedAt ? new Date(api.UpdatedAt) : undefined,
+      CreatedBy: api.CreatedBy,
+      UpdatedBy: api.UpdatedBy,
+      Schedule: api.Schedule ?? null,
+      ClassSectionMapping: mappings,
+      classCount
     };
   }
 
@@ -193,28 +208,33 @@ export class FeeService {
    * Map fee object to API request format
    */
   private mapFeeToApiRequest(fee: FeeData): any {
-    const mappings = fee.classSectionMapping || [];
-
-    // Detect if any mapping provides its own amount (with actual value)
-    const mappingsHaveAmount = mappings.some(m => 
-      (m.hasOwnProperty('amount') && typeof m.amount === 'number' && m.amount > 0) ||
-      (m.hasOwnProperty('Amount') && typeof (m as any).Amount === 'number' && (m as any).Amount > 0)
-    );
-
     const payload: any = {
-      feeName: fee.feeName,
-      frequency: fee.frequency,
-      startDate: fee.startDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
-      lastDueDate: fee.lastDueDate.toISOString().split('T')[0],
-      isActive: fee.isActive,
-      status: fee.status || 'Active',
-      classSectionMapping: mappings
-      // schoolId and academicYearId will be handled by backend from user session
+      FeeName: fee.FeeName,
+      IsActive: fee.IsActive,
     };
 
-    // Only include top-level amount when mappings do NOT provide per-mapping amounts
-    if (!mappingsHaveAmount && typeof fee.amount === 'number') {
-      payload.amount = fee.amount;
+    if (fee.ClassSectionMapping && fee.ClassSectionMapping.length) {
+      payload.ClassSectionMapping = fee.ClassSectionMapping.map(m => {
+        const out: any = {
+          ClassID: m.ClassID,
+          SectionID: m.SectionID,
+          Amount: m.Amount
+        };
+        if ((m as any).MappingID) out.MappingID = (m as any).MappingID;
+        return out;
+      });
+    }
+
+    if (fee.Schedule) {
+      payload.Schedule = {
+        ScheduleType: fee.Schedule.ScheduleType,
+        IntervalMonths: fee.Schedule.IntervalMonths,
+        DayOfMonth: fee.Schedule.DayOfMonth,
+        StartDate: fee.Schedule.StartDate,
+        EndDate: fee.Schedule.EndDate,
+        NextDueDate: fee.Schedule.NextDueDate,
+        ReminderDaysBefore: fee.Schedule.ReminderDaysBefore
+      };
     }
 
     return payload;
