@@ -252,9 +252,9 @@
                             </div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-3 flex-shrink-0">
-                        <p-button icon="pi pi-pencil" severity="secondary" size="small" (onClick)="editFee(fee)"
-                            pTooltip="Edit Fee" tooltipPosition="top">
+                    <div class="flex items-center gap-3 flex-shrink-0 custom-css">
+                        <p-button [disabled]="canEditFee(fee)" icon="pi pi-pencil" severity="secondary" size="small" (onClick)="editFee(fee)"
+                            pTooltip="{{ canEditFee(fee) ? 'Cannot Edit Fee' : 'Edit Fee' }}" tooltipPosition="top">
                         </p-button>
                         <div class="flex flex-col items-center gap-1">
                             <p-toggleswitch [(ngModel)]="fee.IsActive" (onChange)="toggleFeeStatus(fee, $event)"
@@ -307,7 +307,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-3 flex-shrink-0">
+                    <div class="flex items-center gap-3 flex-shrink-0 custom-css">
                         <p-button icon="pi pi-pencil" severity="secondary" size="small" (onClick)="editFee(fee)"
                             pTooltip="Edit Fee" tooltipPosition="top">
                         </p-button>

@@ -103,3 +103,29 @@ CREATE TABLE Tx_student_fee_payments (
 );
 CREATE INDEX IX_StudentFeePayments_StudentFee ON Tx_student_fee_payments(StudentFeeID);
 
+
+-- -------------------------------------------------------------
+-- Fine Policies (rules for late fees)
+-- -------------------------------------------------------------
+CREATE TABLE Tx_fine_policies (
+    FinePolicyID INT PRIMARY KEY AUTO_INCREMENT,
+    SchoolID INT NOT NULL,
+    AcademicYearID INT NOT NULL DEFAULT 0,
+    FeeID INT NULL,    -- if NULL = apply to all fees, else specific fee
+    ApplyType ENUM('Fixed','PerDay','Percentage') NOT NULL,
+    Amount DECIMAL(10,2) NOT NULL DEFAULT 0.00, -- fixed amount OR per-day amount OR percentage
+    GraceDays INT NOT NULL DEFAULT 0,           -- no fine if within grace days after DueDate
+    MaxAmount DECIMAL(10,2) NULL,               -- optional cap (e.g., max ₹500 fine)
+    IsActive TINYINT(1) NOT NULL DEFAULT 1,
+    CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CreatedBy VARCHAR(50) NOT NULL DEFAULT 'System',
+    UpdatedAt DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    UpdatedBy VARCHAR(50) NULL,
+
+    FOREIGN KEY (SchoolID) REFERENCES Tm_schools(SchoolID) ON DELETE CASCADE,
+    FOREIGN KEY (FeeID) REFERENCES Tx_fees(FeeID) ON DELETE SET NULL
+);
+
+CREATE INDEX IX_FinePolicy_School ON Tx_fine_policies(SchoolID);
+CREATE INDEX IX_FinePolicy_Fee ON Tx_fine_policies(FeeID);
+CREATE INDEX IX_FinePolicy_AcademicYear ON Tx_fine_policies(AcademicYearID);

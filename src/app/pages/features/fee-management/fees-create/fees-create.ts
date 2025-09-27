@@ -136,6 +136,7 @@ export class FeesCreate implements OnInit {
   academicYearEnd?: Date;
   // Effective minimum date for pickers (tomorrow or academicYearStart whichever is later)
   effectiveMinDate?: Date;
+  todayDate: Date = new Date();
 
   ngOnInit() {
     this.loadAcademicYearBounds();
@@ -734,6 +735,22 @@ export class FeesCreate implements OnInit {
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     return `${yyyy}-${mm}-${dd}`;
+  }
+
+  // Determine whether a fee is editable: allow edit when StartDate is not in the future.
+  // Returns true when fee has no StartDate, or StartDate <= today (local calendar day).
+  public canEditFee(fee: FeeWithClassSections | undefined | null): boolean {
+    if (!fee) return false;
+    try {
+      const sd = this.parseDate((fee as any)?.Schedule?.StartDate);
+      if (!sd) return false; // no start date => editable
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      sd.setHours(0,0,0,0);
+      return sd.getTime() <= today.getTime();
+    } catch (e) {
+      return true;
+    }
   }
 
   shouldShowStartDate(): boolean {
