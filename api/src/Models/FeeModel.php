@@ -39,11 +39,13 @@ class FeeModel extends Model
     {
         try {
             $this->conn->beginTransaction();
+            // Use a consistent application timestamp for this transaction
+            $nowDate = date('Y-m-d H:i:s');
             
             // Create main fee record using DB-native keys
             $sql = "INSERT INTO {$this->table} 
-                (FeeName, IsActive, SchoolID, AcademicYearID, CreatedBy) 
-                VALUES (:FeeName, :IsActive, :SchoolID, :AcademicYearID, :CreatedBy)";
+                (FeeName, IsActive, SchoolID, AcademicYearID, CreatedBy, CreatedAt) 
+                VALUES (:FeeName, :IsActive, :SchoolID, :AcademicYearID, :CreatedBy, :CreatedAt)";
 
             $stmt = $this->conn->prepare($sql);
             $feeName = is_array($data['FeeName']) ? reset($data['FeeName']) : $data['FeeName'];
@@ -53,18 +55,19 @@ class FeeModel extends Model
             $stmt->bindValue(':AcademicYearID', $data['AcademicYearID'], PDO::PARAM_INT);
             $createdBy = is_array($data['CreatedBy']) ? reset($data['CreatedBy']) : $data['CreatedBy'];
             $stmt->bindValue(':CreatedBy', $createdBy);
+            $stmt->bindValue(':CreatedAt', $nowDate);
 
             $stmt->execute();
             $feeId = $this->conn->lastInsertId();
             
             // Create class-section mappings if provided
             if (!empty($data['ClassSectionMapping'])) {
-                $this->createClassSectionMappings($feeId, $data['ClassSectionMapping'], $createdBy);
+                $this->createClassSectionMappings($feeId, $data['ClassSectionMapping'], $createdBy, $nowDate);
             }
 
             // Create schedule if provided
             if (!empty($data['Schedule'])) {
-                $this->createFeeSchedule($feeId, $data['Schedule'], $createdBy);
+                $this->createFeeSchedule($feeId, $data['Schedule'], $createdBy, $nowDate);
             }
             $this->conn->commit();
             return $feeId;
@@ -82,6 +85,8 @@ class FeeModel extends Model
     {
         try {
             $this->conn->beginTransaction();
+            // Consistent application timestamp for this update
+            $nowDate = date('Y-m-d H:i:s');
             // Normalize incoming id to integer - some routers may pass ['id' => '6']
             if (is_array($id)) {
                 if (isset($id['id'])) {
@@ -117,7 +122,7 @@ class FeeModel extends Model
 
             if (!empty($fields)) {
                 // Always update UpdatedAt
-                $fields[] = "UpdatedAt = NOW()";
+                $fields[] = "UpdatedAt = :UpdatedAt";
 
                 $sql = "UPDATE {$this->table} SET " . implode(', ', $fields) . " WHERE {$this->primaryKey} = :id";
                 
@@ -149,6 +154,8 @@ class FeeModel extends Model
                         $stmt->bindValue($param, $value);
                     }
                 }
+                // Bind UpdatedAt timestamp
+                $stmt->bindValue(':UpdatedAt', $nowDate);
                 
                 $stmt->execute();
             }
@@ -173,11 +180,12 @@ class FeeModel extends Model
                             $phNames[] = ':pair' . $i;
                         }
                         $placeholders = implode(',', $phNames);
-                        $sqlOff = "UPDATE Tx_fee_class_section_mapping SET IsActive = 0, UpdatedAt = NOW(), UpdatedBy = :UpdatedBy WHERE FeeID = :FeeID AND CONCAT(ClassID, '_', SectionID) NOT IN ($placeholders)";
+                        $sqlOff = "UPDATE Tx_fee_class_section_mapping SET IsActive = 0, UpdatedAt = :UpdatedAt, UpdatedBy = :UpdatedBy WHERE FeeID = :FeeID AND CONCAT(ClassID, '_', SectionID) NOT IN ($placeholders)";
                         $stmtOff = $this->conn->prepare($sqlOff);
                         // Bind UpdatedBy and FeeID as named params
                         $stmtOff->bindValue(':UpdatedBy', $data['UpdatedBy'] ?? 'system');
                         $stmtOff->bindValue(':FeeID', $id, PDO::PARAM_INT);
+                        $stmtOff->bindValue(':UpdatedAt', $nowDate);
                         // Bind each pair by its named placeholder
                         foreach ($pairs as $i => $p) {
                             $stmtOff->bindValue(':pair' . $i, $p);
@@ -187,10 +195,11 @@ class FeeModel extends Model
                         error_log('FeeModel::updateFee - marked mappings inactive (selective): ' . ($okOff ? 'true' : 'false') . ' - rowsUpdated: ' . var_export($offCount, true));
                     } else {
                         // No incoming mappings — deactivate all
-                        $sqlAllOff = "UPDATE Tx_fee_class_section_mapping SET IsActive = 0, UpdatedAt = NOW(), UpdatedBy = :UpdatedBy WHERE FeeID = :FeeID";
+                        $sqlAllOff = "UPDATE Tx_fee_class_section_mapping SET IsActive = 0, UpdatedAt = :UpdatedAt, UpdatedBy = :UpdatedBy WHERE FeeID = :FeeID";
                         $stmtAllOff = $this->conn->prepare($sqlAllOff);
                         $stmtAllOff->bindValue(':UpdatedBy', $data['UpdatedBy'] ?? 'system');
                         $stmtAllOff->bindValue(':FeeID', $id, PDO::PARAM_INT);
+                        $stmtAllOff->bindValue(':UpdatedAt', $nowDate);
                         $okAllOff = $stmtAllOff->execute();
                         $allOffCount = method_exists($stmtAllOff, 'rowCount') ? $stmtAllOff->rowCount() : null;
                         error_log('FeeModel::updateFee - marked all mappings inactive (pre-upsert): ' . ($okAllOff ? 'true' : 'false') . ' - rowsUpdated: ' . var_export($allOffCount, true));
@@ -226,10 +235,10 @@ class FeeModel extends Model
 
                     if ($scheduleId) {
                         // Update the existing schedule row
-                        $this->updateFeeSchedule((int)$scheduleId, $schedPayload, $data['UpdatedBy'] ?? 'system');
+                        $this->updateFeeSchedule((int)$scheduleId, $schedPayload, $data['UpdatedBy'] ?? 'system', $nowDate);
                     } else {
                         // No existing schedule, create a new one
-                        $this->createFeeSchedule($id, $schedPayload, $data['UpdatedBy'] ?? 'system');
+                        $this->createFeeSchedule($id, $schedPayload, $data['UpdatedBy'] ?? 'system', $nowDate);
                     }
                 }
             }
@@ -326,11 +335,12 @@ class FeeModel extends Model
     /**
      * Create fee schedule
      */
-    public function createFeeSchedule($feeId, $scheduleData, $createdBy)
+    public function createFeeSchedule($feeId, $scheduleData, $createdBy, $nowDate = null)
     {
+        if ($nowDate === null) { $nowDate = date('Y-m-d H:i:s'); }
         $sql = "INSERT INTO Tx_fees_schedules 
-                (FeeID, ScheduleType, IntervalMonths, DayOfMonth, StartDate, EndDate, NextDueDate, ReminderDaysBefore, CreatedBy) 
-                VALUES (:FeeID, :ScheduleType, :IntervalMonths, :DayOfMonth, :StartDate, :EndDate, :NextDueDate, :ReminderDaysBefore, :CreatedBy)";
+                (FeeID, ScheduleType, IntervalMonths, DayOfMonth, StartDate, EndDate, NextDueDate, ReminderDaysBefore, CreatedBy, CreatedAt) 
+                VALUES (:FeeID, :ScheduleType, :IntervalMonths, :DayOfMonth, :StartDate, :EndDate, :NextDueDate, :ReminderDaysBefore, :CreatedBy, :CreatedAt)";
 
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':FeeID', $feeId, PDO::PARAM_INT);
@@ -377,6 +387,7 @@ class FeeModel extends Model
         }
 
         $stmt->bindValue(':CreatedBy', $createdBy);
+        $stmt->bindValue(':CreatedAt', $nowDate);
         
         return $stmt->execute();
     }
@@ -395,8 +406,9 @@ class FeeModel extends Model
     /**
      * Update an existing fee schedule row by ScheduleID
      */
-    public function updateFeeSchedule($scheduleId, $scheduleData, $updatedBy)
+    public function updateFeeSchedule($scheduleId, $scheduleData, $updatedBy, $nowDate = null)
     {
+        if ($nowDate === null) { $nowDate = date('Y-m-d H:i:s'); }
         // Build dynamic set clauses only for provided keys to avoid overwriting with NULL unintentionally
         $fields = [];
         $params = [':ScheduleID' => $scheduleId];
@@ -436,10 +448,11 @@ class FeeModel extends Model
             $params[':ReminderDaysBefore'] = $scheduleData['ReminderDaysBefore'] === null ? null : (int)$scheduleData['ReminderDaysBefore'];
         }
 
-        // Always set UpdatedBy/UpdatedAt
+    // Always set UpdatedBy/UpdatedAt
         $fields[] = 'UpdatedBy = :UpdatedBy';
-        $fields[] = 'UpdatedAt = NOW()';
+    $fields[] = 'UpdatedAt = :UpdatedAt';
         $params[':UpdatedBy'] = $updatedBy;
+    $params[':UpdatedAt'] = $nowDate;
 
         if (empty($fields)) return false;
 
@@ -465,11 +478,12 @@ class FeeModel extends Model
     /**
      * Create class-section mappings for a fee
      */
-    public function createClassSectionMappings($feeId, $mappings, $createdBy)
+    public function createClassSectionMappings($feeId, $mappings, $createdBy, $nowDate = null)
     {
+        if ($nowDate === null) { $nowDate = date('Y-m-d H:i:s'); }
         $sql = "INSERT INTO Tx_fee_class_section_mapping 
-                (FeeID, ClassID, SectionID, Amount, IsActive, CreatedBy) 
-                VALUES (:FeeID, :ClassID, :SectionID, :Amount, :IsActive, :CreatedBy)";
+                (FeeID, ClassID, SectionID, Amount, IsActive, CreatedBy, CreatedAt) 
+                VALUES (:FeeID, :ClassID, :SectionID, :Amount, :IsActive, :CreatedBy, :CreatedAt)";
 
         $stmt = $this->conn->prepare($sql);
 
@@ -494,6 +508,7 @@ class FeeModel extends Model
             $stmt->bindValue(':IsActive', $isActive, PDO::PARAM_INT);
 
             $stmt->bindValue(':CreatedBy', $createdBy);
+            $stmt->bindValue(':CreatedAt', $nowDate);
             $ok = $stmt->execute();
             if (!$ok) {
                 $err = $stmt->errorInfo();
@@ -507,8 +522,9 @@ class FeeModel extends Model
     /**
      * Upsert (update existing by MappingID or Fee/Class/Section, insert new otherwise)
      */
-    private function upsertClassSectionMappings($feeId, $mappings, $updatedBy)
+    private function upsertClassSectionMappings($feeId, $mappings, $updatedBy, $nowDate = null)
     {
+        if ($nowDate === null) { $nowDate = date('Y-m-d H:i:s'); }
         foreach ($mappings as $mapping) {
             $mappingId = $mapping['MappingID'] ?? ($mapping['mappingId'] ?? null);
             $classId = isset($mapping['ClassID']) ? (int)$mapping['ClassID'] : (isset($mapping['classId']) ? (int)$mapping['classId'] : 0);
@@ -519,7 +535,7 @@ class FeeModel extends Model
             if ($mappingId) {
                 // Update by MappingID
                 $sql = "UPDATE Tx_fee_class_section_mapping
-                        SET Amount = :Amount, IsActive = :IsActive, UpdatedBy = :UpdatedBy, UpdatedAt = NOW()
+                        SET Amount = :Amount, IsActive = :IsActive, UpdatedBy = :UpdatedBy, UpdatedAt = :UpdatedAt
                         WHERE MappingID = :MappingID AND FeeID = :FeeID";
                 $stmt = $this->conn->prepare($sql);
                 if ($amount === null) {
@@ -529,6 +545,7 @@ class FeeModel extends Model
                 }
                 $stmt->bindValue(':IsActive', 1, PDO::PARAM_INT);
                 $stmt->bindValue(':UpdatedBy', $updatedBy);
+                $stmt->bindValue(':UpdatedAt', $nowDate);
                 $stmt->bindValue(':MappingID', (int)$mappingId, PDO::PARAM_INT);
                 $stmt->bindValue(':FeeID', $feeId, PDO::PARAM_INT);
                 $ok = $stmt->execute();
@@ -548,7 +565,7 @@ class FeeModel extends Model
                     // Update existing
                     $exId = (int)$existing['MappingID'];
                     $sqlUp = "UPDATE Tx_fee_class_section_mapping
-                              SET Amount = :Amount, IsActive = :IsActive, UpdatedBy = :UpdatedBy, UpdatedAt = NOW()
+                              SET Amount = :Amount, IsActive = :IsActive, UpdatedBy = :UpdatedBy, UpdatedAt = :UpdatedAt
                               WHERE MappingID = :MappingID";
                     $up = $this->conn->prepare($sqlUp);
                     if ($amount === null) {
@@ -558,6 +575,7 @@ class FeeModel extends Model
                     }
                     $up->bindValue(':IsActive', 1, PDO::PARAM_INT);
                     $up->bindValue(':UpdatedBy', $updatedBy);
+                    $up->bindValue(':UpdatedAt', $nowDate);
                     $up->bindValue(':MappingID', $exId, PDO::PARAM_INT);
                     $ok = $up->execute();
                     $affectedUp = method_exists($up, 'rowCount') ? $up->rowCount() : null;
@@ -572,7 +590,7 @@ class FeeModel extends Model
                         'ClassID' => $classId,
                         'SectionID' => $sectionId,
                         'Amount' => $amount,
-                    ]], $updatedBy);
+                    ]], $updatedBy, $nowDate);
                 }
             }
         }

@@ -134,6 +134,8 @@ export class FeesCreate implements OnInit {
   // Academic year bounds (used for date validation)
   academicYearStart?: Date;
   academicYearEnd?: Date;
+  // Effective minimum date for pickers (tomorrow or academicYearStart whichever is later)
+  effectiveMinDate?: Date;
 
   ngOnInit() {
     this.loadAcademicYearBounds();
@@ -167,6 +169,8 @@ export class FeesCreate implements OnInit {
       if (chosen) {
         this.academicYearStart = this.parseDate(chosen.StartDate) || undefined;
         this.academicYearEnd = this.parseDate(chosen.EndDate) || undefined;
+        // compute effective min date after academic year bounds load
+        this.effectiveMinDate = this.computeEffectiveMinDate();
       }
     } catch (err) {
       console.error('Failed to load academic years', err);
@@ -346,9 +350,10 @@ export class FeesCreate implements OnInit {
       DayOfMonth: this.scheduleData.dayOfMonth !== undefined && this.scheduleData.dayOfMonth !== null
         ? Number(this.scheduleData.dayOfMonth)
         : undefined,
-      StartDate: this.scheduleData.startDate,
-      EndDate: this.scheduleData.endDate,
-      NextDueDate: this.scheduleData.nextDueDate,
+      // Always send date-only strings (YYYY-MM-DD) to avoid timezone shifts; treat dates as IST calendar days
+      StartDate: this.formatAsDateOnly(this.scheduleData.startDate),
+      EndDate: this.formatAsDateOnly(this.scheduleData.endDate),
+      NextDueDate: this.formatAsDateOnly(this.scheduleData.nextDueDate),
       ReminderDaysBefore: this.scheduleData.reminderDaysBefore !== undefined && this.scheduleData.reminderDaysBefore !== null
         ? Number(this.scheduleData.reminderDaysBefore)
         : undefined
@@ -422,8 +427,8 @@ export class FeesCreate implements OnInit {
         (apiFeeData.Schedule as any).DayOfMonth = null;
       }
 
-      // Include startDate/endDate only when relevant
-      // No extra top-level dates; all dates are within Schedule using DB-native names
+  // Include startDate/endDate only when relevant (already formatted as YYYY-MM-DD)
+  // No extra top-level dates; all dates are within Schedule using DB-native names
 
       let result: FeeWithClassSections | null;
 
@@ -587,6 +592,9 @@ export class FeesCreate implements OnInit {
       reminderDaysBefore: 5
     };
 
+    // Recompute effective min date (tomorrow or academic year start)
+    this.effectiveMinDate = this.computeEffectiveMinDate();
+
     // Reset class-section selections and amounts
     this.classSections.forEach(cs => {
       cs.selected = true;
@@ -701,13 +709,31 @@ export class FeesCreate implements OnInit {
     if (val instanceof Date) return val;
     if (typeof val === 'number') return new Date(val);
     if (typeof val === 'string') {
-      const d = new Date(val);
-      if (!isNaN(d.getTime())) return d;
+      // If it's a pure date-only string (YYYY-MM-DD), construct as local date to avoid UTC shift
+      const m = /^\d{4}-\d{2}-\d{2}$/.exec(val);
+      if (m) {
+        const [y, mo, d] = val.split('-').map(Number);
+        // Create as local date
+        return new Date(y, (mo - 1), d);
+      }
+      const d1 = new Date(val);
+      if (!isNaN(d1.getTime())) return d1;
       // Try adding time to date-only strings
       const maybe = new Date(val + 'T00:00:00');
       if (!isNaN(maybe.getTime())) return maybe;
     }
     return undefined;
+  }
+
+  // Format Date or string as date-only (YYYY-MM-DD) using local calendar day (assumed IST usage)
+  private formatAsDateOnly(val: Date | string | undefined): string | undefined {
+    if (!val) return undefined;
+    const d = this.parseDate(val);
+    if (!d) return undefined;
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   }
 
   shouldShowStartDate(): boolean {
@@ -743,19 +769,45 @@ export class FeesCreate implements OnInit {
     } else if (this.scheduleData.scheduleType === 'OneTime') {
       // Provide a default end date 30 days ahead if missing (only if truly absent)
       if (!this.scheduleData.endDate) {
-        const due = new Date();
+        const due = this.getTomorrowDate();
         due.setDate(due.getDate() + 30);
-        this.scheduleData.endDate = due; // keep as Date for datepicker
+        // clamp to academic year end if present
+        if (this.academicYearEnd && due > this.academicYearEnd) {
+          this.scheduleData.endDate = new Date(this.academicYearEnd.getTime());
+        } else {
+          this.scheduleData.endDate = due; // keep as Date for datepicker
+        }
       }
       // For OneTime clear recurrence-specific fields
       this.scheduleData.intervalMonths = undefined;
       this.scheduleData.dayOfMonth = undefined;
     } else if (this.scheduleData.scheduleType === 'OnDemand') {
       // Require a startDate; set today if absent
-      if (!this.scheduleData.startDate) this.scheduleData.startDate = new Date();
+      if (!this.scheduleData.startDate) this.scheduleData.startDate = this.getTomorrowDate();
+      // If endDate not provided, default to same as startDate
+      if (!this.scheduleData.endDate) this.scheduleData.endDate = this.parseDate(this.scheduleData.startDate);
       // OnDemand is a single occurrence — clear recurrence fields
       this.scheduleData.intervalMonths = undefined;
       this.scheduleData.dayOfMonth = undefined;
     }
+  }
+
+  // Return a Date object for tomorrow (local calendar day)
+  private getTomorrowDate(): Date {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(0,0,0,0);
+    return d;
+  }
+
+  // Compute effective min date for pickers: max(academicYearStart, tomorrow)
+  private computeEffectiveMinDate(): Date {
+    const tomorrow = this.getTomorrowDate();
+    if (this.academicYearStart) {
+      // ensure academicYearStart has no time component
+      const ay = new Date(this.academicYearStart.getFullYear(), this.academicYearStart.getMonth(), this.academicYearStart.getDate());
+      return ay > tomorrow ? ay : tomorrow;
+    }
+    return tomorrow;
   }
 }

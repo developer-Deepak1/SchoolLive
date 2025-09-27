@@ -32,9 +32,9 @@
                 <label for="startDate" class="font-medium text-gray-700">Start Date <span class="text-red-500">*</span></label>
                 <p-datepicker id="startDate" [(ngModel)]="scheduleData.startDate" name="StartDate" [showIcon]="true"
                     iconDisplay="input" class="w-full" placeholder="Start date" dateFormat="dd/mm/yy" required
-                    [minDate]="academicYearStart" [maxDate]="academicYearEnd">
+                    [minDate]="effectiveMinDate" [maxDate]="academicYearEnd">
                 </p-datepicker>
-                <small class="text-red-500" *ngIf="scheduleData.startDate && academicYearStart && scheduleData.startDate < academicYearStart">Start date must be on or after academic year start ({{ academicYearStart | date:'dd/MM/yyyy' }})</small>
+                <small class="text-red-500" *ngIf="scheduleData.startDate && effectiveMinDate && scheduleData.startDate < effectiveMinDate">Start date must be on or after {{ effectiveMinDate | date:'dd/MM/yyyy' }}</small>
                 <small class="text-red-500" *ngIf="scheduleData.startDate && academicYearEnd && scheduleData.startDate > academicYearEnd">Start date must be on or before academic year end ({{ academicYearEnd | date:'dd/MM/yyyy' }})</small>
             </div>
 
@@ -43,9 +43,9 @@
                 <label for="endDate" class="font-medium text-gray-700">End / Due Date <span class="text-red-500">*</span></label>
                 <p-datepicker id="endDate" [(ngModel)]="scheduleData.endDate" name="EndDate" [showIcon]="true"
                     iconDisplay="input" class="w-full" placeholder="End / Due" dateFormat="dd/mm/yy" required
-                    [minDate]="academicYearStart" [maxDate]="academicYearEnd">
+                    [minDate]="effectiveMinDate" [maxDate]="academicYearEnd">
                 </p-datepicker>
-                <small class="text-red-500" *ngIf="scheduleData.endDate && academicYearStart && scheduleData.endDate < academicYearStart">End date must be on or after academic year start ({{ academicYearStart | date:'dd/MM/yyyy' }})</small>
+                <small class="text-red-500" *ngIf="scheduleData.endDate && effectiveMinDate && scheduleData.endDate < effectiveMinDate">End/Due date must be on or after {{ effectiveMinDate | date:'dd/MM/yyyy' }}</small>
                 <small class="text-red-500" *ngIf="scheduleData.endDate && academicYearEnd && scheduleData.endDate > academicYearEnd">End date must be on or before academic year end ({{ academicYearEnd | date:'dd/MM/yyyy' }})</small>
             </div>
 
@@ -233,17 +233,17 @@
                             <div class="flex items-center">
                                 <i class="pi pi-calendar mr-2 text-blue-600"></i>
                                 <span class="font-medium">Start:</span>
-                                <span class="ml-1">{{ (fee.Schedule?.StartDate | date:'mediumDate') || 'n/a' }}</span>
+                                <span class="ml-1">{{ (fee.Schedule?.StartDate | date:'mediumDate':'Asia/Kolkata') || 'n/a' }}</span>
                             </div>
                             <div class="flex items-center">
                                 <i class="pi pi-calendar-times mr-2 text-red-600"></i>
                                 <span class="font-medium">End:</span>
-                                <span class="ml-1">{{ (fee.Schedule?.EndDate | date:'mediumDate') || 'n/a' }}</span>
+                                <span class="ml-1">{{ (fee.Schedule?.EndDate | date:'mediumDate':'Asia/Kolkata') || 'n/a' }}</span>
                             </div>
                             <div class="flex items-center">
                                 <i class="pi pi-bell mr-2 text-amber-600"></i>
                                 <span class="font-medium">Next Due:</span>
-                                <span class="ml-1">{{ (fee.Schedule?.NextDueDate | date:'mediumDate') || 'n/a' }}</span>
+                                <span class="ml-1">{{ (fee.Schedule?.NextDueDate | date:'mediumDate':'Asia/Kolkata') || 'n/a' }}</span>
                             </div>
                             <div class="flex items-center">
                                 <i class="pi pi-users mr-2 text-purple-600"></i>
@@ -288,17 +288,17 @@
                             <div class="flex items-center">
                                 <i class="pi pi-calendar mr-2 text-blue-600"></i>
                                 <span class="font-medium">Start:</span>
-                                <span class="ml-1">{{ (fee.Schedule?.StartDate | date:'mediumDate') || 'n/a' }}</span>
+                                <span class="ml-1">{{ (fee.Schedule?.StartDate | date:'mediumDate':'Asia/Kolkata') || 'n/a' }}</span>
                             </div>
                             <div class="flex items-center">
                                 <i class="pi pi-calendar-times mr-2 text-red-600"></i>
                                 <span class="font-medium">End:</span>
-                                <span class="ml-1">{{ (fee.Schedule?.EndDate | date:'mediumDate') || 'n/a' }}</span>
+                                <span class="ml-1">{{ (fee.Schedule?.EndDate | date:'mediumDate':'Asia/Kolkata') || 'n/a' }}</span>
                             </div>
                             <div class="flex items-center">
                                 <i class="pi pi-bell mr-2 text-amber-600"></i>
                                 <span class="font-medium">Next Due:</span>
-                                <span class="ml-1">{{ (fee.Schedule?.NextDueDate | date:'mediumDate') || 'n/a' }}</span>
+                                <span class="ml-1">{{ (fee.Schedule?.NextDueDate | date:'mediumDate':'Asia/Kolkata') || 'n/a' }}</span>
                             </div>
                             <div class="flex items-center">
                                 <i class="pi pi-users mr-2 text-purple-600"></i>
