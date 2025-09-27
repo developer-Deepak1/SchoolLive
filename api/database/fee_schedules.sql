@@ -2,7 +2,7 @@
 -- 1. Fee Master Table
 -- -------------------------------------------------------------
 CREATE TABLE Tx_fees (
-    FeeID INT PRIMARY KEY AUTO_INCREMENT,
+    FeeID BIGINT PRIMARY KEY AUTO_INCREMENT,
     FeeName VARCHAR(100) NOT NULL,
     IsActive TINYINT(1) NOT NULL DEFAULT 1,
     SchoolID INT NOT NULL DEFAULT 1,
@@ -10,7 +10,9 @@ CREATE TABLE Tx_fees (
     CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CreatedBy VARCHAR(50) NOT NULL DEFAULT 'System',
     UpdatedAt DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-    UpdatedBy VARCHAR(50) NULL
+    UpdatedBy VARCHAR(50) NULL,
+    FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID) ON DELETE CASCADE,
+    FOREIGN KEY (SchoolID) REFERENCES Tm_Schools(SchoolID) ON DELETE CASCADE
 );
 CREATE INDEX IX_Fees_School ON Tx_fees(SchoolID);
 CREATE INDEX IX_Fees_AcademicYear ON Tx_fees(AcademicYearID);
@@ -19,8 +21,8 @@ CREATE INDEX IX_Fees_AcademicYear ON Tx_fees(AcademicYearID);
 -- 2. Class-Section Fee Mapping (for custom amounts per class/section)
 -- -------------------------------------------------------------
 CREATE TABLE Tx_fee_class_section_mapping (
-    MappingID INT PRIMARY KEY AUTO_INCREMENT,
-    FeeID INT NOT NULL,
+    MappingID BIGINT PRIMARY KEY AUTO_INCREMENT,
+    FeeID BIGINT NOT NULL,
     ClassID BIGINT NOT NULL,
     SectionID BIGINT NOT NULL,
     Amount DECIMAL(10,2) NULL,
@@ -38,8 +40,8 @@ CREATE INDEX IX_FeeMapping_Fee ON Tx_fee_class_section_mapping(FeeID);
 -- 3. Fee Schedule Table (Recurring / OneTime / OnDemand)
 -- -------------------------------------------------------------
 CREATE TABLE Tx_fees_schedules (
-    ScheduleID INT PRIMARY KEY AUTO_INCREMENT,
-    FeeID INT NOT NULL,
+    ScheduleID BIGINT PRIMARY KEY AUTO_INCREMENT,
+    FeeID BIGINT NOT NULL,
     ScheduleType ENUM('OneTime','OnDemand','Recurring') NOT NULL,
     IntervalMonths INT NULL,   -- 1=Monthly,3=Quarterly,6=HalfYearly,12=Yearly
     DayOfMonth INT NULL,       -- day of month for recurring
@@ -60,11 +62,11 @@ CREATE INDEX IX_FeeSchedule_ScheduleType ON Tx_fees_schedules(ScheduleType);
 -- 5. Student Fee Ledger (per student, per fee/month)
 -- -------------------------------------------------------------
 CREATE TABLE Tx_student_fees (
-    StudentFeeID INT PRIMARY KEY AUTO_INCREMENT,
+    StudentFeeID BIGINT PRIMARY KEY AUTO_INCREMENT,
     SchoolID INT NOT NULL,
     StudentID BIGINT NOT NULL,
-    FeeID INT NOT NULL,
-    MappingID INT NULL,
+    FeeID BIGINT NOT NULL,
+    MappingID BIGINT NULL,
     Amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     FineAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     DiscountAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
@@ -91,8 +93,8 @@ CREATE INDEX IX_StudentFees_School ON Tx_student_fees(SchoolID);
 -- 6. Student Fee Payments (actual payments)
 -- -------------------------------------------------------------
 CREATE TABLE Tx_student_fee_payments (
-    PaymentID INT PRIMARY KEY AUTO_INCREMENT,
-    StudentFeeID INT NOT NULL,
+    PaymentID BIGINT PRIMARY KEY AUTO_INCREMENT,
+    StudentFeeID BIGINT NOT NULL,
     PaymentDate DATE NOT NULL,
     PaidAmount DECIMAL(10,2) NOT NULL,
     Mode ENUM('Cash','Online','Cheque','UPI') NOT NULL,
@@ -108,10 +110,10 @@ CREATE INDEX IX_StudentFeePayments_StudentFee ON Tx_student_fee_payments(Student
 -- Fine Policies (rules for late fees)
 -- -------------------------------------------------------------
 CREATE TABLE Tx_fine_policies (
-    FinePolicyID INT PRIMARY KEY AUTO_INCREMENT,
+    FinePolicyID BIGINT PRIMARY KEY AUTO_INCREMENT,
     SchoolID INT NOT NULL,
     AcademicYearID INT NOT NULL DEFAULT 0,
-    FeeID INT NULL,    -- if NULL = apply to all fees, else specific fee
+    FeeID BIGINT NULL,    -- if NULL = apply to all fees, else specific fee
     ApplyType ENUM('Fixed','PerDay','Percentage') NOT NULL,
     Amount DECIMAL(10,2) NOT NULL DEFAULT 0.00, -- fixed amount OR per-day amount OR percentage
     GraceDays INT NOT NULL DEFAULT 0,           -- no fine if within grace days after DueDate
@@ -122,7 +124,8 @@ CREATE TABLE Tx_fine_policies (
     UpdatedAt DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
     UpdatedBy VARCHAR(50) NULL,
 
-    FOREIGN KEY (SchoolID) REFERENCES Tm_schools(SchoolID) ON DELETE CASCADE,
+    FOREIGN KEY (SchoolID) REFERENCES Tm_Schools(SchoolID) ON DELETE CASCADE,
+    FOREIGN KEY (AcademicYearID) REFERENCES Tm_AcademicYears(AcademicYearID) ON DELETE CASCADE,
     FOREIGN KEY (FeeID) REFERENCES Tx_fees(FeeID) ON DELETE SET NULL
 );
 
