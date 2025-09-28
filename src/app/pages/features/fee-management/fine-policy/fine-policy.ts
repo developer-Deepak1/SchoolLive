@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 // PrimeNG
@@ -28,6 +28,7 @@ import { FinePolicyService, FinePolicy as FinePolicyModel } from '@/pages/featur
   providers: [MessageService, ConfirmationService]
 })
 export class FinePolicy implements OnInit {
+  @ViewChild('formCard', { static: false }) formCard?: ElementRef<HTMLDivElement>;
   private feeService = inject(FeeService);
   private svc = inject(FinePolicyService);
   private toast = inject(MessageService);
@@ -136,6 +137,27 @@ export class FinePolicy implements OnInit {
       MaxAmount: row.MaxAmount != null ? Number(row.MaxAmount) : null,
       IsActive: !!row.IsActive
     } as FinePolicyModel;
+    // On small screens, scroll the form card into view so user sees the edit form
+    try {
+      const width = window.innerWidth || document.documentElement.clientWidth;
+      if (width <= 960 && this.formCard && this.formCard.nativeElement) {
+        // small delay to allow change detection to render form values
+        setTimeout(() => {
+          try {
+            // Scroll a bit further so the card sits below any fixed headers
+            const OFFSET = 120; // px to offset from top — increases how much we scroll
+            const rect = this.formCard!.nativeElement.getBoundingClientRect();
+            const target = (window.scrollY || window.pageYOffset) + rect.top - OFFSET;
+            window.scrollTo({ top: target, behavior: 'smooth' });
+          } catch (err) {
+            // fallback
+            this.formCard!.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 300);
+      }
+    } catch (e) {
+      // ignore in non-browser environments
+    }
   }
 
   save() {
@@ -170,6 +192,8 @@ export class FinePolicy implements OnInit {
         this.saving = false;
         this.toast.add({ severity: 'success', summary: 'Saved', detail: 'Fine policy saved' });
         this.loadPolicies();
+        // Clear edit mode and reset the form after successful save
+        this.openNew();
       },
       error: () => { this.saving = false; this.toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to save' }); }
     });
@@ -193,7 +217,7 @@ export class FinePolicy implements OnInit {
   remove(row: FinePolicyModel) {
     if (!row.FinePolicyID) return;
     this.confirm.confirm({
-      header: 'Confirm', message: 'Delete this fine policy?', icon: 'pi pi-exclamation-triangle',
+      header: 'Confirm', message: 'Are you sure you want to delete this fine policy?', icon: 'pi pi-exclamation-triangle',
       acceptButtonStyleClass: 'p-button-danger',
       accept: () => {
         this.svc.delete(row.FinePolicyID!).subscribe({

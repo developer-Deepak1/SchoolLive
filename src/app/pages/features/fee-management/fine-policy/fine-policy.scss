@@ -29,3 +29,18 @@
 }
 
 @media (max-width: 960px){ .cell-label { display:block; } }
+
+/* Sticky first column for row numbers */
+.sticky-col {
+	position: -webkit-sticky;
+	position: sticky;
+	left: 0;
+	background: var(--surface-card, #fff);
+	z-index: 2;
+	padding-left: .5rem;
+	padding-right: .5rem;
+	box-shadow: 2px 0 4px rgba(0,0,0,0.04);
+}
+
+/* Make header's sticky cell sit above body cells */
+th.sticky-col { z-index: 3; }

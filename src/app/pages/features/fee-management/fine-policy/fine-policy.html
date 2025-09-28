@@ -1,6 +1,7 @@
 <p-toast></p-toast>
-<div class="grid gap-4">
+<p-confirmDialog></p-confirmDialog>
 	<!-- Card 1: Fine Policy Form -->
+	<div #formCard class="form-card-wrapper">
 	<p-card header="{{ editingId ? 'Edit Fine Policy' : 'Create Fine Policy' }}" styleClass="w-full">
 			<form class="form-grid" (ngSubmit)="save()">
 				<div class="form-row">
@@ -58,60 +59,61 @@
 
 					<div class="form-actions-left">
 				<button pButton type="button" label="Reset" class="p-button-text" (click)="openNew()"></button>
-				<button pButton type="submit" label="Save" [loading]="saving"></button>
+					<button pButton type="submit" [label]="editingId ? 'Update' : 'Save'" [loading]="saving"></button>
 			</div>
 		</form>
 	</p-card>
-
+	</div>
+	<div style="height: 20px;"></div>
 	<!-- Card 2: Policies List -->
 	<p-card header="Fine Policies"  styleClass="w-full">
-		<p-table [value]="policies" [loading]="loading" dataKey="FinePolicyID" [paginator]="true" [rows]="10" responsiveLayout="stack" [breakpoint]="'960px'">
+		<p-table [value]="policies" 
+		[loading]="loading" 
+		dataKey="FinePolicyID" 
+		[paginator]="true" 
+		[rows]="10" 
+		[tableStyle]="{'min-width':'50rem'}">
 			<ng-template pTemplate="header">
 				<tr>
-					<th style="width:16rem">Fee</th>
-					<th>Type</th>
+					<th class="sticky-col" style="width:2rem">#</th>
+					<th style="width:8rem">Fee</th>
+					<th>Apply Type</th>
 					<th>Amount</th>
 					<th>Grace Days</th>
 					<th>Max Cap</th>
 					<th style="width:12rem">Actions</th>
 				</tr>
 			</ng-template>
-			<ng-template pTemplate="body" let-row>
+			<ng-template pTemplate="body" let-row let-i="rowIndex">
 				<tr>
-					<td>
-						<div class="cell-label">Fee</div>
+					<td data-label="#" class="sticky-col">{{ i + 1 }}</td>
+					<td data-label="Fee">
 						{{ feeLabel(row.FeeID) }}
 					</td>
-					<td>
-						<div class="cell-label">Type</div>
-						<span class="tag" [ngClass]="row.ApplyType.toLowerCase()">{{ row.ApplyType }}</span>
+					<td data-label="Type">
+						{{ row.ApplyType || '-' }}
 					</td>
-					<td>
-						<div class="cell-label">Amount</div>
+					<td data-label="Amount">
 						{{ row.Amount }}<span class="muted">{{ amountSuffix(row.ApplyType) }}</span>
 					</td>
-					<td>
-						<div class="cell-label">Grace Days</div>
+					<td data-label="Grace Days">
 						{{ row.GraceDays }}
 					</td>
-					<td>
-						<div class="cell-label">Max Cap</div>
+					<td data-label="Max Cap">
 						{{ row.MaxAmount ?? '-' }}
 					</td>
 					<td>
 						<div class="flex items-center gap-2">
-							<p-toggleswitch [(ngModel)]="row.IsActive" (onChange)="toggleStatus(row, $event)" style="vertical-align:middle"></p-toggleswitch>
 							<button pButton type="button" icon="pi pi-pencil" (click)="edit(row)" class="p-button-text p-button-sm" aria-label="Edit"></button>
 							<button pButton type="button" icon="pi pi-trash" (click)="remove(row)" class="p-button-text p-button-danger p-button-sm" aria-label="Delete"></button>
 						</div>
 					</td>
 				</tr>
 			</ng-template>
-			<ng-template pTemplate="emptymessage">
-				<tr>
-					<td colspan="6">No fine policies configured.</td>
-				</tr>
-			</ng-template>
+				<ng-template pTemplate="emptymessage">
+					<tr>
+						<td colspan="7">No fine policies configured.</td>
+					</tr>
+				</ng-template>
 		</p-table>
 	</p-card>
-</div>

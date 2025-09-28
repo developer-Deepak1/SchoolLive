@@ -136,6 +136,13 @@ class Router {
     $this->routes['DELETE']['/api/fees/{id}'] = ['handler' => ['SchoolLive\\Controllers\\FeeController', 'delete'], 'roles' => true];
     $this->routes['GET']['/api/fees/frequency/{frequency}'] = ['handler' => ['SchoolLive\\Controllers\\FeeController', 'getByFrequency'], 'roles' => true];
     $this->routes['GET']['/api/fees/status/{status}'] = ['handler' => ['SchoolLive\\Controllers\\FeeController', 'getByStatus'], 'roles' => true];
+
+    // Fine Policies routes
+    $this->routes['GET']['/api/fines'] = ['handler' => ['SchoolLive\\Controllers\\FinePolicyController', 'list'], 'roles' => true];
+    $this->routes['POST']['/api/fines'] = ['handler' => ['SchoolLive\\Controllers\\FinePolicyController', 'create'], 'roles' => true];
+    $this->routes['PUT']['/api/fines/{id}'] = ['handler' => ['SchoolLive\\Controllers\\FinePolicyController', 'update'], 'roles' => true];
+    $this->routes['PATCH']['/api/fines/{id}/status'] = ['handler' => ['SchoolLive\\Controllers\\FinePolicyController', 'toggleStatus'], 'roles' => true];
+    $this->routes['DELETE']['/api/fines/{id}'] = ['handler' => ['SchoolLive\\Controllers\\FinePolicyController', 'delete'], 'roles' => true];
     }
 
     public function dispatch() {
