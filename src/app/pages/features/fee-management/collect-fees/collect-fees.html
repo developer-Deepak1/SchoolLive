@@ -1,1 +1,135 @@
-<p>collect-fees works!</p>
+<p-toast></p-toast>
+
+<!-- Section 1: Search -->
+<p-card header="Search" styleClass="w-full mb-4">
+    <div class="search-grid">
+        <div class="student-picker">
+            <label for="student" class="block mb-1">Search Student Name</label>
+            <p-autocomplete inputId="student" [(ngModel)]="studentInput" name="student"
+                [suggestions]="studentSuggestions" (completeMethod)="searchStudents($event)"
+                (onSelect)="onStudentSelected($event)" (onClear)="onStudentCleared()" field="StudentName"
+                placeholder="Search student by name, class or section" [dropdown]="true" [forceSelection]="true"
+                [optionLabel]="'StudentName'"
+                styleClass="w-full md:w-24rem lg:w-28rem xl:w-32rem">
+                <ng-template let-s pTemplate="item">
+                    <div class="ac-item">
+                        <div class="name">{{ s.StudentName }}</div>
+                        <div class="sub muted">Class: {{ s.ClassName || '-' }} • Section: {{ s.SectionName || '-' }}
+                        </div>
+                    </div>
+                </ng-template>
+                <ng-template let-s pTemplate="selectedItem">
+                    {{ s?.StudentName || '' }}
+                    <span *ngIf="s?.ClassName as c"> ({{ c }}-{{ s?.SectionName || '-' }})</span>
+                </ng-template>
+            </p-autocomplete>
+        </div>
+        <div class="month-picker">
+            <label for="month" class="block mb-1">Month</label>
+            <p-datePicker inputId="month" [(ngModel)]="selectedMonth" name="month" view="month" dateFormat="mm/yy"
+                (onSelect)="onMonthChange()" [minDate]="ayStart" [maxDate]="ayEnd" [showIcon]="true"
+                [readonlyInput]="true" styleClass="w-full md:w-24rem lg:w-28rem xl:w-32rem"></p-datePicker>
+        </div>
+        <!-- <div class="refresh">
+            <button pButton type="button" label="Refresh" icon="pi pi-refresh" (click)="onStudentChange()" class="p-button w-full"
+                [disabled]="!selectedStudentId || loading"></button>
+        </div> -->
+    </div>
+</p-card>
+
+<!-- Section 2: Pending Dues -->
+<p-card header="Pending Dues" styleClass="w-full mb-4">
+    <div class="table-actions">
+        <div class="left">
+            <input type="checkbox" [disabled]="loading || !dues().length" [checked]="allSelected()" (change)="toggleAll($event)" />
+            <span class="muted">Select all</span>
+        </div>
+        <div class="right">
+            <span class="muted" *ngIf="dues().length">{{ selection().size }} selected</span>
+        </div>
+    </div>
+
+    <p-table [value]="dues()" [loading]="loading" dataKey="StudentFeeID" [paginator]="true" [rows]="10"
+        [responsiveLayout]="'scroll'" [tableStyle]="{'min-width':'50rem'}">
+        <ng-template pTemplate="header">
+            <tr>
+                <th style="width:2rem"></th>
+                <th>Fee</th>
+                <th class="text-right">Amount</th>
+                <th class="text-right">Fine</th>
+                <th class="text-right">Discount</th>
+                <th class="text-right">Paid</th>
+                <th class="text-right">Outstanding</th>
+                <th>Due Date</th>
+                <th>Status</th>
+            </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+            <tr>
+                <td>
+                    <input type="checkbox"
+                           [checked]="selection().has(row.StudentFeeID)"
+                           (change)="toggleRow(row)" />
+                </td>
+                <td>
+                    <div class="fee-name">{{ row.FeeName }}</div>
+                    <div class="muted small" *ngIf="row.InvoiceRef">Ref: {{ row.InvoiceRef }}</div>
+                </td>
+                <td class="text-right">{{ row.Amount | number:'1.2-2' }}</td>
+                <td class="text-right">{{ (row.ComputedFine ?? row.FineAmount) | number:'1.2-2' }}</td>
+                <td class="text-right">{{ row.DiscountAmount | number:'1.2-2' }}</td>
+                <td class="text-right">{{ row.AmountPaid | number:'1.2-2' }}</td>
+                <td class="text-right strong">{{ (row.Outstanding ?? 0) | number:'1.2-2' }}</td>
+                <td>{{ row.DueDate || '-' }}</td>
+                <td>
+                    <span>{{ row.Status }}</span>
+                </td>
+            </tr>
+        </ng-template>
+
+        <ng-template pTemplate="footer">
+            <tr>
+                <td colspan="6" class="text-right">Selected Total:</td>
+                <td class="text-right strong">{{ totalDue() | number:'1.2-2' }}</td>
+                <td colspan="2"></td>
+            </tr>
+        </ng-template>
+    </p-table>
+</p-card>
+
+<!-- Section 3: Payment -->
+<p-card header="Payment" styleClass="w-full sticky-card">
+    <form (ngSubmit)="pay()" class="form-grid">
+        <div class="form-row">
+            <label for="mode">Mode</label>
+            <p-select inputId="mode" [options]="[
+						{label:'Cash', value:'Cash'}, {label:'Online', value:'Online'}, {label:'Cheque', value:'Cheque'}, {label:'UPI', value:'UPI'}
+					]" optionLabel="label" optionValue="value" [(ngModel)]="payment.mode" name="mode" styleClass="w-full"></p-select>
+        </div>
+        <div class="form-row">
+            <label for="amount">Amount</label>
+            <p-inputNumber inputId="amount" [(ngModel)]="payment.amount" name="amount" mode="currency" currency="INR"
+                locale="en-IN" [min]="0" class="w-full"></p-inputNumber>
+        </div>
+        <div class="form-row">
+            <label for="ref">Reference</label>
+            <input pInputText id="ref" [(ngModel)]="payment.reference" name="reference"
+                placeholder="Txn / Cheque No." />
+        </div>
+        <div class="form-row">
+            <label for="date">Payment Date</label>
+            <p-datePicker inputId="date" [(ngModel)]="payment.date" name="date" dateFormat="yy-mm-dd"
+                styleClass="w-full"></p-datePicker>
+        </div>
+        <div class="form-row">
+            <label for="discount">Additional Discount</label>
+            <p-inputNumber inputId="discount" [(ngModel)]="payment.discountDelta" name="discount" mode="currency"
+                currency="INR" locale="en-IN" [min]="0" class="w-full"></p-inputNumber>
+            <small class="muted">Optional one-time discount applied proportionally.</small>
+        </div>
+        <div class="actions">
+            <button pButton type="submit" label="Collect Payment" icon="pi pi-check" class="w-full"
+                [disabled]="paying || !selectedStudentId || !selection().size"></button>
+        </div>
+    </form>
+</p-card>

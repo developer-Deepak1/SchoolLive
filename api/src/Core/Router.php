@@ -143,6 +143,14 @@ class Router {
     $this->routes['PUT']['/api/fines/{id}'] = ['handler' => ['SchoolLive\\Controllers\\FinePolicyController', 'update'], 'roles' => true];
     $this->routes['PATCH']['/api/fines/{id}/status'] = ['handler' => ['SchoolLive\\Controllers\\FinePolicyController', 'toggleStatus'], 'roles' => true];
     $this->routes['DELETE']['/api/fines/{id}'] = ['handler' => ['SchoolLive\\Controllers\\FinePolicyController', 'delete'], 'roles' => true];
+
+    // Student fees and payments
+    $this->routes['GET']['/api/fees/student/{id}/ledger'] = ['handler' => ['SchoolLive\\Controllers\\StudentFeesController', 'ledger'], 'roles' => true];
+    $this->routes['GET']['/api/fees/student/{id}/dues'] = ['handler' => ['SchoolLive\\Controllers\\StudentFeesController', 'dues'], 'roles' => true];
+    $this->routes['GET']['/api/fees/student/{id}/monthly'] = ['handler' => ['SchoolLive\\Controllers\\StudentFeesController', 'monthly'], 'roles' => true];
+    $this->routes['POST']['/api/fees/student/{id}/monthly/ensure'] = ['handler' => ['SchoolLive\\Controllers\\StudentFeesController', 'ensureMonthly'], 'roles' => true];
+    $this->routes['POST']['/api/fees/student/{id}/assign'] = ['handler' => ['SchoolLive\\Controllers\\StudentFeesController', 'assign'], 'roles' => true];
+    $this->routes['POST']['/api/fees/payments'] = ['handler' => ['SchoolLive\\Controllers\\StudentFeesController', 'createPayment'], 'roles' => true];
     }
 
     public function dispatch() {

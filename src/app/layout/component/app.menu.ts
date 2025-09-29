@@ -86,10 +86,10 @@ export class AppMenu {
             {
                 label: 'Fees Management',
                 items: [
-                    { label: 'Create Fees', icon: 'pi pi-fw pi-chart-bar', routerLink: ['/features/create-fees'] },
-                    { label: 'Fine Policy', icon: 'pi pi-fw pi-briefcase', routerLink: ['/features/fine-policy'] },
-                    { label: 'Collect Fees', icon: 'pi pi-fw pi-briefcase', routerLink: ['/features/collect-fees'] },
-                    { label: 'View Fees', icon: 'pi pi-fw pi-briefcase', routerLink: ['/features/fees-report'] },
+                    { label: 'Create Fees', icon: 'pi pi-fw pi-cog', routerLink: ['/features/create-fees'] },
+                    { label: 'Fine Policy', icon: 'pi pi-fw pi-percentage', routerLink: ['/features/fine-policy'] },
+                    { label: 'Collect Fees', icon: 'pi pi-fw pi-credit-card', routerLink: ['/features/collect-fees'] },
+                    { label: 'View Fees', icon: 'pi pi-fw pi-chart-bar', routerLink: ['/features/fees-report'] },
                 ]
             }
         ];}

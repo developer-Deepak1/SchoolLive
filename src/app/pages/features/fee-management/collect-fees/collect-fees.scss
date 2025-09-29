@@ -1,0 +1,56 @@
+:host { display:block; }
+
+.spacer{ flex:1; }
+.muted{ color: var(--text-color-secondary); }
+.small{ font-size:.8rem; }
+.strong{ font-weight:600; }
+.ac-item .name{ font-weight:600; }
+.ac-item .sub{ font-size:.8rem; }
+.month-picker{ display:flex; flex-direction:column; align-items:flex-start; gap:.25rem; }
+@media (min-width: 768px){
+	.month-picker{ flex-direction:column; }
+}
+
+/* Minor spacing for visible labels in Search */
+label.block{ display:block; }
+.mb-1{ margin-bottom:.25rem; }
+
+.table-actions{ display:flex; align-items:center; justify-content:space-between; margin-bottom:.5rem; }
+
+.tag{ padding:.15rem .5rem; border-radius:.35rem; font-size:.75rem; }
+.tag-overdue{ background: var(--red-50); color: var(--red-700); }
+.tag-pending{ background: var(--yellow-50); color: var(--yellow-700); }
+.tag-partial{ background: var(--blue-50); color: var(--blue-700); }
+.tag-paid{ background: var(--green-50); color: var(--green-700); }
+
+.form-grid{ display:grid; grid-template-columns: 1fr; gap:1rem; }
+.form-row{ display:flex; flex-direction:column; gap:.25rem; }
+.actions{ grid-column: 1 / -1; }
+/* Default: full-width submit button on small screens */
+.actions :where(button, .p-button){ width: 100%; }
+
+/* Responsive columns: 1 (mobile), 2 (tablet), 3 (laptop+) */
+@media (min-width: 768px){
+	.form-grid{ grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 1200px){
+	.form-grid{ grid-template-columns: repeat(3, 1fr); }
+	/* Laptop/desktop: left-align and auto-width submit */
+	.actions{ display:flex; justify-content:flex-start; }
+	.actions :where(button, .p-button){ width:auto !important; min-width: 12rem; }
+}
+
+.sticky-card{ position: sticky; top: 1rem; }
+
+/* Card spacing on small screens */
+::ng-deep .p-card { margin-bottom: 1rem; }
+
+/* Search section responsive grid: 1 (mobile), 2 (tablet), 3 (laptop+) */
+.search-grid{ display:grid; grid-template-columns: 1fr; gap: .75rem; align-items:end; }
+@media (min-width: 768px){
+	.search-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1200px){
+	.search-grid{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
