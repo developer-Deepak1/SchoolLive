@@ -40,7 +40,8 @@ export class CollectFees implements OnInit {
   studentSuggestions: Student[] = [];
   selectedStudentId: number | null = null;
   dues = signal<StudentFeeLedgerRow[]>([]);
-  selection = signal<Set<number>>(new Set());
+  // Selection is client-only; use string keys so rows without IDs can be toggled
+  selection = signal<Set<string>>(new Set());
 
   // Month picker (for search context only)
   selectedMonth: Date = new Date();
@@ -57,20 +58,33 @@ export class CollectFees implements OnInit {
   };
 
   // Computed totals
-  private isSelectableRow(r: StudentFeeLedgerRow): boolean {
-    return !!r?.StudentFeeID && (r.Outstanding ?? 0) > 0;
-  }
-  allSelected = computed(() => {
-    const eligible = this.dues().filter(r => this.isSelectableRow(r));
-    if (!eligible.length) return false;
-    const sel = this.selection();
-    return eligible.every(r => sel.has(r.StudentFeeID!));
-  });
   selectedRows = computed(() => {
-    const ids = this.selection().size ? this.selection() : new Set<number>();
-    return this.dues().filter(d => ids.has(d.StudentFeeID));
+    return this.dues().filter(d => this.isSelected(d));
   });
   totalDue = computed(() => this.selectedRows().reduce((sum, r) => sum + (r.Outstanding ?? 0), 0));
+
+  // Selection helpers
+  private isPayable(r: StudentFeeLedgerRow): boolean { return (r.Outstanding ?? 0) > 0; }
+  allSelected = computed(() => {
+    const eligible = this.dues().filter(r => this.isPayable(r));
+    if (!eligible.length) return false;
+    return eligible.every(r => this.isSelected(r));
+  });
+  private getYearMonth(d: Date): { y: number; m: number } { return { y: d.getFullYear(), m: d.getMonth() + 1 }; }
+
+  // Build a stable client-side key for selection
+  private rowKey(r: StudentFeeLedgerRow): string | null {
+    if (!this.isPayable(r)) return null;
+    if (r.StudentFeeID) return `sf:${r.StudentFeeID}`;
+    const { y, m } = this.getYearMonth(this.selectedMonth);
+    const mm = String(m).padStart(2, '0');
+    return `fee:${r.FeeID}:${y}-${mm}`;
+  }
+
+  isSelected(r: StudentFeeLedgerRow): boolean {
+    const k = this.rowKey(r);
+    return !!(k && this.selection().has(k));
+  }
 
   ngOnInit(): void {
     this.loadStudents();
@@ -152,22 +166,38 @@ export class CollectFees implements OnInit {
   }
 
   autoSelectAll() {
-    const s = new Set<number>();
-    for (const r of this.dues()) { if ((r.Outstanding ?? 0) > 0) s.add(r.StudentFeeID); }
+    const s = new Set<string>();
+    for (const r of this.dues()) {
+      if (!this.isPayable(r)) continue;
+      const k = this.rowKey(r);
+      if (k) s.add(k);
+    }
     this.selection.set(s);
   }
 
-  toggleRow(row: StudentFeeLedgerRow) {
+  async toggleRow(row: StudentFeeLedgerRow) {
+    if (!this.isPayable(row)) return;
+    const k = this.rowKey(row);
+    if (!k) return;
     const s = new Set(this.selection());
-    if (s.has(row.StudentFeeID)) s.delete(row.StudentFeeID); else s.add(row.StudentFeeID);
+    if (s.has(k)) s.delete(k); else s.add(k);
     this.selection.set(s);
     this.recalcDefaultAmount();
   }
 
-  toggleAll(ev: any) {
+  async toggleAll(ev: any) {
     const checked = ev?.target?.checked === true;
-    const s = new Set<number>();
-    if (checked) for (const r of this.dues()) { if ((r.Outstanding ?? 0) > 0) s.add(r.StudentFeeID); }
+    if (!checked) {
+      this.selection.set(new Set());
+      this.recalcDefaultAmount();
+      return;
+    }
+    const s = new Set<string>();
+    for (const r of this.dues()) {
+      if (!this.isPayable(r)) continue;
+      const k = this.rowKey(r);
+      if (k) s.add(k);
+    }
     this.selection.set(s);
     this.recalcDefaultAmount();
   }

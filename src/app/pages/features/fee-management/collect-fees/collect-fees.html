@@ -68,7 +68,7 @@
             <tr>
                 <td>
                     <input type="checkbox"
-                           [checked]="selection().has(row.StudentFeeID)"
+                           [checked]="isSelected(row)"
                            (change)="toggleRow(row)" />
                 </td>
                 <td>
