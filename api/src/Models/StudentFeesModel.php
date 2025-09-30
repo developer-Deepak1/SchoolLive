@@ -105,8 +105,9 @@ class StudentFeesModel extends Model
                     $sfUsed = $sfInMonth;
                     $dueDate = new \DateTime($sfInMonth['DueDate']);
                 } else {
-                    // Nothing in this month; handle OneTime special case: show until paid
-                    if (strtolower((string)$type) === 'onetime') {
+                    // Nothing in this month; carry-forward logic for OneTime and OnDemand
+                    $lt = strtolower((string)$type);
+                    if ($lt === 'onetime' || $lt === 'ondemand') {
                         // If any PAID ledger exists for this fee, skip showing in plan
                         if ($this->hasPaidLedger($studentId, (int)$f['FeeID'])) {
                             continue;
@@ -117,11 +118,17 @@ class StudentFeesModel extends Model
                             $sfUsed = $sfAnyUnpaid;
                             $dueDate = new \DateTime($sfAnyUnpaid['DueDate']);
                         } else {
-                            // No ledger at all; synthesize an entry with a sensible due date
-                            $dueDate = !empty($f['StartDate']) ? new \DateTime($f['StartDate']) : clone $monthStart;
+                            if ($lt === 'onetime') {
+                                // OneTime without any ledger: no specific due date; let UI show '-'
+                                $dueDate = null;
+                            } else {
+                                // OnDemand without any ledger: synthesize a due date for current month to allow billing
+                                $seed = !empty($f['StartDate']) ? new \DateTime($f['StartDate']) : clone $monthStart;
+                                $dueDate = $seed;
+                            }
                         }
                     } else {
-                        // For non-OneTime, if not scheduled and no ledger in this month, skip
+                        // For other schedule types, if not scheduled and no ledger in this month, skip
                         continue;
                     }
                 }
@@ -134,6 +141,24 @@ class StudentFeesModel extends Model
                     }
                     $sfUsed = $sfInMonth;
                     $dueDate = new \DateTime($sfInMonth['DueDate']);
+                } else if (strtolower((string)$type) === 'ondemand') {
+                    // Month-independent carry-forward for OnDemand: prefer any existing UNPAID ledger
+                    if ($this->hasPaidLedger($studentId, (int)$f['FeeID'])) {
+                        continue;
+                    }
+                    $sfAnyUnpaid = $this->findAnyUnpaidLedger($studentId, (int)$f['FeeID']);
+                    if ($sfAnyUnpaid) {
+                        $sfUsed = $sfAnyUnpaid;
+                        $dueDate = new \DateTime($sfAnyUnpaid['DueDate']);
+                    }
+                } else if (strtolower((string)$type) === 'onetime') {
+                    // For OneTime, even if schedule produced a date, show '-' unless there is a ledger this month.
+                    // If already paid anywhere, skip.
+                    if ($this->hasPaidLedger($studentId, (int)$f['FeeID'])) {
+                        continue;
+                    }
+                    // No ledger in this month: clear due date so UI shows '-'
+                    $dueDate = null;
                 }
             }
 
@@ -142,6 +167,11 @@ class StudentFeesModel extends Model
             if ($amount <= 0) continue;
 
             // Build row using either an existing ledger row (sfUsed) or a synthesized entry
+            // Resolve due date string; for OneTime fees, force null so UI shows '-'
+            $dueStr = $sfUsed ? ($sfUsed['DueDate'] ?? null) : ($dueDate instanceof \DateTime ? $dueDate->format('Y-m-d') : null);
+            if (strtolower((string)$type) === 'onetime') {
+                $dueStr = null;
+            }
             $row = [
                 'StudentFeeID' => $sfUsed ? (int)$sfUsed['StudentFeeID'] : null,
                 'StudentID' => $studentId,
@@ -151,14 +181,14 @@ class StudentFeesModel extends Model
                 'FineAmount' => $sfUsed ? (float)$sfUsed['FineAmount'] : 0.0,
                 'DiscountAmount' => $sfUsed ? (float)$sfUsed['DiscountAmount'] : 0.0,
                 'AmountPaid' => $sfUsed ? (float)$sfUsed['AmountPaid'] : 0.0,
-                'DueDate' => $sfUsed ? $sfUsed['DueDate'] : $dueDate->format('Y-m-d'),
+                'DueDate' => $dueStr,
                 'Status' => $sfUsed ? $sfUsed['Status'] : 'Pending',
             ];
             // Compute fine and outstanding dynamically
-            $fine = $this->computeFine($schoolId, $academicYearId, (int)$f['FeeID'], $row['DueDate'], (float)$row['Amount']);
+            $fine = $this->computeFine($schoolId, $academicYearId, (int)$f['FeeID'], $row['DueDate'] ?? null, (float)$row['Amount']);
             $row['ComputedFine'] = $fine;
             $row['Outstanding'] = max(0.0, round(((float)$row['Amount'] + $fine - (float)$row['DiscountAmount'] - (float)$row['AmountPaid']), 2));
-            $row['Status'] = $this->deriveStatus($row['DueDate'], (float)$row['Amount'] + $fine - (float)$row['DiscountAmount'], (float)$row['AmountPaid']);
+            $row['Status'] = $this->deriveStatus($row['DueDate'] ?? null, (float)$row['Amount'] + $fine - (float)$row['DiscountAmount'], (float)$row['AmountPaid']);
             $out[] = $row;
         }
         // Sort by due date then FeeName
@@ -338,18 +368,20 @@ class StudentFeesModel extends Model
         $r = $st->fetch(PDO::FETCH_ASSOC);
         return $r ?: null;
     }
-    /** Compute fine using active fine policies. */
+    /** Compute fine using all active fine policies applicable to the fee.
+     * Each policy is evaluated independently with its own grace period and capped by its own MaxAmount, then summed.
+     */
     public function computeFine(int $schoolId, int $academicYearId, int $feeId, ?string $dueDate, float $baseAmount, ?\DateTime $asOf = null): float
     {
         $asOf = $asOf ?: new \DateTime('today');
         if (!$dueDate) return 0.0;
 
         $due = new \DateTime($dueDate);
-        // Grace period and fine policy lookup: prefer specific FeeID, else global (FeeID IS NULL)
+        // Fetch all active policies for this school/year that target this fee or are global (FeeID IS NULL)
         $sql = "SELECT * FROM Tx_fine_policies
                 WHERE SchoolID = :SchoolID AND AcademicYearID = :AcademicYearID AND IsActive = 1
                   AND (FeeID = :FeeID OR FeeID IS NULL)
-                ORDER BY (FeeID IS NULL) ASC, FinePolicyID DESC"; // specific first
+                ORDER BY (FeeID IS NULL) ASC, FinePolicyID DESC"; // fee-specific first, then global
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':SchoolID', $schoolId, PDO::PARAM_INT);
         $stmt->bindValue(':AcademicYearID', $academicYearId, PDO::PARAM_INT);
@@ -358,28 +390,36 @@ class StudentFeesModel extends Model
         $policies = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
         if (!$policies) return 0.0;
 
-        // Use first applicable policy
-        $p = $policies[0];
-        $graceDays = isset($p['GraceDays']) ? (int)$p['GraceDays'] : 0;
-        $graceLimit = (clone $due)->modify("+{$graceDays} day");
-        if ($asOf <= $graceLimit) return 0.0;
+        $totalFine = 0.0;
+        foreach ($policies as $p) {
+            $graceDays = isset($p['GraceDays']) ? (int)$p['GraceDays'] : 0;
+            $graceLimit = (clone $due)->modify("+{$graceDays} day");
+            // If still within grace for this policy, it contributes nothing
+            if ($asOf <= $graceLimit) {
+                continue;
+            }
 
-        $apply = $p['ApplyType'] ?? 'Fixed';
-        $amount = isset($p['Amount']) ? (float)$p['Amount'] : 0.0;
-        $daysLate = (int)$graceLimit->diff($asOf)->format('%a');
-        $fine = 0.0;
-        if ($apply === 'Fixed') {
-            $fine = $amount;
-        } elseif ($apply === 'PerDay') {
-            $fine = $amount * max(1, $daysLate); // at least 1 day after grace
-        } elseif ($apply === 'Percentage') {
-            $fine = ($amount / 100.0) * $baseAmount;
-        } else {
-            $fine = 0.0;
+            $apply = $p['ApplyType'] ?? 'Fixed';
+            $amount = isset($p['Amount']) ? (float)$p['Amount'] : 0.0;
+            $daysLate = (int)$graceLimit->diff($asOf)->format('%a');
+            $fineP = 0.0;
+            if ($apply === 'Fixed') {
+                $fineP = $amount;
+            } elseif ($apply === 'PerDay') {
+                $fineP = $amount * max(1, $daysLate); // at least 1 day after grace
+            } elseif ($apply === 'Percentage') {
+                $fineP = ($amount / 100.0) * $baseAmount;
+            } else {
+                $fineP = 0.0;
+            }
+            $maxCap = (array_key_exists('MaxAmount', $p) && $p['MaxAmount'] !== null) ? (float)$p['MaxAmount'] : null;
+            if ($maxCap !== null) {
+                $fineP = min($fineP, $maxCap);
+            }
+            $totalFine += max(0.0, round($fineP, 2));
         }
-        $maxCap = array_key_exists('MaxAmount', $p) && $p['MaxAmount'] !== null ? (float)$p['MaxAmount'] : null;
-        if ($maxCap !== null) $fine = min($fine, $maxCap);
-        return round(max(0.0, $fine), 2);
+
+        return round(max(0.0, $totalFine), 2);
     }
 
     /** Assign a fee ledger row for a student (one line). If amount null, resolve from mapping. */
