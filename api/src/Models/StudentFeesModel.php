@@ -9,14 +9,7 @@ class StudentFeesModel extends Model
     protected $table = 'Tx_student_fees';
     protected $pk = 'StudentFeeID';
 
-    /**
-     * Get ledger items for a student with computed fine and outstanding.
-     *
-     * Returns array of rows with keys (DB-native) plus:
-     *  - FeeName
-     *  - ComputedFine (dynamic fine based on fine policies and today/payment date)
-     *  - Outstanding (Amount + ComputedFine - DiscountAmount - AmountPaid)
-     */
+    // Return student ledger rows augmented with computed fine, outstanding, and derived status
     public function getStudentLedger(int $schoolId, int $academicYearId, int $studentId, array $filters = []): array
     {
         $onlyDue = isset($filters['only_due']) ? (bool)$filters['only_due'] : false;
@@ -44,15 +37,15 @@ class StudentFeesModel extends Model
         $stmt->execute();
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-        // Attach computed fine and outstanding
+        if (!$rows) return $rows;
+        $feeIds = array_values(array_unique(array_map(fn($r) => (int)$r['FeeID'], $rows)));
+        $pol = $this->fetchPoliciesForFees($schoolId, $academicYearId, $feeIds);
         foreach ($rows as &$r) {
-            $fine = $this->computeFine($schoolId, $academicYearId, (int)$r['FeeID'], $r['DueDate'], (float)$r['Amount']);
+            $fine = $this->computeFineFromPolicies($pol['byFee'][(int)$r['FeeID']] ?? [], $pol['global'], $r['DueDate'], (float)$r['Amount']);
             $r['ComputedFine'] = $fine;
             $discount = isset($r['DiscountAmount']) ? (float)$r['DiscountAmount'] : 0.0;
             $paid = isset($r['AmountPaid']) ? (float)$r['AmountPaid'] : 0.0;
             $r['Outstanding'] = max(0.0, round(((float)$r['Amount'] + $fine - $discount - $paid), 2));
-
-            // Re-evaluate Status lightly (do not persist here)
             $r['Status'] = $this->deriveStatus($r['DueDate'], (float)$r['Amount'] + $fine - $discount, $paid);
         }
         unset($r);
@@ -60,14 +53,9 @@ class StudentFeesModel extends Model
         return $rows;
     }
 
-    /**
-     * Build a month-based plan of dues for a student without precomputing rows.
-     * Returns one row per applicable fee for that month with either an existing StudentFeeID
-     * (if a ledger row exists with DueDate in that month) or null when not yet created.
-     */
+    // Build a month-based plan of dues for a student (one row per fee for that month)
     public function getMonthlyPlan(int $schoolId, int $academicYearId, int $studentId, int $year, int $month): array
     {
-        // Get student's class & section for amount mapping
         $stu = $this->getStudent($studentId);
         if (!$stu) return [];
         $classId = isset($stu['ClassID']) ? (int)$stu['ClassID'] : null;
@@ -76,7 +64,6 @@ class StudentFeesModel extends Model
         $monthStart = new \DateTime(sprintf('%04d-%02d-01', $year, $month));
         $monthEnd = (clone $monthStart)->modify('last day of this month');
 
-        // Fetch all active fees with schedules for this school & academic year
         $sql = "SELECT f.FeeID, f.FeeName, s.ScheduleType, s.IntervalMonths, s.DayOfMonth, s.StartDate, s.EndDate
                 FROM Tx_fees f
                 JOIN Tx_fees_schedules s ON s.FeeID = f.FeeID
@@ -86,55 +73,72 @@ class StudentFeesModel extends Model
         $st->bindValue(':AcademicYearID', $academicYearId, PDO::PARAM_INT);
         $st->execute();
         $fees = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if (!$fees) return [];
+
+        $feeIds = array_values(array_unique(array_map(fn($f) => (int)$f['FeeID'], $fees)));
+        $placeholders = implode(',', array_fill(0, count($feeIds), '?'));
+
+        $qMonth = $this->conn->prepare("SELECT * FROM Tx_student_fees WHERE StudentID = ? AND FeeID IN ($placeholders) AND DueDate BETWEEN ? AND ?");
+        $i = 1; $qMonth->bindValue($i++, $studentId, PDO::PARAM_INT);
+        foreach ($feeIds as $fid) { $qMonth->bindValue($i++, $fid, PDO::PARAM_INT); }
+        $qMonth->bindValue($i++, $monthStart->format('Y-m-d'));
+        $qMonth->bindValue($i++, $monthEnd->format('Y-m-d'));
+        $qMonth->execute();
+        $inMonthByFee = [];
+        while ($r = $qMonth->fetch(PDO::FETCH_ASSOC)) { $inMonthByFee[(int)$r['FeeID']] = $r; }
+
+        $qPaid = $this->conn->prepare("SELECT DISTINCT FeeID FROM Tx_student_fees WHERE StudentID = ? AND FeeID IN ($placeholders) AND Status = 'Paid'");
+        $i = 1; $qPaid->bindValue($i++, $studentId, PDO::PARAM_INT);
+        foreach ($feeIds as $fid) { $qPaid->bindValue($i++, $fid, PDO::PARAM_INT); }
+        $qPaid->execute();
+        $paidSet = [];
+        while ($r = $qPaid->fetch(PDO::FETCH_ASSOC)) { $paidSet[(int)$r['FeeID']] = true; }
+
+        $qUnpaid = $this->conn->prepare("SELECT * FROM Tx_student_fees WHERE StudentID = ? AND FeeID IN ($placeholders) AND Status <> 'Paid' ORDER BY COALESCE(DueDate, CreatedAt) DESC");
+        $i = 1; $qUnpaid->bindValue($i++, $studentId, PDO::PARAM_INT);
+        foreach ($feeIds as $fid) { $qUnpaid->bindValue($i++, $fid, PDO::PARAM_INT); }
+        $qUnpaid->execute();
+        $latestUnpaidByFee = [];
+        while ($r = $qUnpaid->fetch(PDO::FETCH_ASSOC)) { $fid = (int)$r['FeeID']; if (!isset($latestUnpaidByFee[$fid])) { $latestUnpaidByFee[$fid] = $r; } }
+
+        $pol = $this->fetchPoliciesForFees($schoolId, $academicYearId, $feeIds);
         $out = [];
         foreach ($fees as $f) {
             $type = $f['ScheduleType'];
             $dueDate = $this->deriveDueDateForMonth($f, $year, $month);
-            // We'll pick one ledger row to represent this fee in the output, when applicable.
             $sfUsed = null;
-            // If schedule doesn't produce a due date for this month, still include if an existing ledger row
-            // for this student/fee falls within the month (covers OneTime and OnDemand previously billed items).
             if (!$dueDate) {
-                // First, check for existing ledger rows in this month
-                $sfInMonth = $this->findExistingRowForMonth($studentId, (int)$f['FeeID'], $monthStart, $monthEnd);
+                $sfInMonth = $inMonthByFee[(int)$f['FeeID']] ?? null;
                 if ($sfInMonth) {
-                    // If existing row is Paid and fee is OneTime, skip
                     if (strtolower((string)$type) === 'onetime' && isset($sfInMonth['Status']) && strtolower($sfInMonth['Status']) === 'paid') {
                         continue;
                     }
                     $sfUsed = $sfInMonth;
                     $dueDate = new \DateTime($sfInMonth['DueDate']);
                 } else {
-                    // Nothing in this month; carry-forward logic for OneTime and OnDemand
                     $lt = strtolower((string)$type);
                     if ($lt === 'onetime' || $lt === 'ondemand') {
-                        // If any PAID ledger exists for this fee, skip showing in plan
-                        if ($this->hasPaidLedger($studentId, (int)$f['FeeID'])) {
+                        if (!empty($paidSet[(int)$f['FeeID']])) {
                             continue;
                         }
-                        // Prefer any existing UNPAID ledger (from other months) to avoid duplicating amounts
-                        $sfAnyUnpaid = $this->findAnyUnpaidLedger($studentId, (int)$f['FeeID']);
+                        $sfAnyUnpaid = $latestUnpaidByFee[(int)$f['FeeID']] ?? null;
                         if ($sfAnyUnpaid) {
                             $sfUsed = $sfAnyUnpaid;
-                            $dueDate = new \DateTime($sfAnyUnpaid['DueDate']);
+                            if (!empty($sfAnyUnpaid['DueDate'])) { $dueDate = new \DateTime($sfAnyUnpaid['DueDate']); }
                         } else {
                             if ($lt === 'onetime') {
-                                // OneTime without any ledger: no specific due date; let UI show '-'
                                 $dueDate = null;
                             } else {
-                                // OnDemand without any ledger: synthesize a due date for current month to allow billing
                                 $seed = !empty($f['StartDate']) ? new \DateTime($f['StartDate']) : clone $monthStart;
                                 $dueDate = $seed;
                             }
                         }
                     } else {
-                        // For other schedule types, if not scheduled and no ledger in this month, skip
                         continue;
                     }
                 }
             } else {
-                // A schedule produced a due date; if a ledger already exists within this month, prefer that row
-                $sfInMonth = $this->findExistingRowForMonth($studentId, (int)$f['FeeID'], $monthStart, $monthEnd);
+                $sfInMonth = $inMonthByFee[(int)$f['FeeID']] ?? null;
                 if ($sfInMonth) {
                     if (strtolower((string)$type) === 'onetime' && isset($sfInMonth['Status']) && strtolower($sfInMonth['Status']) === 'paid') {
                         continue;
@@ -142,32 +146,25 @@ class StudentFeesModel extends Model
                     $sfUsed = $sfInMonth;
                     $dueDate = new \DateTime($sfInMonth['DueDate']);
                 } else if (strtolower((string)$type) === 'ondemand') {
-                    // Month-independent carry-forward for OnDemand: prefer any existing UNPAID ledger
-                    if ($this->hasPaidLedger($studentId, (int)$f['FeeID'])) {
+                    if (!empty($paidSet[(int)$f['FeeID']])) {
                         continue;
                     }
-                    $sfAnyUnpaid = $this->findAnyUnpaidLedger($studentId, (int)$f['FeeID']);
+                    $sfAnyUnpaid = $latestUnpaidByFee[(int)$f['FeeID']] ?? null;
                     if ($sfAnyUnpaid) {
                         $sfUsed = $sfAnyUnpaid;
-                        $dueDate = new \DateTime($sfAnyUnpaid['DueDate']);
+                        if (!empty($sfAnyUnpaid['DueDate'])) { $dueDate = new \DateTime($sfAnyUnpaid['DueDate']); }
                     }
                 } else if (strtolower((string)$type) === 'onetime') {
-                    // For OneTime, even if schedule produced a date, show '-' unless there is a ledger this month.
-                    // If already paid anywhere, skip.
-                    if ($this->hasPaidLedger($studentId, (int)$f['FeeID'])) {
+                    if (!empty($paidSet[(int)$f['FeeID']])) {
                         continue;
                     }
-                    // No ledger in this month: clear due date so UI shows '-'
                     $dueDate = null;
                 }
             }
 
-            // Clamp due date inside academic year bounds (optional: skip if outside AY)
             $amount = $this->resolveMappingAmount((int)$f['FeeID'], $classId, $sectionId);
             if ($amount <= 0) continue;
 
-            // Build row using either an existing ledger row (sfUsed) or a synthesized entry
-            // Resolve due date string; for OneTime fees, force null so UI shows '-'
             $dueStr = $sfUsed ? ($sfUsed['DueDate'] ?? null) : ($dueDate instanceof \DateTime ? $dueDate->format('Y-m-d') : null);
             if (strtolower((string)$type) === 'onetime') {
                 $dueStr = null;
@@ -184,14 +181,12 @@ class StudentFeesModel extends Model
                 'DueDate' => $dueStr,
                 'Status' => $sfUsed ? $sfUsed['Status'] : 'Pending',
             ];
-            // Compute fine and outstanding dynamically
-            $fine = $this->computeFine($schoolId, $academicYearId, (int)$f['FeeID'], $row['DueDate'] ?? null, (float)$row['Amount']);
+            $fine = $this->computeFineFromPolicies($pol['byFee'][(int)$f['FeeID']] ?? [], $pol['global'], $row['DueDate'] ?? null, (float)$row['Amount']);
             $row['ComputedFine'] = $fine;
             $row['Outstanding'] = max(0.0, round(((float)$row['Amount'] + $fine - (float)$row['DiscountAmount'] - (float)$row['AmountPaid']), 2));
             $row['Status'] = $this->deriveStatus($row['DueDate'] ?? null, (float)$row['Amount'] + $fine - (float)$row['DiscountAmount'], (float)$row['AmountPaid']);
             $out[] = $row;
         }
-        // Sort by due date then FeeName
         usort($out, function($a, $b){
             $ad = strtotime($a['DueDate'] ?? '');
             $bd = strtotime($b['DueDate'] ?? '');
@@ -201,7 +196,7 @@ class StudentFeesModel extends Model
         return $out;
     }
 
-    /** Locate existing fee row within a month window. */
+    // Locate existing fee row within a month window
     private function findExistingRowForMonth(int $studentId, int $feeId, \DateTime $monthStart, \DateTime $monthEnd): ?array
     {
         $q = "SELECT * FROM Tx_student_fees WHERE StudentID = :StudentID AND FeeID = :FeeID AND DueDate BETWEEN :Start AND :End LIMIT 1";
@@ -215,7 +210,7 @@ class StudentFeesModel extends Model
         return $r ?: null;
     }
 
-    /** Check if any PAID ledger exists for this student/fee. */
+    // Check if any PAID ledger exists for this student/fee
     private function hasPaidLedger(int $studentId, int $feeId): bool
     {
         $q = "SELECT 1 FROM Tx_student_fees WHERE StudentID = :StudentID AND FeeID = :FeeID AND Status = 'Paid' LIMIT 1";
@@ -226,7 +221,7 @@ class StudentFeesModel extends Model
         return (bool)$st->fetchColumn();
     }
 
-    /** Find any existing UNPAID ledger row for this student/fee (outside current month allowed). */
+    // Find any existing UNPAID ledger row for this student/fee
     private function findAnyUnpaidLedger(int $studentId, int $feeId): ?array
     {
         $q = "SELECT * FROM Tx_student_fees WHERE StudentID = :StudentID AND FeeID = :FeeID AND Status <> 'Paid' ORDER BY COALESCE(DueDate, CreatedAt) DESC LIMIT 1";
@@ -238,24 +233,19 @@ class StudentFeesModel extends Model
         return $r ?: null;
     }
 
-    /** Create or return existing ledger row for the requested fee/month for a student. */
+    // Ensure a monthly ledger row exists (create if missing) and return its ID
     public function ensureMonthlyRow(int $schoolId, int $academicYearId, int $studentId, int $feeId, int $year, int $month, ?string $createdBy): int
     {
         $monthStart = new \DateTime(sprintf('%04d-%02d-01', $year, $month));
         $monthEnd = (clone $monthStart)->modify('last day of this month');
         $existing = $this->findExistingRowForMonth($studentId, $feeId, $monthStart, $monthEnd);
         if ($existing) return (int)$existing['StudentFeeID'];
-
-        // Fetch student's class & section for amount and due date
         $stu = $this->getStudent($studentId);
         $classId = isset($stu['ClassID']) ? (int)$stu['ClassID'] : null;
         $sectionId = isset($stu['SectionID']) ? (int)$stu['SectionID'] : null;
-
-        // Derive due date from schedule
         $sched = $this->getFeeSchedule($feeId);
         $due = $this->deriveDueDateForMonth($sched, $year, $month);
         if (!$due) {
-            // If not scheduled for this month, default to first day of month
             $due = $monthStart;
         }
         $amount = $this->resolveMappingAmount($feeId, $classId, $sectionId);
@@ -264,13 +254,9 @@ class StudentFeesModel extends Model
         return $this->assignFee($schoolId, $academicYearId, $studentId, $feeId, $classId, $sectionId, $due->format('Y-m-d'), $amount, null, $createdBy ?: 'System');
     }
 
-    /**
-     * Given a fee schedule row (or fee+schedule combined row), compute the due date for a given month.
-     * Returns null when the schedule does not apply to that month.
-     */
+    // Compute due date for a month from a fee schedule; null when not applicable
     private function deriveDueDateForMonth(array $feeScheduleRow, int $year, int $month): ?\DateTime
     {
-        // Normalize row (if only FeeID provided, fetch schedule)
         if (!isset($feeScheduleRow['ScheduleType'])) {
             $feeScheduleRow = $this->getFeeSchedule((int)$feeScheduleRow['FeeID']);
             if (!$feeScheduleRow) return null;
@@ -285,22 +271,14 @@ class StudentFeesModel extends Model
         $monthEnd = (clone $monthStart)->modify('last day of this month');
 
         if ($type === 'Recurring') {
-            // If no explicit start date is provided, treat the schedule as always-active (apply every IntervalMonths)
-            // but still respect an EndDate if present.
             if ($end && $monthStart > $end) return null;
-
-            // Determine reference start for interval calculations. Prefer provided start; otherwise use a far-past epoch
-            // so the recurrence rules align with every month (or IntervalMonths). Using 1st Jan 1970 ensures monthsDiff
-            // yields a consistent index for modulo arithmetic.
             $refStart = $start ?: new \DateTime('1970-01-01');
-            // If start exists and the requested month is before it, skip
             if ($start && $monthEnd < $start) return null;
 
             $monthsDiff = $this->monthsDiff($refStart, $monthStart);
             $interval = $interval ?: 1;
             if ($monthsDiff % $interval !== 0) return null;
 
-            // Determine day in month, clamp to valid days
             $maxDay = (int)$monthEnd->format('j');
             $day = (int)($dom ?: 1);
             if ($day < 1) $day = 1;
@@ -308,7 +286,6 @@ class StudentFeesModel extends Model
             return new \DateTime(sprintf('%04d-%02d-%02d', $year, $month, $day));
         }
         if ($type === 'OneTime') {
-            // One-time fee: requires a StartDate (the event/date). Only show if that date falls within the month.
             $d = $start ?: null;
             if (!$d) return null;
             if ($d >= $monthStart && $d <= $monthEnd) return $d;
@@ -316,32 +293,26 @@ class StudentFeesModel extends Model
         }
 
         if ($type === 'OnDemand') {
-            // OnDemand fees are applicable when their StartDate/EndDate window overlaps the requested month.
-            // If both start and end present, check for any overlap.
             if ($start && $end) {
                 if ($start <= $monthEnd && $end >= $monthStart) {
-                    // Prefer the StartDate if it lies within the month, otherwise use the month start
                     return ($start >= $monthStart && $start <= $monthEnd) ? $start : $monthStart;
                 }
                 return null;
             }
-            // If only start provided, treat like OneTime (show if start in month)
             if ($start) {
                 if ($start >= $monthStart && $start <= $monthEnd) return $start;
                 return null;
             }
-            // If only end provided, show if end in month
             if ($end) {
                 if ($end >= $monthStart && $end <= $monthEnd) return $end;
                 return null;
             }
             return null;
         }
-
-        // Default: not auto-generated
         return null;
     }
 
+    // Month difference between two dates
     private function monthsDiff(\DateTime $start, \DateTime $end): int
     {
         $y = ((int)$end->format('Y')) - ((int)$start->format('Y'));
@@ -349,6 +320,7 @@ class StudentFeesModel extends Model
         return $y * 12 + $m;
     }
 
+    // Fetch schedule for a fee
     private function getFeeSchedule(int $feeId): ?array
     {
         $q = "SELECT FeeID, ScheduleType, IntervalMonths, DayOfMonth, StartDate, EndDate FROM Tx_fees_schedules WHERE FeeID = :FeeID LIMIT 1";
@@ -359,6 +331,7 @@ class StudentFeesModel extends Model
         return $r ?: null;
     }
 
+    // Fetch student row
     private function getStudent(int $studentId): ?array
     {
         $q = "SELECT * FROM Tx_Students WHERE StudentID = :id LIMIT 1";
@@ -368,16 +341,13 @@ class StudentFeesModel extends Model
         $r = $st->fetch(PDO::FETCH_ASSOC);
         return $r ?: null;
     }
-    /** Compute fine using all active fine policies applicable to the fee.
-     * Each policy is evaluated independently with its own grace period and capped by its own MaxAmount, then summed.
-     */
+    // Compute fine using all applicable policies (fee-specific + global)
     public function computeFine(int $schoolId, int $academicYearId, int $feeId, ?string $dueDate, float $baseAmount, ?\DateTime $asOf = null): float
     {
         $asOf = $asOf ?: new \DateTime('today');
         if (!$dueDate) return 0.0;
 
         $due = new \DateTime($dueDate);
-        // Fetch all active policies for this school/year that target this fee or are global (FeeID IS NULL)
         $sql = "SELECT * FROM Tx_fine_policies
                 WHERE SchoolID = :SchoolID AND AcademicYearID = :AcademicYearID AND IsActive = 1
                   AND (FeeID = :FeeID OR FeeID IS NULL)
@@ -394,7 +364,6 @@ class StudentFeesModel extends Model
         foreach ($policies as $p) {
             $graceDays = isset($p['GraceDays']) ? (int)$p['GraceDays'] : 0;
             $graceLimit = (clone $due)->modify("+{$graceDays} day");
-            // If still within grace for this policy, it contributes nothing
             if ($asOf <= $graceLimit) {
                 continue;
             }
@@ -406,7 +375,7 @@ class StudentFeesModel extends Model
             if ($apply === 'Fixed') {
                 $fineP = $amount;
             } elseif ($apply === 'PerDay') {
-                $fineP = $amount * max(1, $daysLate); // at least 1 day after grace
+                $fineP = $amount * max(1, $daysLate);
             } elseif ($apply === 'Percentage') {
                 $fineP = ($amount / 100.0) * $baseAmount;
             } else {
@@ -422,14 +391,61 @@ class StudentFeesModel extends Model
         return round(max(0.0, $totalFine), 2);
     }
 
-    /** Assign a fee ledger row for a student (one line). If amount null, resolve from mapping. */
+    // Compute fine from preloaded policies
+    private function computeFineFromPolicies(array $feePolicies, array $globalPolicies, ?string $dueDate, float $baseAmount, ?\DateTime $asOf = null): float
+    {
+        $asOf = $asOf ?: new \DateTime('today');
+        if (!$dueDate) return 0.0;
+        $due = new \DateTime($dueDate);
+        $policies = array_merge($feePolicies, $globalPolicies);
+        if (!$policies) return 0.0;
+        $totalFine = 0.0;
+        foreach ($policies as $p) {
+            $graceDays = isset($p['GraceDays']) ? (int)$p['GraceDays'] : 0;
+            $graceLimit = (clone $due)->modify("+{$graceDays} day");
+            if ($asOf <= $graceLimit) continue;
+            $apply = $p['ApplyType'] ?? 'Fixed';
+            $amount = isset($p['Amount']) ? (float)$p['Amount'] : 0.0;
+            $daysLate = (int)$graceLimit->diff($asOf)->format('%a');
+            $fineP = 0.0;
+            if ($apply === 'Fixed') { $fineP = $amount; }
+            elseif ($apply === 'PerDay') { $fineP = $amount * max(1, $daysLate); }
+            elseif ($apply === 'Percentage') { $fineP = ($amount / 100.0) * $baseAmount; }
+            $maxCap = (array_key_exists('MaxAmount', $p) && $p['MaxAmount'] !== null) ? (float)$p['MaxAmount'] : null;
+            if ($maxCap !== null) { $fineP = min($fineP, $maxCap); }
+            $totalFine += max(0.0, round($fineP, 2));
+        }
+        return round(max(0.0, $totalFine), 2);
+    }
+
+    // Fetch fine policies once for a set of fees
+    private function fetchPoliciesForFees(int $schoolId, int $academicYearId, array $feeIds): array
+    {
+        if (!$feeIds) return ['global' => [], 'byFee' => []];
+        $placeholders = implode(',', array_fill(0, count($feeIds), '?'));
+        $sql = "SELECT * FROM Tx_fine_policies WHERE SchoolID = ? AND AcademicYearID = ? AND IsActive = 1 AND (FeeID IN ($placeholders) OR FeeID IS NULL) ORDER BY (FeeID IS NULL) ASC, FinePolicyID DESC";
+        $st = $this->conn->prepare($sql);
+        $i = 1;
+        $st->bindValue($i++, $schoolId, PDO::PARAM_INT);
+        $st->bindValue($i++, $academicYearId, PDO::PARAM_INT);
+        foreach ($feeIds as $fid) { $st->bindValue($i++, $fid, PDO::PARAM_INT); }
+        $st->execute();
+        $global = [];
+        $byFee = [];
+        while ($p = $st->fetch(PDO::FETCH_ASSOC)) {
+            if (!isset($p['FeeID']) || $p['FeeID'] === null) { $global[] = $p; }
+            else { $byFee[(int)$p['FeeID']][] = $p; }
+        }
+        return ['global' => $global, 'byFee' => $byFee];
+    }
+
+    // Insert a student fee ledger row and return its ID
     public function assignFee(int $schoolId, int $academicYearId, int $studentId, int $feeId, ?int $classId, ?int $sectionId, ?string $dueDate, ?float $amount, ?int $mappingId, string $createdBy): int
     {
         if ($amount === null) {
             $amount = $this->resolveMappingAmount($feeId, $classId, $sectionId);
         }
         if ($dueDate === null) {
-            // Best-effort default due date: today
             $dueDate = date('Y-m-d');
         }
 
@@ -454,21 +470,17 @@ class StudentFeesModel extends Model
         return (int)$this->conn->lastInsertId();
     }
 
-    /** Record payment against a student fee row. Optionally update discount and remarks. */
+    // Record a payment against a student fee row
     public function recordPayment(int $studentFeeId, float $paidAmount, string $mode, ?string $transactionRef, ?string $paymentDate, ?float $discountDelta, ?string $createdBy): bool
     {
         $paymentDate = $paymentDate ?: date('Y-m-d');
         $now = date('Y-m-d H:i:s');
-        
-        // Ensure atomicity across payment insert and ledger update
         $inTx = false;
         try {
             if ($this->conn->inTransaction() === false) {
                 $this->conn->beginTransaction();
                 $inTx = true;
             }
-
-        // Insert payment row
         $sqlPay = "INSERT INTO Tx_student_fee_payments (StudentFeeID, PaymentDate, PaidAmount, Mode, TransactionRef, CreatedAt, CreatedBy)
                    VALUES (:StudentFeeID, :PaymentDate, :PaidAmount, :Mode, :TransactionRef, :CreatedAt, :CreatedBy)";
         $stmt = $this->conn->prepare($sqlPay);
@@ -481,8 +493,6 @@ class StudentFeesModel extends Model
         $stmt->bindValue(':CreatedBy', $createdBy ?: 'System');
             $ok = $stmt->execute();
             if (!$ok) { if ($inTx) $this->conn->rollBack(); return false; }
-
-        // Update ledger row amounts and status
         $sqlUpd = "UPDATE Tx_student_fees SET AmountPaid = ROUND(AmountPaid + :PaidAmount, 2), UpdatedAt = :UpdatedAt, UpdatedBy = :UpdatedBy";
         $params = [
             ':PaidAmount' => (string)round($paidAmount, 2),
@@ -502,8 +512,6 @@ class StudentFeesModel extends Model
         }
             $ok2 = $up->execute();
             if (!$ok2) { if ($inTx) $this->conn->rollBack(); return false; }
-
-        // Recalculate status based on updated values
         $this->refreshStatus($studentFeeId);
             if ($inTx) $this->conn->commit();
             return true;
@@ -516,10 +524,9 @@ class StudentFeesModel extends Model
         }
     }
 
-    /** Refresh status of a ledger row based on fields and fine policy as of today. */
+    // Refresh status of a ledger row based on fields and fine policy
     public function refreshStatus(int $studentFeeId): void
     {
-        // Load row with school/ay for fine computation
         $sql = "SELECT sf.*, s.SchoolID, s.AcademicYearID
                 FROM Tx_student_fees sf
                 JOIN Tx_Students s ON s.StudentID = sf.StudentID
@@ -544,7 +551,7 @@ class StudentFeesModel extends Model
         $u->execute();
     }
 
-    /** Helper to derive status string. */
+    // Derive status string
     private function deriveStatus(?string $dueDate, float $totalDue, float $paid): string
     {
         $outstanding = round(max(0.0, $totalDue - $paid), 2);
@@ -557,10 +564,9 @@ class StudentFeesModel extends Model
         return $paid > 0 ? 'Partial' : 'Pending';
     }
 
-    /** Resolve Amount from class-section mapping for fee. */
+    // Resolve Amount from class-section mapping for fee
     private function resolveMappingAmount(int $feeId, ?int $classId, ?int $sectionId): float
     {
-        // 1) Exact class+section mapping
         if ($classId && $sectionId) {
             $sql = "SELECT Amount FROM Tx_fee_class_section_mapping WHERE FeeID = :FeeID AND ClassID = :ClassID AND SectionID = :SectionID AND IsActive = 1 LIMIT 1";
             $stmt = $this->conn->prepare($sql);
@@ -571,8 +577,6 @@ class StudentFeesModel extends Model
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($row && $row['Amount'] !== null) return (float)$row['Amount'];
         }
-
-        // 2) Fallback: class-only mapping (if schema allows it via NULL SectionID)
         if ($classId) {
             $sql = "SELECT Amount FROM Tx_fee_class_section_mapping WHERE FeeID = :FeeID AND ClassID = :ClassID AND (SectionID IS NULL OR SectionID = 0) AND IsActive = 1 LIMIT 1";
             $stmt = $this->conn->prepare($sql);
@@ -582,8 +586,6 @@ class StudentFeesModel extends Model
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($row && $row['Amount'] !== null) return (float)$row['Amount'];
         }
-
-        // 3) Fallback: any active mapping amount for this fee (pick the lowest to be safe)
         $sql = "SELECT MIN(Amount) AS Amount FROM Tx_fee_class_section_mapping WHERE FeeID = :FeeID AND IsActive = 1";
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':FeeID', $feeId, PDO::PARAM_INT);
