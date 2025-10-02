@@ -1,0 +1,13 @@
+<div class="receipt-container">
+	<div class="spinner" *ngIf="loading()">
+		<p-progressSpinner></p-progressSpinner>
+	</div>
+
+	<ng-container *ngIf="isPreview && pdfUrl() && !loading()">
+		<iframe [src]="pdfUrl()" title="Fee receipt preview" class="preview-frame"></iframe>
+	</ng-container>
+
+	<div class="placeholder" *ngIf="isPreview && !pdfUrl() && !loading()">
+		<p>No preview available.</p>
+	</div>
+</div>

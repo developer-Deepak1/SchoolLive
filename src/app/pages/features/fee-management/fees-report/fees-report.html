@@ -42,6 +42,7 @@
 				<th class="text-right">Paid</th>
 				<th>Due Date</th>
 				<th>Status</th>
+				<th class="text-center">Receipt</th>
 			</tr>
 		</ng-template>
 		<ng-template pTemplate="body" let-row>
@@ -56,6 +57,9 @@
 				<td class="text-right strong">{{ row.AmountPaid | number:'1.2-2' }}</td>
 				<td>{{ row.DueDate || '-' }}</td>
 				<td><span>{{ row.Status }}</span></td>
+				<td class="action-cell">
+					<button type="button" pButton icon="pi pi-download" styleClass="p-button-text p-button-rounded p-button-sm" aria-label="Download receipt" (click)="downloadReceipt(row)"></button>
+				</td>
 			</tr>
 		</ng-template>
     
@@ -77,6 +81,7 @@
 				<th class="text-right">Paid</th>
 				<th>Due Date</th>
 				<th>Status</th>
+				<th class="text-center">Receipt</th>
 			</tr>
 		</ng-template>
 		<ng-template pTemplate="body" let-row>
@@ -91,6 +96,9 @@
 				<td class="text-right strong">{{ row.AmountPaid | number:'1.2-2' }}</td>
 				<td>{{ row.DueDate || '-' }}</td>
 				<td><span>{{ row.Status }}</span></td>
+				<td class="action-cell">
+					<button type="button" pButton icon="pi pi-download" styleClass="p-button-text p-button-rounded p-button-sm" aria-label="Download receipt" (click)="downloadReceipt(row)"></button>
+				</td>
 			</tr>
 		</ng-template>
     
@@ -111,6 +119,7 @@
 				<th class="text-right">Paid</th>
 				<th>Due Date</th>
 				<th>Status</th>
+				<th class="text-center">Receipt</th>
 			</tr>
 		</ng-template>
 		<ng-template pTemplate="body" let-row>
@@ -125,6 +134,9 @@
 				<td class="text-right strong">{{ row.AmountPaid | number:'1.2-2' }}</td>
 				<td>{{ row.DueDate || '-' }}</td>
 				<td><span>{{ row.Status }}</span></td>
+				<td class="action-cell">
+					<button type="button" pButton icon="pi pi-download" styleClass="p-button-text p-button-rounded p-button-sm" aria-label="Download receipt" (click)="downloadReceipt(row)"></button>
+				</td>
 			</tr>
 		</ng-template>
     
@@ -132,3 +144,12 @@
 	<div class="muted" *ngIf="!loading && !oneTimePaid().length">No one-time paid records.</div>
 </p-card>
 </div>
+
+<app-fees-receipt-download-preview
+	*ngIf="receiptRequest() as req"
+	[feeId]="req.feeId"
+	[studentId]="req.studentId"
+	[isPreview]="req.isPreview"
+	(downloaded)="onReceiptDownloaded()"
+	(failed)="onReceiptFailed($event)">
+</app-fees-receipt-download-preview>

@@ -22,4 +22,9 @@
 .small { font-size: 0.8rem; }
 .strong { font-weight: 600; }
 .text-right { text-align: right; }
+.action-cell {
+	display: flex;
+	justify-content: start;
+	align-items: center;
+}
 

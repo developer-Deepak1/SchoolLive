@@ -6,19 +6,21 @@ import { TableModule } from 'primeng/table';
 import { AutoCompleteModule } from 'primeng/autocomplete';
 import { InputTextModule } from 'primeng/inputtext';
 import { ToastModule } from 'primeng/toast';
+import { ButtonModule } from 'primeng/button';
 import { MessageService } from 'primeng/api';
 
 import { StudentsService } from '../../services/students.service';
 import { Student } from '../../model/student.model';
 import { StudentFeesService, StudentFeeLedgerRow } from '../services/student-fees.service';
 import { FeeService, FeeWithClassSections } from '../services/fee.service';
+import { FeesReceiptDownloadPreview } from '../fees-receipt-download-preview/fees-receipt-download-preview';
 
 type ScheduleType = 'Recurring' | 'OnDemand' | 'OneTime' | 'Unknown';
 
 @Component({
   selector: 'app-fees-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, CardModule, TableModule, AutoCompleteModule, InputTextModule, ToastModule],
+  imports: [CommonModule, FormsModule, CardModule, TableModule, AutoCompleteModule, InputTextModule, ToastModule, ButtonModule, FeesReceiptDownloadPreview],
   providers: [MessageService],
   templateUrl: './fees-report.html',
   styleUrl: './fees-report.scss'
@@ -42,6 +44,7 @@ export class FeesReport implements OnInit {
 
   // Paid lists
   private paidRows = signal<StudentFeeLedgerRow[]>([]);
+  receiptRequest = signal<{ feeId: number; studentId: number; isPreview: boolean; token: number } | null>(null);
   monthlyPaid = computed(() => this.paidRows().filter(r => this.getType(r.FeeID) === 'Recurring'));
   onDemandPaid = computed(() => this.paidRows().filter(r => this.getType(r.FeeID) === 'OnDemand'));
   oneTimePaid = computed(() => this.paidRows().filter(r => this.getType(r.FeeID) === 'OneTime'));
@@ -104,6 +107,27 @@ export class FeesReport implements OnInit {
     this.studentInput = null;
     this.selectedStudentId = null;
     this.paidRows.set([]);
+  }
+
+  downloadReceipt(row: StudentFeeLedgerRow) {
+    if (!this.selectedStudentId) {
+      this.toast.add({ severity: 'warn', summary: 'Receipt', detail: 'Select a student first.' });
+      return;
+    }
+
+    const request = { feeId: row.FeeID, studentId: this.selectedStudentId, isPreview: false, token: Date.now() };
+    this.receiptRequest.set(null);
+    setTimeout(() => this.receiptRequest.set(request), 0);
+  }
+
+  onReceiptDownloaded() {
+    this.toast.add({ severity: 'success', summary: 'Receipt', detail: 'Fee receipt downloaded.' });
+    this.receiptRequest.set(null);
+  }
+
+  onReceiptFailed(detail: string) {
+    this.receiptRequest.set(null);
+    this.toast.add({ severity: 'error', summary: 'Receipt', detail });
   }
 
   // Fetch and filter only PAID ledger rows for selected student
