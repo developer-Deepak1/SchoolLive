@@ -129,8 +129,22 @@ class StudentFeesModel extends Model
                                 $dueDate = new \DateTime($sfAnyUnpaid['DueDate']);
                             }
                         } else {
-                            // OnDemand/OneTime outside this month with no existing ledger: no fixed due date
-                            $dueDate = null;
+                            // No existing ledger. For OnDemand after its EndDate month, carry once into the immediate next month using EndDate.
+                            if ($lt === 'ondemand' && !empty($f['EndDate'])) {
+                                $ed = new \DateTime($f['EndDate']);
+                                // If current month is the immediate next month after EndDate's month, carry forward
+                                $edMonthStart = new \DateTime($ed->format('Y-m-01'));
+                                $diffMonths = $this->monthsDiff($edMonthStart, $monthStart);
+                                if ($ed < $monthStart && $diffMonths === 1) {
+                                    $dueDate = $ed; // keep original EndDate so status becomes Overdue
+                                } else {
+                                    // Before EndDate month or too far in future: no fixed due date
+                                    $dueDate = null;
+                                }
+                            } else {
+                                // OneTime or OnDemand without EndDate: no fixed due date
+                                $dueDate = null;
+                            }
                         }
                     } else {
                         continue;

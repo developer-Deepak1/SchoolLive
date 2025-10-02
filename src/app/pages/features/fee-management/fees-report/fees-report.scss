@@ -1,0 +1,24 @@
+:host {
+	display: block;
+}
+
+.search-grid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 1rem;
+}
+
+.ac-item {
+	display: flex;
+	flex-direction: column;
+}
+.ac-item .name { font-weight: 600; }
+.ac-item .sub { font-size: 0.8rem; }
+.muted { color: #6b7280; }
+.small { font-size: 0.8rem; }
+.strong { font-weight: 600; }
+.text-right { text-align: right; }
+
+@media (min-width: 768px) {
+	.search-grid { grid-template-columns: 1fr; }
+}
