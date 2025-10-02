@@ -18,15 +18,21 @@ export class PdfService {
     this.fontsReady = true;
   }
 
-  buildFeeReceiptDoc(receipt: StudentFeeLedgerRow, student: Student | null, opts?: { receiptDate?: string; institutionName?: string; issuedBy?: string }): TDocumentDefinitions {
+  buildFeeReceiptDoc(
+    receipt: StudentFeeLedgerRow,
+    student: Student | null,
+    opts?: { receiptDate?: string; institutionName?: string; issuedBy?: string }
+  ): TDocumentDefinitions {
     this.ensureFonts();
     const issueDate = opts?.receiptDate ?? new Date().toLocaleDateString();
-    const schoolName = opts?.institutionName ?? 'School';
+    const schoolName = opts?.institutionName ?? student?.SchoolName ?? 'School';
     const studentName = student?.StudentName ?? 'Student';
     const classSection = [student?.ClassName, student?.SectionName].filter(Boolean).join(' - ');
+  const receiptNumber = this.buildReceiptNumber(student?.SchoolID, student?.StudentID, receipt.StudentFeeID);
+  const monthLabel = receipt.DueDate ? this.formatMonth(receipt.DueDate) : null;
 
-  const fineAmount = receipt.ComputedFine ?? receipt.FineAmount ?? 0;
-  const totalAmount = Number(receipt.Amount || 0) + Number(fineAmount) - Number(receipt.DiscountAmount || 0);
+    const fineAmount = receipt.ComputedFine ?? receipt.FineAmount ?? 0;
+    const totalAmount = Number(receipt.Amount || 0) + Number(fineAmount) - Number(receipt.DiscountAmount || 0);
     const paidAmount = Number(receipt.AmountPaid || 0);
     const outstanding = Number(receipt.Outstanding ?? 0);
 
@@ -35,19 +41,34 @@ export class PdfService {
         title: `Fee Receipt - ${studentName}`,
         subject: `Fee receipt for ${studentName}`
       },
+      background: (_currentPage: number, pageSize: { width: number; height: number }) => ({
+        text: 'schoollive.in',
+        color: '#d1d5db',
+        opacity: 0.08,
+        bold: true,
+        italics: true,
+        fontSize: 72,
+        alignment: 'center',
+        margin: [0, pageSize.height / 2 - 36, 0, 0]
+      }),
       content: [
+        {
+          columns: [
+            { text: `Receipt No: ${receiptNumber}`, alignment: 'left', style: 'receiptMeta' },
+            { text: `Date: ${issueDate}`, alignment: 'right', style: 'receiptMeta' }
+          ],
+          margin: [0, 0, 0, 12]
+        },
         { text: schoolName, style: 'title' },
         { text: 'Fee Receipt', style: 'subtitle' },
         {
           columns: [
             [
-              { text: `Student: ${studentName}` },
-              { text: `Student ID: ${student?.StudentID ?? ''}` },
+              { text: `Name of Student: ${studentName}` },
               { text: `Class & Section: ${classSection || '-'}` }
             ],
             [
-              { text: `Receipt Date: ${issueDate}`, alignment: 'right' },
-              { text: `Fee: ${receipt.FeeName}`, alignment: 'right' },
+              { text: monthLabel ? `Fee: ${receipt.FeeName} (${monthLabel})` : `Fee: ${receipt.FeeName}`, alignment: 'right' },
               { text: `Status: ${receipt.Status}`, alignment: 'right' }
             ]
           ],
@@ -62,21 +83,24 @@ export class PdfService {
               [ 'Fee Amount', { text: this.formatCurrency(receipt.Amount), alignment: 'right' } ],
               [ 'Fine', { text: this.formatCurrency(fineAmount), alignment: 'right' } ],
               [ 'Discount', { text: this.formatCurrency(receipt.DiscountAmount), alignment: 'right' } ],
+              [ 'Outstanding', { text: this.formatCurrency(outstanding), alignment: 'right' } ],
               [ 'Total Payable', { text: this.formatCurrency(totalAmount), alignment: 'right', bold: true } ],
-              [ 'Amount Paid', { text: this.formatCurrency(paidAmount), alignment: 'right', bold: true } ],
-              [ 'Outstanding', { text: this.formatCurrency(outstanding), alignment: 'right' } ]
+              [ 'Amount Paid', { text: this.formatCurrency(paidAmount), alignment: 'right', bold: true } ]
             ]
           },
           layout: 'lightHorizontalLines'
         },
         { text: `Due Date: ${receipt.DueDate || '-'}`, margin: [0, 16, 0, 0] },
         { text: opts?.issuedBy ? `Issued By: ${opts.issuedBy}` : '', margin: [0, 4, 0, 0] },
-        { text: 'Thank you for your payment.', margin: [0, 24, 0, 0], italics: true }
+        { text: 'For any queries regarding fees, please contact the school office.', margin: [0, 4, 0, 0] },
+        { text: 'Note: This is a computer-generated receipt.', margin: [0, 12, 0, 0], italics: true }
       ],
       styles: {
         title: { fontSize: 18, bold: true, alignment: 'center' },
         subtitle: { fontSize: 14, alignment: 'center', margin: [0, 8, 0, 8] },
-        headerCell: { bold: true }
+        headerCell: { bold: true },
+        receiptMeta: { fontSize: 10, color: '#4b5563' },
+        contactHeader: { fontSize: 12, bold: true, margin: [0, 0, 0, 6] }
       },
       defaultStyle: { fontSize: 11 }
     };
@@ -103,5 +127,18 @@ export class PdfService {
   private formatCurrency(value: number | null | undefined): string {
     const amount = Number(value ?? 0);
     return amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  private formatMonth(dateValue: string | Date): string | null {
+    const d = new Date(dateValue);
+    if (Number.isNaN(d.getTime())) {
+      return null;
+    }
+    return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+  }
+
+  private buildReceiptNumber(schoolId?: number, studentId?: number, feeId?: number): string {
+    const normalize = (val?: number) => (val !== undefined && val !== null ? String(val) : 'NA');
+    return [normalize(schoolId), normalize(studentId), normalize(feeId)].join('');
   }
 }

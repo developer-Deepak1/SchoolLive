@@ -20,6 +20,7 @@ import { StudentFeesService, StudentFeeLedgerRow } from '../services/student-fee
 export class FeesReceiptDownloadPreview implements OnChanges {
   @Input() feeId: number | null = null;
   @Input() studentId: number | null = null;
+  @Input() studentFeeId: number | null = null;
   @Input() isPreview = false;
 
   @Output() downloaded = new EventEmitter<void>();
@@ -39,7 +40,7 @@ export class FeesReceiptDownloadPreview implements OnChanges {
   pdfUrl = computed(() => this.pdfUrlSignal());
 
   ngOnChanges(changes: SimpleChanges): void {
-    if ((changes['feeId'] || changes['studentId'] || changes['isPreview']) && this.feeId && this.studentId) {
+    if ((changes['feeId'] || changes['studentId'] || changes['studentFeeId'] || changes['isPreview']) && this.feeId && this.studentId) {
       void this.generateReceipt();
     }
   }
@@ -83,6 +84,12 @@ export class FeesReceiptDownloadPreview implements OnChanges {
   }
 
   private selectReceiptRow(rows: StudentFeeLedgerRow[]): StudentFeeLedgerRow | undefined {
+    if (this.studentFeeId) {
+      const exact = rows.find(r => r.StudentFeeID === this.studentFeeId);
+      if (exact) {
+        return exact;
+      }
+    }
     const paidRows = rows.filter(r => r.FeeID === this.feeId && (r.Status || '').toLowerCase() === 'paid');
     if (paidRows.length) {
       return paidRows[0];

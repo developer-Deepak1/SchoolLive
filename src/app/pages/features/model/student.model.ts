@@ -6,6 +6,7 @@ export interface Student {
   DOB: string; // ISO date
   SectionID?: number;
   ClassID?: number;
+  SchoolID?: number;
   ClassName?: string;
   SectionName?: string;
   FatherName?: string;
@@ -14,4 +15,5 @@ export interface Student {
   MotherContactNumber?: string;
   AdmissionDate?: string;
   Status?: string;
+  SchoolName?: string;
 }

@@ -44,7 +44,7 @@ export class FeesReport implements OnInit {
 
   // Paid lists
   private paidRows = signal<StudentFeeLedgerRow[]>([]);
-  receiptRequest = signal<{ feeId: number; studentId: number; isPreview: boolean; token: number } | null>(null);
+  receiptRequest = signal<{ feeId: number; studentId: number; studentFeeId: number; isPreview: boolean; token: number } | null>(null);
   monthlyPaid = computed(() => this.paidRows().filter(r => this.getType(r.FeeID) === 'Recurring'));
   onDemandPaid = computed(() => this.paidRows().filter(r => this.getType(r.FeeID) === 'OnDemand'));
   oneTimePaid = computed(() => this.paidRows().filter(r => this.getType(r.FeeID) === 'OneTime'));
@@ -115,7 +115,13 @@ export class FeesReport implements OnInit {
       return;
     }
 
-    const request = { feeId: row.FeeID, studentId: this.selectedStudentId, isPreview: false, token: Date.now() };
+    const request = {
+      feeId: row.FeeID,
+      studentId: this.selectedStudentId,
+      studentFeeId: row.StudentFeeID,
+      isPreview: false,
+      token: Date.now()
+    };
     this.receiptRequest.set(null);
     setTimeout(() => this.receiptRequest.set(request), 0);
   }

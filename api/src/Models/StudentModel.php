@@ -8,13 +8,14 @@ class StudentModel extends Model {
 
     public function listStudents($schoolId, $academicYearId = null, $filters = []) {
     // Include Username from Tx_Users so UI can display it
-    $sql = "SELECT s.StudentID, s.StudentName, s.FirstName, s.MiddleName, s.LastName, s.ContactNumber, s.EmailID,
-               s.Gender, s.DOB, s.SectionID, s.UserID, s.FatherName, s.MotherName, s.AdmissionDate, s.Status, s.IsActive,
-               sec.SectionName, c.ClassName, c.ClassID, u.Username
+     $sql = "SELECT s.StudentID, s.StudentName, s.FirstName, s.MiddleName, s.LastName, s.ContactNumber, s.EmailID,
+         s.Gender, s.DOB, s.SectionID, s.UserID, s.FatherName, s.MotherName, s.AdmissionDate, s.Status, s.IsActive,
+         sec.SectionName, c.ClassName, c.ClassID, u.Username, sch.SchoolName
         FROM Tx_Students s
         LEFT JOIN Tx_Sections sec ON s.SectionID = sec.SectionID
-        LEFT JOIN Tx_Classes c ON sec.ClassID = c.ClassID
-        LEFT JOIN Tx_Users u ON s.UserID = u.UserID
+    LEFT JOIN Tx_Classes c ON sec.ClassID = c.ClassID
+    LEFT JOIN Tx_Users u ON s.UserID = u.UserID
+    LEFT JOIN Tm_Schools sch ON s.SchoolID = sch.SchoolID
         WHERE s.SchoolID = :school";
         if ($academicYearId) {
             $sql .= " AND s.AcademicYearID = :ay";
@@ -37,7 +38,7 @@ class StudentModel extends Model {
         if (!empty($filters['search'])) {
             $sql .= " AND (s.StudentName LIKE :search OR s.FatherName LIKE :search OR s.MotherName LIKE :search)";
         }
-        $sql .= " ORDER BY c.ClassName, sec.SectionName, s.StudentName";
+    $sql .= " ORDER BY c.ClassName, sec.SectionName, s.StudentName";
 
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':school', $schoolId, PDO::PARAM_INT);
@@ -63,22 +64,37 @@ class StudentModel extends Model {
             $stmt->bindValue(':search', '%' . $filters['search'] . '%');
         }
         $stmt->execute();
-        return $stmt->fetchAll();
+        $rows = $stmt->fetchAll();
+        if (!$rows) {
+            return $rows;
+        }
+        foreach ($rows as &$row) {
+            if (isset($row['SchoolName']) && $row['SchoolName'] === null) {
+                unset($row['SchoolName']);
+            }
+        }
+        unset($row);
+        return $rows;
     }
 
     public function getStudent($id, $schoolId) {
     // Include Username for single student fetch
-    $sql = "SELECT s.*, s.IsActive, sec.SectionName, c.ClassName, c.ClassID, u.Username
+    $sql = "SELECT s.*, s.IsActive, sec.SectionName, c.ClassName, c.ClassID, u.Username, sch.SchoolName
         FROM Tx_Students s
         LEFT JOIN Tx_Sections sec ON s.SectionID = sec.SectionID
-        LEFT JOIN Tx_Classes c ON sec.ClassID = c.ClassID
-        LEFT JOIN Tx_Users u ON s.UserID = u.UserID
+    LEFT JOIN Tx_Classes c ON sec.ClassID = c.ClassID
+    LEFT JOIN Tx_Users u ON s.UserID = u.UserID
+    LEFT JOIN Tm_Schools sch ON s.SchoolID = sch.SchoolID
         WHERE s.StudentID = :id AND s.SchoolID = :school LIMIT 1";
         $stmt = $this->conn->prepare($sql);
         $stmt->bindValue(':id', $id, PDO::PARAM_INT);
         $stmt->bindValue(':school', $schoolId, PDO::PARAM_INT);
         $stmt->execute();
-        return $stmt->fetch();
+        $row = $stmt->fetch();
+        if ($row && isset($row['SchoolName']) && $row['SchoolName'] === null) {
+            unset($row['SchoolName']);
+        }
+        return $row;
     }
 
     public function createStudent($data) {

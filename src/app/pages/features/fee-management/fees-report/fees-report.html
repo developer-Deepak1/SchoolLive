@@ -149,6 +149,7 @@
 	*ngIf="receiptRequest() as req"
 	[feeId]="req.feeId"
 	[studentId]="req.studentId"
+	[studentFeeId]="req.studentFeeId"
 	[isPreview]="req.isPreview"
 	(downloaded)="onReceiptDownloaded()"
 	(failed)="onReceiptFailed($event)">
