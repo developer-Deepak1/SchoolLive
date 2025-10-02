@@ -26,6 +26,9 @@
 	</div>
 </p-card>
 
+<!-- Fee cards grid -->
+<div class="fee-cards-grid">
+
 <!-- Monthly Paid -->
 <p-card header="Monthly Fees (Paid)" styleClass="w-full mb-4">
 	<p-table [value]="monthlyPaid()" [loading]="loading" dataKey="StudentFeeID" [paginator]="true" [rows]="10"
@@ -128,3 +131,4 @@
 	</p-table>
 	<div class="muted" *ngIf="!loading && !oneTimePaid().length">No one-time paid records.</div>
 </p-card>
+</div>

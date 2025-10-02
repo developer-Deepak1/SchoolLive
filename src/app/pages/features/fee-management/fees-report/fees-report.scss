@@ -2,11 +2,15 @@
 	display: block;
 }
 
-.search-grid {
-	display: grid;
-	grid-template-columns: 1fr;
-	gap: 1rem;
+/* Search section responsive grid: 1 (mobile), 2 (tablet), 3 (laptop+) */
+.search-grid{ display:grid; grid-template-columns: 1fr; gap: .75rem; align-items:end; }
+@media (min-width: 768px){
+	.search-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+@media (min-width: 1200px){
+	.search-grid{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
 
 .ac-item {
 	display: flex;
@@ -19,6 +23,3 @@
 .strong { font-weight: 600; }
 .text-right { text-align: right; }
 
-@media (min-width: 768px) {
-	.search-grid { grid-template-columns: 1fr; }
-}
