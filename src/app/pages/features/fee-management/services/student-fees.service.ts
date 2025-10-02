@@ -24,7 +24,7 @@ export interface StudentFeeLedgerRow {
 export interface PaymentPayload {
   StudentFeeID: number;
   PaidAmount: number;
-  Mode: 'Cash'|'Online'|'Cheque'|'UPI';
+  Mode: 'Cash'|'Cheque'|'UPI';
   TransactionRef?: string;
   PaymentDate?: string; // YYYY-MM-DD
   DiscountDelta?: number; // optional additional discount given now
@@ -51,6 +51,10 @@ export class StudentFeesService {
     return this.http.post<any>(`${this.base}/api/fees/payments`, p).pipe(map(r => !!(r && r.success)));
   }
 
+  addPaymentsBatch(p: PaymentPayload[]): Observable<{ items: { StudentFeeID: number, ok: boolean }[] }> {
+    return this.http.post<any>(`${this.base}/api/fees/payments`, p).pipe(map(r => (r && r.success ? (r.data as { items: { StudentFeeID: number, ok: boolean }[] }) : { items: [] })));
+  }
+
   // Month-based plan without precomputed rows
   getMonthly(studentId: number, monthDate: Date): Observable<StudentFeeLedgerRow[]> {
     const y = monthDate.getFullYear();
@@ -60,5 +64,9 @@ export class StudentFeesService {
 
   ensureMonthly(studentId: number, feeId: number, year: number, month: number): Observable<{ StudentFeeID: number }> {
     return this.http.post<any>(`${this.base}/api/fees/student/${studentId}/monthly/ensure`, { FeeID: feeId, Year: year, Month: month }).pipe(map(r => (r && r.success ? (r.data as { StudentFeeID: number }) : { StudentFeeID: 0 })));
+  }
+
+  ensureMonthlyBatch(studentId: number, items: { FeeID: number, Year: number, Month: number }[]): Observable<{ items: { FeeID: number, StudentFeeID: number, Year: number, Month: number }[] }> {
+    return this.http.post<any>(`${this.base}/api/fees/student/${studentId}/monthly/ensure`, items).pipe(map(r => (r && r.success ? (r.data as { items: { FeeID: number, StudentFeeID: number, Year: number, Month: number }[] }) : { items: [] })));
   }
 }

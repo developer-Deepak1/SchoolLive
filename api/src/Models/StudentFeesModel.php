@@ -107,6 +107,7 @@ class StudentFeesModel extends Model
             $type = $f['ScheduleType'];
             $dueDate = $this->deriveDueDateForMonth($f, $year, $month);
             $sfUsed = null;
+
             if (!$dueDate) {
                 $sfInMonth = $inMonthByFee[(int)$f['FeeID']] ?? null;
                 if ($sfInMonth) {
@@ -124,14 +125,12 @@ class StudentFeesModel extends Model
                         $sfAnyUnpaid = $latestUnpaidByFee[(int)$f['FeeID']] ?? null;
                         if ($sfAnyUnpaid) {
                             $sfUsed = $sfAnyUnpaid;
-                            if (!empty($sfAnyUnpaid['DueDate'])) { $dueDate = new \DateTime($sfAnyUnpaid['DueDate']); }
-                        } else {
-                            if ($lt === 'onetime') {
-                                $dueDate = null;
-                            } else {
-                                $seed = !empty($f['StartDate']) ? new \DateTime($f['StartDate']) : clone $monthStart;
-                                $dueDate = $seed;
+                            if (!empty($sfAnyUnpaid['DueDate'])) {
+                                $dueDate = new \DateTime($sfAnyUnpaid['DueDate']);
                             }
+                        } else {
+                            // OnDemand/OneTime outside this month with no existing ledger: no fixed due date
+                            $dueDate = null;
                         }
                     } else {
                         continue;
@@ -152,8 +151,10 @@ class StudentFeesModel extends Model
                     $sfAnyUnpaid = $latestUnpaidByFee[(int)$f['FeeID']] ?? null;
                     if ($sfAnyUnpaid) {
                         $sfUsed = $sfAnyUnpaid;
-                        if (!empty($sfAnyUnpaid['DueDate'])) { $dueDate = new \DateTime($sfAnyUnpaid['DueDate']); }
-                    }
+                        if (!empty($sfAnyUnpaid['DueDate'])) {
+                            $dueDate = new \DateTime($sfAnyUnpaid['DueDate']);
+                        }
+                    } // else keep schedule-derived due date (likely EndDate within this month)
                 } else if (strtolower((string)$type) === 'onetime') {
                     if (!empty($paidSet[(int)$f['FeeID']])) {
                         continue;
@@ -293,20 +294,18 @@ class StudentFeesModel extends Model
         }
 
         if ($type === 'OnDemand') {
+            // For OnDemand, treat the EndDate as the due date when available
             if ($start && $end) {
                 if ($start <= $monthEnd && $end >= $monthStart) {
-                    return ($start >= $monthStart && $start <= $monthEnd) ? $start : $monthStart;
+                    return ($end >= $monthStart && $end <= $monthEnd) ? $end : null;
                 }
-                return null;
-            }
-            if ($start) {
-                if ($start >= $monthStart && $start <= $monthEnd) return $start;
                 return null;
             }
             if ($end) {
                 if ($end >= $monthStart && $end <= $monthEnd) return $end;
                 return null;
             }
+            // No EndDate: no fixed due date from schedule
             return null;
         }
         return null;

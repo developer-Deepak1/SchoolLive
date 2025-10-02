@@ -34,7 +34,7 @@ class StudentFeesController extends BaseController
         }
     }
 
-    /** POST /api/fees/student/{id}/monthly/ensure JSON: { FeeID, Year, Month } */
+    /** POST /api/fees/student/{id}/monthly/ensure JSON: { FeeID, Year, Month } or [ {...}, {...} ] */
     public function ensureMonthly($params)
     {
         try {
@@ -43,6 +43,21 @@ class StudentFeesController extends BaseController
             $studentId = (int)($params['id'] ?? 0);
             if ($studentId <= 0) return $this->fail('Invalid student id', 400);
             $in = $this->input();
+            // Batch: if input is a list of items
+            if (is_array($in) && isset($in[0]) && is_array($in[0])) {
+                $out = [];
+                foreach ($in as $item) {
+                    $feeId = (int)($item['FeeID'] ?? 0);
+                    $year = (int)($item['Year'] ?? date('Y'));
+                    $month = (int)($item['Month'] ?? date('n'));
+                    if ($feeId > 0 && $month >= 1 && $month <= 12) {
+                        $sid = $this->model->ensureMonthlyRow((int)($user['school_id'] ?? 1), (int)($user['academic_year_id'] ?? 1), $studentId, $feeId, $year, $month, $user['username'] ?? 'System');
+                        $out[] = ['FeeID' => $feeId, 'StudentFeeID' => $sid, 'Year' => $year, 'Month' => $month];
+                    }
+                }
+                return $this->ok('Monthly rows ensured', ['items' => $out]);
+            }
+            // Single payload
             $feeId = (int)($in['FeeID'] ?? 0);
             $year = (int)($in['Year'] ?? date('Y'));
             $month = (int)($in['Month'] ?? date('n'));
@@ -90,13 +105,32 @@ class StudentFeesController extends BaseController
         }
     }
 
-    /** POST /api/fees/payments  JSON: { StudentFeeID, PaidAmount, Mode, TransactionRef?, PaymentDate?, DiscountDelta? } */
+    /** POST /api/fees/payments  JSON: { StudentFeeID, PaidAmount, Mode, TransactionRef?, PaymentDate?, DiscountDelta? } or [ {...}, {...} ] */
     public function createPayment()
     {
         try {
             $user = $this->currentUser();
             if (!$user) return;
             $in = $this->input();
+            // Batch: if input is a list of payments
+            if (is_array($in) && isset($in[0]) && is_array($in[0])) {
+                $results = [];
+                foreach ($in as $p) {
+                    $id = (int)($p['StudentFeeID'] ?? 0);
+                    $paid = isset($p['PaidAmount']) ? (float)$p['PaidAmount'] : 0.0;
+                    $mode = $p['Mode'] ?? null;
+                    $ref = $p['TransactionRef'] ?? null;
+                    $pdate = $p['PaymentDate'] ?? null;
+                    $discountDelta = array_key_exists('DiscountDelta', $p) ? (float)$p['DiscountDelta'] : null;
+                    if ($id > 0 && $paid > 0 && $mode) {
+                        $ok = $this->model->recordPayment($id, $paid, $mode, $ref, $pdate, $discountDelta, $user['username'] ?? 'System');
+                        $results[] = ['StudentFeeID' => $id, 'ok' => (bool)$ok];
+                    } else {
+                        $results[] = ['StudentFeeID' => $id, 'ok' => false];
+                    }
+                }
+                return $this->ok('Payments processed', ['items' => $results]);
+            }
             $id = (int)($in['StudentFeeID'] ?? 0);
             $paid = isset($in['PaidAmount']) ? (float)$in['PaidAmount'] : 0.0;
             $mode = $in['Mode'] ?? null;

@@ -102,9 +102,7 @@
     <form (ngSubmit)="pay()" class="form-grid">
         <div class="form-row">
             <label for="mode">Mode</label>
-            <p-select inputId="mode" [options]="[
-						{label:'Cash', value:'Cash'}, {label:'Online', value:'Online'}, {label:'Cheque', value:'Cheque'}, {label:'UPI', value:'UPI'}
-					]" optionLabel="label" optionValue="value" [(ngModel)]="payment.mode" name="mode" styleClass="w-full"></p-select>
+                        <p-select inputId="mode" [options]="paymentModeOptions" optionLabel="label" optionValue="value" [(ngModel)]="payment.mode" name="mode" styleClass="w-full"></p-select>
         </div>
         <div class="form-row">
             <label for="amount">Amount</label>
@@ -119,13 +117,19 @@
         <div class="form-row">
             <label for="date">Payment Date</label>
             <p-datePicker inputId="date" [(ngModel)]="payment.date" name="date" dateFormat="yy-mm-dd"
-                styleClass="w-full"></p-datePicker>
+                styleClass="w-full" [readonlyInput]="true"></p-datePicker>
         </div>
         <div class="form-row">
             <label for="discount">Additional Discount</label>
             <p-inputNumber inputId="discount" [(ngModel)]="payment.discountDelta" name="discount" mode="currency"
                 currency="INR" locale="en-IN" [min]="0" class="w-full"></p-inputNumber>
             <small class="muted">Optional one-time discount applied proportionally.</small>
+        </div>
+        <div class="form-row">
+            <label for="netPayable">Total Payable (Amount - Discount)</label>
+            <p-inputNumber inputId="netPayable" [ngModel]="netPayable" name="netPayable" mode="currency" currency="INR"
+                locale="en-IN" [min]="0" class="w-full" [disabled]="true"></p-inputNumber>
+            <small class="muted">Calculated from entered amount and discount; read-only.</small>
         </div>
         <div class="actions">
             <button pButton type="submit" label="Collect Payment" icon="pi pi-check" class="w-full"

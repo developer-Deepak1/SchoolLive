@@ -50,12 +50,19 @@ export class CollectFees implements OnInit {
 
   // Payment form
   payment = {
-    mode: 'Cash' as 'Cash'|'Online'|'Cheque'|'UPI',
+    mode: 'Cash' as 'Cash'|'Cheque'|'UPI',
     amount: 0,
     reference: '',
     date: new Date(),
     discountDelta: 0
   };
+
+  // Payment mode options for the select dropdown
+  paymentModeOptions = [
+    { label: 'Cash', value: 'Cash' },
+    { label: 'Cheque', value: 'Cheque' },
+    { label: 'UPI', value: 'UPI' },
+  ];
 
   // Computed totals
   selectedRows = computed(() => {
@@ -207,6 +214,16 @@ export class CollectFees implements OnInit {
     this.payment.amount = Number(tot.toFixed(2));
   }
 
+  // Computed: Amount - Additional Discount, capped by total selected due
+  get netPayable(): number {
+    const due = Number(this.totalDue() || 0);
+    const amt = Number(this.payment.amount || 0);
+    const disc = Number(this.payment.discountDelta || 0);
+    const maxAfterDiscount = Math.max(0, Number((due - disc).toFixed(2)));
+    const val = Math.min(amt, maxAfterDiscount);
+    return Number(Math.max(0, val).toFixed(2));
+  }
+
   pay() {
     if (!this.selectedStudentId) { this.toast.add({ severity: 'warn', summary: 'Select student', detail: 'Please select a student' }); return; }
     const rows = this.selectedRows();
@@ -214,56 +231,82 @@ export class CollectFees implements OnInit {
     const toPay = Number(this.payment.amount || 0);
     if (toPay <= 0) { this.toast.add({ severity: 'warn', summary: 'Enter amount', detail: 'Payment amount must be greater than 0' }); return; }
 
-    // Strategy: distribute amount across selected dues from oldest to newest
+    // Strategy: ensure StudentFeeID exists for each selected row, then distribute payment oldest to newest with at most one call per row
     const dateStr = this.formatDate(this.payment.date);
     const ref = this.payment.reference?.trim() || undefined;
     const mode = this.payment.mode;
     const discountDelta = this.payment.discountDelta || undefined;
 
-    // Prepare queue with proportional discount
-    const sorted = [...rows].sort((a,b) => (new Date(a.DueDate || this.today).getTime()) - (new Date(b.DueDate || this.today).getTime()));
-    let remaining = toPay;
-    let remainingDiscount = Number((discountDelta || 0).toFixed(2));
-    const totalSelectedDue = sorted.reduce((s, r) => s + Number(r.Outstanding || 0), 0);
-    const tasks: Promise<boolean>[] = [];
-    for (let i = 0; i < sorted.length; i++) {
-      const r = sorted[i];
-      if (remaining <= 0 && remainingDiscount <= 0) break;
-      const need = Number((r.Outstanding ?? 0));
-      if (need <= 0) continue;
-      // Discount share
-      let share = 0;
-      if (remainingDiscount > 0 && totalSelectedDue > 0) {
-        if (i < sorted.length - 1) {
-          share = Number(((need / totalSelectedDue) * (discountDelta || 0)).toFixed(2));
-          share = Math.min(share, remainingDiscount, need);
-        } else {
-          // last row gets the remainder
-          share = Math.min(remainingDiscount, need);
-        }
-        remainingDiscount = Number((remainingDiscount - share).toFixed(2));
+    const ensureMissing = async (): Promise<Map<number, StudentFeeLedgerRow>> => {
+      const map = new Map<number, StudentFeeLedgerRow>();
+      const ym = this.getYearMonth(this.selectedMonth);
+      // Collect missing
+      const missing = rows.filter(r => !r.StudentFeeID && r.FeeID && this.selectedStudentId).map(r => ({ row: r, payload: { FeeID: r.FeeID!, Year: ym.y, Month: ym.m } }));
+      if (missing.length) {
+        try {
+          const resp = await this.feesApi.ensureMonthlyBatch(this.selectedStudentId!, missing.map(m => m.payload)).toPromise();
+          const created = new Map<number, number>(); // FeeID -> StudentFeeID (for this month per fee)
+          for (const it of (resp?.items || [])) {
+            if (it.StudentFeeID > 0) created.set(it.FeeID, it.StudentFeeID);
+          }
+          for (const m of missing) {
+            const sid = created.get(m.payload.FeeID);
+            if (sid && sid > 0) { (m.row as any).StudentFeeID = sid; map.set(sid, m.row); }
+          }
+        } catch { /* ignore */ }
       }
-      const effectiveNeed = Math.max(0, Number((need - share).toFixed(2)));
-      const payNow = Math.min(effectiveNeed, remaining);
-      remaining = Number((remaining - payNow).toFixed(2));
-      const doPay = async (): Promise<boolean> => {
-        const sfid = r.StudentFeeID;
-        if (!sfid) return false;
-        const ok$ = this.feesApi.addPayment({ StudentFeeID: sfid, PaidAmount: payNow, Mode: mode, TransactionRef: ref, PaymentDate: dateStr, DiscountDelta: share || undefined });
-        const ok = await ok$.toPromise();
-        return !!ok;
-      };
-      const p = doPay();
-      tasks.push(p);
-    }
+      // Also include any rows that already had StudentFeeID
+      for (const r of rows) { if (r.StudentFeeID && r.StudentFeeID > 0) map.set(r.StudentFeeID, r); }
+      return map;
+    };
 
-    if (!tasks.length) { this.toast.add({ severity: 'info', summary: 'Nothing due', detail: 'Selected items are already cleared' }); return; }
+    const buildAndPay = async (): Promise<boolean[]> => {
+      const idMap = await ensureMissing();
+      // Sort by due date, oldest first
+      const sorted = [...idMap.values()].sort((a,b) => (new Date(a.DueDate || this.today).getTime()) - (new Date(b.DueDate || this.today).getTime()));
+      let remaining = toPay;
+      let remainingDiscount = Number((discountDelta || 0).toFixed(2));
+      const totalSelectedDue = sorted.reduce((s, r) => s + Number(r.Outstanding || 0), 0);
+      const batch: { StudentFeeID: number, PaidAmount: number, Mode: 'Cash'|'Cheque'|'UPI', TransactionRef?: string, PaymentDate?: string, DiscountDelta?: number }[] = [];
+      for (let i = 0; i < sorted.length; i++) {
+        const r = sorted[i];
+        if (!r.StudentFeeID || r.StudentFeeID <= 0) continue;
+        if (remaining <= 0 && remainingDiscount <= 0) break;
+        const need = Number((r.Outstanding ?? 0));
+        if (need <= 0) continue;
+        // Discount share
+        let share = 0;
+        if (remainingDiscount > 0 && totalSelectedDue > 0) {
+          if (i < sorted.length - 1) {
+            share = Number(((need / totalSelectedDue) * (discountDelta || 0)).toFixed(2));
+            share = Math.min(share, remainingDiscount, need);
+          } else {
+            share = Math.min(remainingDiscount, need);
+          }
+          remainingDiscount = Number((remainingDiscount - share).toFixed(2));
+        }
+        const effectiveNeed = Math.max(0, Number((need - share).toFixed(2)));
+        const payNow = Math.min(effectiveNeed, remaining);
+        remaining = Number((remaining - payNow).toFixed(2));
+        if (payNow > 0 || share > 0) {
+          batch.push({ StudentFeeID: r.StudentFeeID, PaidAmount: payNow, Mode: mode, TransactionRef: ref, PaymentDate: dateStr, DiscountDelta: share || undefined });
+        }
+      }
+      if (!batch.length) return [];
+      const res = await this.feesApi.addPaymentsBatch(batch).toPromise();
+      return (res?.items || []).map(it => !!it.ok);
+    };
+
+    const tasksPromise = buildAndPay();
 
     this.paying = true;
-    Promise.all(tasks).then((oks) => {
-      const okCount = oks.filter(Boolean).length;
-      if (okCount > 0) this.toast.add({ severity: 'success', summary: 'Payment recorded', detail: `Applied to ${okCount} item(s)` });
-      // Reload dues
+    tasksPromise.then((oks) => {
+      const okCount = (oks || []).filter(Boolean).length;
+      if (okCount === 0) {
+        this.toast.add({ severity: 'info', summary: 'Nothing due', detail: 'Selected items are already cleared' });
+      } else {
+        this.toast.add({ severity: 'success', summary: 'Payment recorded', detail: `Applied to ${okCount} item(s)` });
+      }
       this.onStudentChange();
     }).catch(() => {
       this.toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to record payment' });
