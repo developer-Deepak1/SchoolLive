@@ -31,26 +31,35 @@ export class PdfService {
   const receiptNumber = this.buildReceiptNumber(student?.SchoolID, student?.StudentID, receipt.StudentFeeID);
   const monthLabel = receipt.DueDate ? this.formatMonth(receipt.DueDate) : null;
 
-    const fineAmount = receipt.ComputedFine ?? receipt.FineAmount ?? 0;
+  const fineAmount = receipt.ComputedFine ?? receipt.FineAmount ?? 0;
     const totalAmount = Number(receipt.Amount || 0) + Number(fineAmount) - Number(receipt.DiscountAmount || 0);
     const paidAmount = Number(receipt.AmountPaid || 0);
     const outstanding = Number(receipt.Outstanding ?? 0);
+  const paymentDate = this.formatDate(receipt.CollectedDate);
 
     return {
       info: {
         title: `Fee Receipt - ${studentName}`,
         subject: `Fee receipt for ${studentName}`
       },
-      background: (_currentPage: number, pageSize: { width: number; height: number }) => ({
-        text: 'schoollive.in',
-        color: '#d1d5db',
-        opacity: 0.08,
-        bold: true,
-        italics: true,
-        fontSize: 72,
-        alignment: 'center',
-        margin: [0, pageSize.height / 2 - 36, 0, 0]
-      }),
+      background: (_currentPage: number, pageSize: { width: number; height: number }) => {
+        const watermark = 'schoollive.in';
+        // place near bottom-left and rotate to diagonal across the page
+        const x = pageSize.width * 0.1;
+        const y = pageSize.height * 0.3;
+        // return as `any` to satisfy pdfMake types while keeping rotation/absolutePosition
+        const wm: any = {
+          text: watermark,
+          absolutePosition: { x, y },
+          fontSize: 72,
+          color: '#d1d5db',
+          opacity: 0.08,
+          bold: true,
+          italics: true,
+          rotation: -45
+        };
+        return wm as any;
+      },
       content: [
         {
           columns: [
@@ -90,7 +99,7 @@ export class PdfService {
           },
           layout: 'lightHorizontalLines'
         },
-        { text: `Due Date: ${receipt.DueDate || '-'}`, margin: [0, 16, 0, 0] },
+  { text: `Payment Date: ${paymentDate}`, margin: [0, 20, 0, 0] },
         { text: opts?.issuedBy ? `Issued By: ${opts.issuedBy}` : '', margin: [0, 4, 0, 0] },
         { text: 'For any queries regarding fees, please contact the school office.', margin: [0, 4, 0, 0] },
         { text: 'Note: This is a computer-generated receipt.', margin: [0, 12, 0, 0], italics: true }
@@ -109,6 +118,16 @@ export class PdfService {
   downloadDoc(docDefinition: TDocumentDefinitions, filename = 'fee-receipt.pdf'): void {
     this.ensureFonts();
     pdfMake.createPdf(docDefinition).download(filename);
+  }
+
+  openDoc(docDefinition: TDocumentDefinitions): void {
+    this.ensureFonts();
+    try {
+      pdfMake.createPdf(docDefinition).open();
+    } catch (e) {
+      // last-resort: download
+      pdfMake.createPdf(docDefinition).download('fee-receipt.pdf');
+    }
   }
 
   async getDataUrl(docDefinition: TDocumentDefinitions): Promise<string> {
@@ -135,6 +154,15 @@ export class PdfService {
       return null;
     }
     return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+  }
+
+  private formatDate(dateValue: string | Date | null | undefined): string {
+    if (!dateValue) return '-';
+    const d = new Date(dateValue);
+    if (Number.isNaN(d.getTime())) {
+      return '-';
+    }
+    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   private buildReceiptNumber(schoolId?: number, studentId?: number, feeId?: number): string {

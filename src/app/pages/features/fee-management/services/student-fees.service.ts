@@ -19,6 +19,7 @@ export interface StudentFeeLedgerRow {
   Remarks?: string | null;
   ComputedFine?: number;
   Outstanding?: number;
+  CollectedDate?: string | null;
 }
 
 export interface PaymentPayload {

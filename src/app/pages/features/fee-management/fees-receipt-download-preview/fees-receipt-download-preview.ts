@@ -63,10 +63,16 @@ export class FeesReceiptDownloadPreview implements OnChanges {
       const doc = this.pdf.buildFeeReceiptDoc(receiptRow, student);
 
       if (this.isPreview) {
-        const dataUrl = await this.pdf.getDataUrl(doc);
-        const safeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(dataUrl);
-        this.pdfUrlSignal.set(safeUrl);
-        this.previewReady.emit();
+        try {
+          const dataUrl = await this.pdf.getDataUrl(doc);
+          const safeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(dataUrl);
+          this.pdfUrlSignal.set(safeUrl);
+          this.previewReady.emit();
+        } catch (err) {
+          // Fallback: open in new tab if preview generation fails (message channel issues in some browsers)
+          this.pdf.openDoc(doc);
+          this.previewReady.emit();
+        }
       } else {
         const studentName = student?.StudentName?.replace(/\s+/g, '_') || 'student';
         this.pdf.downloadDoc(doc, `fee_receipt_${studentName}_${receiptRow.FeeID}.pdf`);

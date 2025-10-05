@@ -38,9 +38,13 @@ class StudentFeesModel extends Model
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         if (!$rows) return $rows;
+        $studentFeeIds = array_map(fn($r) => (int)$r['StudentFeeID'], $rows);
+        $collectedById = $this->fetchLatestPaymentDates($studentFeeIds);
         $feeIds = array_values(array_unique(array_map(fn($r) => (int)$r['FeeID'], $rows)));
         $pol = $this->fetchPoliciesForFees($schoolId, $academicYearId, $feeIds);
         foreach ($rows as &$r) {
+            $sid = (int)($r['StudentFeeID'] ?? 0);
+            $r['CollectedDate'] = $collectedById[$sid] ?? null;
             $fine = $this->computeFineFromPolicies($pol['byFee'][(int)$r['FeeID']] ?? [], $pol['global'], $r['DueDate'], (float)$r['Amount']);
             $r['ComputedFine'] = $fine;
             $discount = isset($r['DiscountAmount']) ? (float)$r['DiscountAmount'] : 0.0;
@@ -51,6 +55,32 @@ class StudentFeesModel extends Model
         unset($r);
 
         return $rows;
+    }
+
+    private function fetchLatestPaymentDates(array $studentFeeIds): array
+    {
+        $studentFeeIds = array_values(array_unique(array_filter($studentFeeIds, fn($v) => (int)$v > 0)));
+        if (!$studentFeeIds) return [];
+
+        $placeholders = implode(',', array_fill(0, count($studentFeeIds), '?'));
+        $sql = "SELECT StudentFeeID, MAX(PaymentDate) AS LatestPaymentDate FROM Tx_student_fee_payments WHERE StudentFeeID IN ($placeholders) GROUP BY StudentFeeID";
+        $stmt = $this->conn->prepare($sql);
+        $i = 1;
+        foreach ($studentFeeIds as $id) {
+            $stmt->bindValue($i++, (int)$id, PDO::PARAM_INT);
+        }
+        $stmt->execute();
+
+        $out = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            if (!isset($row['StudentFeeID'])) continue;
+            $sid = (int)$row['StudentFeeID'];
+            $date = $row['LatestPaymentDate'] ?? null;
+            if ($sid > 0 && $date) {
+                $out[$sid] = $date;
+            }
+        }
+        return $out;
     }
 
     // Build a month-based plan of dues for a student (one row per fee for that month)
@@ -111,7 +141,12 @@ class StudentFeesModel extends Model
             if (!$dueDate) {
                 $sfInMonth = $inMonthByFee[(int)$f['FeeID']] ?? null;
                 if ($sfInMonth) {
-                    if (strtolower((string)$type) === 'onetime' && isset($sfInMonth['Status']) && strtolower($sfInMonth['Status']) === 'paid') {
+                    // If the existing ledger in this month is already paid, skip including it in the plan
+                    if (isset($sfInMonth['Status']) && strtolower((string)$sfInMonth['Status']) === 'paid') {
+                        continue;
+                    }
+                    if (strtolower((string)$type) === 'onetime' && isset($sfInMonth['Status']) && strtolower((string)$sfInMonth['Status']) === 'paid') {
+                        // redundant guard preserved for clarity, though above check will handle it
                         continue;
                     }
                     $sfUsed = $sfInMonth;
@@ -153,12 +188,16 @@ class StudentFeesModel extends Model
             } else {
                 $sfInMonth = $inMonthByFee[(int)$f['FeeID']] ?? null;
                 if ($sfInMonth) {
-                    if (strtolower((string)$type) === 'onetime' && isset($sfInMonth['Status']) && strtolower($sfInMonth['Status']) === 'paid') {
+                    // skip if already paid
+                    if (isset($sfInMonth['Status']) && strtolower((string)$sfInMonth['Status']) === 'paid') {
+                        continue;
+                    }
+                    if (strtolower((string)$type) === 'onetime' && isset($sfInMonth['Status']) && strtolower((string)$sfInMonth['Status']) === 'paid') {
                         continue;
                     }
                     $sfUsed = $sfInMonth;
                     $dueDate = new \DateTime($sfInMonth['DueDate']);
-                } else if (strtolower((string)$type) === 'ondemand') {
+                } else if ($type === 'ondemand') {
                     if (!empty($paidSet[(int)$f['FeeID']])) {
                         continue;
                     }
