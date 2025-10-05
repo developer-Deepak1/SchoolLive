@@ -1,7 +1,7 @@
 <p-toast></p-toast>
 
 <!-- Search Card -->
-<p-card header="Search" styleClass="w-full mb-4">
+<p-card *ngIf="!isStudentUser" header="Search" styleClass="w-full mb-4">
 	<div class="search-grid">
 		<div class="student-picker">
 			<label for="student" class="block mb-1">Search Student Name</label>
@@ -30,9 +30,9 @@
 <div class="fee-cards-grid">
 
 <!-- Monthly Paid -->
-<p-card header="Monthly Fees (Paid)" styleClass="w-full mb-4">
+<p-card header="Monthly Fees" styleClass="w-full mb-4" >
 	<p-table [value]="monthlyPaid()" [loading]="loading" dataKey="StudentFeeID" [paginator]="true" [rows]="10"
-		[responsiveLayout]="'scroll'" [tableStyle]="{'min-width':'50rem'}">
+		[responsiveLayout]="'scroll'" [tableStyle]="{'min-2':'50rem'}">
 		<ng-template pTemplate="header">
 			<tr>
 				<th>Fee</th>
@@ -70,8 +70,8 @@
   
 </p-card>
 
-<!-- OnDemand Paid -->
-<p-card header="On-Demand Fees (Paid)" styleClass="w-full mb-4">
+<!-- On Demand Paid -->
+<p-card header="On Demand Fees" styleClass="w-full mb-4">
 	<p-table [value]="onDemandPaid()" [loading]="loading" dataKey="StudentFeeID" [paginator]="true" [rows]="10"
 		[responsiveLayout]="'scroll'" [tableStyle]="{'min-width':'50rem'}">
 		<ng-template pTemplate="header">
@@ -111,7 +111,7 @@
 </p-card>
 
 <!-- OneTime Paid -->
-<p-card header="One-Time Fees (Paid)" styleClass="w-full mb-4">
+<p-card header="One Time Fees" styleClass="w-full mb-4">
 	<p-table [value]="oneTimePaid()" [loading]="loading" dataKey="StudentFeeID" [paginator]="true" [rows]="10"
 		[responsiveLayout]="'scroll'" [tableStyle]="{'min-width':'50rem'}">
 		<ng-template pTemplate="header">

@@ -14,6 +14,8 @@ import { Student } from '../../model/student.model';
 import { StudentFeesService, StudentFeeLedgerRow } from '../services/student-fees.service';
 import { FeeService, FeeWithClassSections } from '../services/fee.service';
 import { FeesReceiptDownloadPreview } from '../fees-receipt-download-preview/fees-receipt-download-preview';
+import { UserService } from '@/services/user.service';
+import { USER_ROLES } from '@/pages/common/constant';
 
 type ScheduleType = 'Recurring' | 'OnDemand' | 'OneTime' | 'Unknown';
 
@@ -31,6 +33,7 @@ export class FeesReport implements OnInit {
   private feesApi = inject(StudentFeesService);
   private feeService = inject(FeeService);
   private toast = inject(MessageService);
+  private userService = inject(UserService);
 
   // State
   loading = false;
@@ -38,6 +41,7 @@ export class FeesReport implements OnInit {
   studentInput: Student | null = null;
   studentSuggestions: Student[] = [];
   selectedStudentId: number | null = null;
+  isStudentUser = false;
 
   // Fee schedule map for categorization
   private feeTypeById = new Map<number, ScheduleType>();
@@ -55,8 +59,29 @@ export class FeesReport implements OnInit {
   totalAmountOneTime = computed(() => this.oneTimePaid().reduce((s, r) => s + Number(r.AmountPaid || 0), 0));
 
   ngOnInit(): void {
-    this.loadStudents();
+    this.initializeUserContext();
+    if (!this.isStudentUser) {
+      this.loadStudents();
+    }
     this.loadFeeTypes();
+    if (this.isStudentUser && this.selectedStudentId) {
+      this.loadPaidLedger();
+    }
+  }
+
+  private initializeUserContext() {
+    const roleId = this.userService.getRoleId();
+    if (roleId === USER_ROLES.ROLE_STUDENT) {
+      const sid = this.userService.getStudentId();
+      if (sid) {
+        this.isStudentUser = true;
+        this.selectedStudentId = sid;
+      } else {
+        this.isStudentUser = false;
+      }
+    } else {
+      this.isStudentUser = false;
+    }
   }
 
   // Load all students for autocomplete
