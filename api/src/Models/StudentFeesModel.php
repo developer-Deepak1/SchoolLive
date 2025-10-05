@@ -197,7 +197,7 @@ class StudentFeesModel extends Model
                     }
                     $sfUsed = $sfInMonth;
                     $dueDate = new \DateTime($sfInMonth['DueDate']);
-                } else if ($type === 'ondemand') {
+                } else if (strtolower((string)$type) === 'ondemand') {
                     if (!empty($paidSet[(int)$f['FeeID']])) {
                         continue;
                     }
