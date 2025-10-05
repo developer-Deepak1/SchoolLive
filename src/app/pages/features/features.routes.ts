@@ -25,6 +25,7 @@ import { FinePolicy } from './fee-management/fine-policy/fine-policy';
 import { CollectFees } from './fee-management/collect-fees/collect-fees';
 import { FeesReport } from './fee-management/fees-report/fees-report';
 import { FeesReceiptDownloadPreview } from './fee-management/fees-receipt-download-preview/fees-receipt-download-preview';
+import { FeesUpcoming } from './fee-management/fees-upcoming/fees-upcoming';
 
 export default [
     { path: 'profile-setting', component: ProfileSetting, canActivate: [AuthGuard] },
@@ -52,6 +53,7 @@ export default [
     { path: 'fine-policy', component: FinePolicy, canActivate: [AuthGuard] },
     { path: 'collect-fees', component: CollectFees, canActivate: [AuthGuard] },
     { path: 'fees-report', component: FeesReport, canActivate: [AuthGuard] },
+    { path: 'fees-upcoming', component: FeesUpcoming, canActivate: [AuthGuard] },
     { path: 'fees-receipt-download-preview', component: FeesReceiptDownloadPreview},
     { path: '**', redirectTo: '/notfound' }
 ] as Routes;

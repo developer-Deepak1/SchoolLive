@@ -57,7 +57,9 @@
 					<td class="text-right">{{ row.DiscountAmount | number:'1.2-2' }}</td>
 				<td class="text-right strong">{{ row.AmountPaid | number:'1.2-2' }}</td>
 				<td>{{ row.DueDate || '-' }}</td>
-				<td><span>{{ row.Status }}</span></td>
+				<td>
+					<p-tag [severity]="statusSeverity(row)" [value]="row.Status || 'Pending'"></p-tag>
+				</td>
 				<td>{{ row.CollectedDate ? (row.CollectedDate | date:'dd MMM yyyy') : '-' }}</td>
 				<td class="action-cell">
 					<button type="button" pButton icon="pi pi-download" styleClass="p-button-text p-button-rounded p-button-sm" aria-label="Download receipt" (click)="downloadReceipt(row)"></button>
@@ -98,7 +100,9 @@
 					<td class="text-right">{{ row.DiscountAmount | number:'1.2-2' }}</td>
 				<td class="text-right strong">{{ row.AmountPaid | number:'1.2-2' }}</td>
 				<td>{{ row.DueDate || '-' }}</td>
-				<td><span>{{ row.Status }}</span></td>
+				<td>
+					<p-tag [severity]="statusSeverity(row)" [value]="row.Status || 'Pending'"></p-tag>
+				</td>
 				<td>{{ row.CollectedDate ? (row.CollectedDate | date:'dd MMM yyyy') : '-' }}</td>
 				<td class="action-cell">
 					<button type="button" pButton icon="pi pi-download" styleClass="p-button-text p-button-rounded p-button-sm" aria-label="Download receipt" (click)="downloadReceipt(row)"></button>
@@ -138,7 +142,9 @@
 					<td class="text-right">{{ row.DiscountAmount | number:'1.2-2' }}</td>
 				<td class="text-right strong">{{ row.AmountPaid | number:'1.2-2' }}</td>
 				<td>{{ row.DueDate || '-' }}</td>
-				<td><span>{{ row.Status }}</span></td>
+				<td>
+					<p-tag [severity]="statusSeverity(row)" [value]="row.Status || 'Pending'"></p-tag>
+				</td>
 				<td>{{ row.CollectedDate ? (row.CollectedDate | date:'dd MMM yyyy') : '-' }}</td>
 				<td class="action-cell">
 					<button type="button" pButton icon="pi pi-download" styleClass="p-button-text p-button-rounded p-button-sm" aria-label="Download receipt" (click)="downloadReceipt(row)"></button>

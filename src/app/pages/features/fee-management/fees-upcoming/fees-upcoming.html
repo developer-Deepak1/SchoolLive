@@ -1,0 +1,151 @@
+<p-toast></p-toast>
+
+<div class="fees-upcoming-page">
+	<p-card *ngIf="!isStudentUser" header="Search" styleClass="w-full mb-4">
+		<div class="search-grid">
+			<div class="student-picker">
+				<label for="student" class="block mb-1">Search Student Name</label>
+				<p-autocomplete inputId="student" [(ngModel)]="studentInput" name="student"
+					[suggestions]="studentSuggestions" (completeMethod)="searchStudents($event)"
+					(onSelect)="onStudentSelected($event)" (onClear)="onStudentCleared()" field="StudentName"
+					placeholder="Search student by name, class or section" [dropdown]="true" [forceSelection]="true"
+					[optionLabel]="'StudentName'"
+					styleClass="w-full md:w-24rem lg:w-28rem xl:w-32rem">
+					<ng-template pTemplate="item" let-s>
+						<div class="ac-item">
+							<div class="name">{{ s.StudentName }}</div>
+							<div class="sub muted">Class: {{ s.ClassName || '-' }} • Section: {{ s.SectionName || '-' }}</div>
+						</div>
+					</ng-template>
+					<ng-template pTemplate="selectedItem" let-s>
+						{{ s?.StudentName || '' }}
+						<span *ngIf="s?.ClassName as c"> ({{ c }}-{{ s?.SectionName || '-' }})</span>
+					</ng-template>
+				</p-autocomplete>
+			</div>
+		</div>
+	</p-card>
+
+	<div class="summary-grid" *ngIf="selectedStudentId">
+		<p-card header="Upcoming" styleClass="summary-card upcoming">
+			<div class="summary-value">₹ {{ formatAmount(totalUpcoming()) }}</div>
+			<div class="summary-meta">{{ upcomingRows().length }} item(s)</div>
+		</p-card>
+		<p-card header="This Month" styleClass="summary-card due">
+			<div class="summary-value">₹ {{ formatAmount(totalThisMonth()) }}</div>
+			<div class="summary-meta">{{ thisMonthRows().length }} item(s)</div>
+		</p-card>
+		<p-card header="Overdue" styleClass="summary-card overdue">
+			<div class="summary-value">₹ {{ formatAmount(totalOverdue()) }}</div>
+			<div class="summary-meta">{{ overdueRows().length }} item(s)</div>
+		</p-card>
+	</div>
+
+	<div class="tables-grid" *ngIf="selectedStudentId">
+		<p-card header="Upcoming Fees" styleClass="w-full mb-4">
+			<p-table [value]="upcomingRows()" [loading]="loading" dataKey="StudentFeeID" [paginator]="true" [rows]="10"
+				[responsiveLayout]="'scroll'" [tableStyle]="{'min-width':'48rem'}">
+				<ng-template pTemplate="header">
+					<tr>
+						<th>Fee</th>
+						<th class="text-right">Amount</th>
+						<th class="text-right">Fine</th>
+						<th class="text-right">Discount</th>
+						<th class="text-right">Outstanding</th>
+						<th>Due Date</th>
+						<th>Status</th>
+					</tr>
+				</ng-template>
+				<ng-template pTemplate="body" let-row>
+					<tr>
+						<td>
+							<div class="fee-name">{{ row.FeeName }}</div>
+							<div class="muted small" *ngIf="row.InvoiceRef">Ref: {{ row.InvoiceRef }}</div>
+						</td>
+						<td class="text-right">{{ row.Amount | number:'1.2-2' }}</td>
+						<td class="text-right">{{ (row.ComputedFine ?? row.FineAmount) | number:'1.2-2' }}</td>
+						<td class="text-right">{{ row.DiscountAmount | number:'1.2-2' }}</td>
+						<td class="text-right strong">{{ formatAmount(getOutstanding(row)) }}</td>
+						<td>{{ row.DueDate ? (row.DueDate | date:'dd MMM yyyy') : '-' }}</td>
+						<td>
+							<p-tag [severity]="statusSeverity(row)" [value]="row.Status || 'Pending'"></p-tag>
+						</td>
+					</tr>
+				</ng-template>
+			</p-table>
+			<div class="muted" *ngIf="!loading && !upcomingRows().length">No upcoming fees.</div>
+		</p-card>
+
+		<p-card header="This Month" styleClass="w-full mb-4">
+			<p-table [value]="thisMonthRows()" [loading]="loading" dataKey="StudentFeeID" [paginator]="true" [rows]="10"
+				[responsiveLayout]="'scroll'" [tableStyle]="{'min-width':'48rem'}">
+				<ng-template pTemplate="header">
+					<tr>
+						<th>Fee</th>
+						<th class="text-right">Amount</th>
+						<th class="text-right">Fine</th>
+						<th class="text-right">Discount</th>
+						<th class="text-right">Outstanding</th>
+						<th>Due Date</th>
+						<th>Status</th>
+					</tr>
+				</ng-template>
+				<ng-template pTemplate="body" let-row>
+					<tr>
+						<td>
+							<div class="fee-name">{{ row.FeeName }}</div>
+							<div class="muted small" *ngIf="row.InvoiceRef">Ref: {{ row.InvoiceRef }}</div>
+						</td>
+						<td class="text-right">{{ row.Amount | number:'1.2-2' }}</td>
+						<td class="text-right">{{ (row.ComputedFine ?? row.FineAmount) | number:'1.2-2' }}</td>
+						<td class="text-right">{{ row.DiscountAmount | number:'1.2-2' }}</td>
+						<td class="text-right strong">{{ formatAmount(getOutstanding(row)) }}</td>
+						<td>{{ row.DueDate ? (row.DueDate | date:'dd MMM yyyy') : '-' }}</td>
+						<td>
+							<p-tag [severity]="statusSeverity(row)" [value]="row.Status || 'Pending'"></p-tag>
+						</td>
+					</tr>
+				</ng-template>
+			</p-table>
+			<div class="muted" *ngIf="!loading && !thisMonthRows().length">No fees this month.</div>
+		</p-card>
+
+		<p-card header="Overdue" styleClass="w-full mb-4">
+			<p-table [value]="overdueRows()" [loading]="loading" dataKey="StudentFeeID" [paginator]="true" [rows]="10"
+				[responsiveLayout]="'scroll'" [tableStyle]="{'min-width':'48rem'}">
+				<ng-template pTemplate="header">
+					<tr>
+						<th>Fee</th>
+						<th class="text-right">Amount</th>
+						<th class="text-right">Fine</th>
+						<th class="text-right">Discount</th>
+						<th class="text-right">Outstanding</th>
+						<th>Due Date</th>
+						<th>Status</th>
+					</tr>
+				</ng-template>
+				<ng-template pTemplate="body" let-row>
+					<tr>
+						<td>
+							<div class="fee-name">{{ row.FeeName }}</div>
+							<div class="muted small" *ngIf="row.InvoiceRef">Ref: {{ row.InvoiceRef }}</div>
+						</td>
+						<td class="text-right">{{ row.Amount | number:'1.2-2' }}</td>
+						<td class="text-right">{{ (row.ComputedFine ?? row.FineAmount) | number:'1.2-2' }}</td>
+						<td class="text-right">{{ row.DiscountAmount | number:'1.2-2' }}</td>
+						<td class="text-right strong">{{ formatAmount(getOutstanding(row)) }}</td>
+						<td>{{ row.DueDate ? (row.DueDate | date:'dd MMM yyyy') : '-' }}</td>
+						<td>
+							<p-tag [severity]="statusSeverity(row)" [value]="row.Status || 'Pending'"></p-tag>
+						</td>
+					</tr>
+				</ng-template>
+			</p-table>
+			<div class="muted" *ngIf="!loading && !overdueRows().length">No overdue fees. 🎉</div>
+		</p-card>
+	</div>
+
+	<div class="placeholder" *ngIf="!selectedStudentId && !isStudentUser">
+		<p class="muted">Select a student to view upcoming fees.</p>
+	</div>
+</div>

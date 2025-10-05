@@ -1,0 +1,96 @@
+.fees-upcoming-page {
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
+}
+
+.search-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem;
+	align-items: flex-end;
+}
+
+.student-picker {
+	flex: 1 1 20rem;
+}
+
+.ac-item {
+	display: flex;
+	flex-direction: column;
+
+	.name {
+		font-weight: 600;
+	}
+
+	.sub {
+		font-size: 0.75rem;
+	}
+}
+
+.summary-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+	gap: 1rem;
+}
+
+.summary-card {
+	text-align: center;
+	border-radius: 0.75rem;
+
+	.summary-value {
+		font-size: 1.75rem;
+		font-weight: 700;
+		margin-bottom: 0.5rem;
+	}
+
+	.summary-meta {
+		font-size: 0.9rem;
+		color: var(--surface-500, #6b7280);
+	}
+
+	&.upcoming {
+		/* Changed from blue to a light green to highlight upcoming items */
+		background: var(--green-50, #ecfdf5);
+	}
+
+	&.due {
+		background: var(--yellow-50, #fef9c3);
+	}
+
+	&.overdue {
+		background: var(--red-50, #fee2e2);
+	}
+}
+
+.tables-grid {
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
+}
+
+.fee-name {
+	font-weight: 600;
+	margin-bottom: 0.25rem;
+}
+
+.muted {
+	color: var(--surface-500, #6b7280);
+}
+
+.small {
+	font-size: 0.75rem;
+}
+
+.text-right {
+	text-align: right;
+}
+
+.strong {
+	font-weight: 600;
+}
+
+.placeholder {
+	text-align: center;
+	margin-top: 2rem;
+}

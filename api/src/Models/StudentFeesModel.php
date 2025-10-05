@@ -12,58 +12,129 @@ class StudentFeesModel extends Model
     // Return student ledger rows augmented with computed fine, outstanding, and derived status
     public function getStudentLedger(int $schoolId, int $academicYearId, int $studentId, array $filters = []): array
     {
-        $onlyDue = isset($filters['only_due']) ? (bool)$filters['only_due'] : false;
-        $includePaid = isset($filters['include_paid']) ? (bool)$filters['include_paid'] : true;
+    $onlyDue = isset($filters['only_due']) ? (bool)$filters['only_due'] : false;
+    $includePaid = isset($filters['include_paid']) ? (bool)$filters['include_paid'] : true;
 
-        $sql = "SELECT sf.*, f.FeeName
-                FROM Tx_student_fees sf
-                JOIN Tx_fees f ON f.FeeID = sf.FeeID
-                WHERE sf.SchoolID = :SchoolID AND sf.StudentID = :StudentID";
+    $calendar = new AcademicCalendarModel();
+    $academicRange = $calendar->getAcademicYearRange($academicYearId, $schoolId);
+    $academicYearStart = !empty($academicRange['start']) ? new \DateTime($academicRange['start']) : null;
+    $academicYearEnd = !empty($academicRange['end']) ? new \DateTime($academicRange['end']) : null;
+
+    $sql = "SELECT sf.*, f.FeeName, s.ScheduleType
+        FROM Tx_student_fees sf
+        JOIN Tx_fees f ON f.FeeID = sf.FeeID
+        LEFT JOIN Tx_fees_schedules s ON s.FeeID = f.FeeID
+        WHERE sf.SchoolID = :SchoolID AND sf.StudentID = :StudentID";
         $params = [
             ':SchoolID' => $schoolId,
             ':StudentID' => $studentId,
         ];
-
-        if (!$includePaid) {
-            $sql .= " AND sf.Status <> 'Paid'";
-        }
-        if ($onlyDue) {
-            $sql .= " AND (sf.Status IN ('Pending','Partial','Overdue'))";
-        }
 
         $sql .= " ORDER BY COALESCE(sf.DueDate, sf.CreatedAt) ASC, sf." . $this->pk . " ASC";
         $stmt = $this->conn->prepare($sql);
         foreach ($params as $k => $v) $stmt->bindValue($k, $v, is_int($v) ? PDO::PARAM_INT : PDO::PARAM_STR);
         $stmt->execute();
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $applicableFees = $onlyDue ? $this->loadApplicableFees($schoolId, $academicYearId) : [];
+        $existingFeeIds = $rows ? array_map(fn($r) => (int)$r['FeeID'], $rows) : [];
+        $additionalFeeIds = $onlyDue ? array_map(fn($r) => (int)$r['FeeID'], $applicableFees) : [];
+        $feeIdsForPolicies = array_values(array_unique(array_filter(array_merge($existingFeeIds, $additionalFeeIds), fn($v) => (int)$v > 0)));
 
-        if (!$rows) return $rows;
-        $studentFeeIds = array_map(fn($r) => (int)$r['StudentFeeID'], $rows);
-        $collectedById = $this->fetchLatestPaymentDates($studentFeeIds);
-        $feeIds = array_values(array_unique(array_map(fn($r) => (int)$r['FeeID'], $rows)));
-        $pol = $this->fetchPoliciesForFees($schoolId, $academicYearId, $feeIds);
-        foreach ($rows as &$r) {
-            $sid = (int)($r['StudentFeeID'] ?? 0);
-            $r['CollectedDate'] = $collectedById[$sid] ?? null;
-            $fine = $this->computeFineFromPolicies($pol['byFee'][(int)$r['FeeID']] ?? [], $pol['global'], $r['DueDate'], (float)$r['Amount']);
-            $r['ComputedFine'] = $fine;
-            $discount = isset($r['DiscountAmount']) ? (float)$r['DiscountAmount'] : 0.0;
-            $paid = isset($r['AmountPaid']) ? (float)$r['AmountPaid'] : 0.0;
-            $r['Outstanding'] = max(0.0, round(((float)$r['Amount'] + $fine - $discount - $paid), 2));
-            $r['Status'] = $this->deriveStatus($r['DueDate'], (float)$r['Amount'] + $fine - $discount, $paid);
+        $pol = $this->fetchPoliciesForFees($schoolId, $academicYearId, $feeIdsForPolicies);
+
+        if ($rows) {
+            $studentFeeIds = array_map(fn($r) => (int)$r['StudentFeeID'], $rows);
+            $paymentAggregates = $this->fetchPaymentAggregates($studentFeeIds);
+            foreach ($rows as &$r) {
+                $sid = (int)($r['StudentFeeID'] ?? 0);
+                $payments = $paymentAggregates[$sid] ?? null;
+                $paid = $payments && array_key_exists('total_paid', $payments)
+                    ? (float)$payments['total_paid']
+                    : (isset($r['AmountPaid']) ? (float)$r['AmountPaid'] : 0.0);
+                $r['AmountPaid'] = round($paid, 2);
+                $r['CollectedDate'] = $payments['latest_payment_date'] ?? null;
+                $fine = $this->computeFineFromPolicies($pol['byFee'][(int)$r['FeeID']] ?? [], $pol['global'], $r['DueDate'], (float)$r['Amount']);
+                $r['ComputedFine'] = $fine;
+                $discount = isset($r['DiscountAmount']) ? (float)$r['DiscountAmount'] : 0.0;
+                $totalDue = (float)$r['Amount'] + $fine - $discount;
+                $r['Outstanding'] = max(0.0, round(($totalDue - $paid), 2));
+                $r['Status'] = $this->deriveStatus($r['DueDate'], $totalDue, $paid);
+            }
+            unset($r);
         }
-        unset($r);
+
+        if ($onlyDue) {
+            $synthetic = $this->buildSyntheticDueRows($schoolId, $academicYearId, $studentId, $applicableFees, $rows, $pol, $academicYearStart, $academicYearEnd);
+            if ($synthetic) {
+                $rows = array_merge($rows, $synthetic);
+            }
+        }
+
+        // Annotate recurring monthly rows with month name in FeeName for display (e.g. "Tuition (April 2025)")
+        if ($rows) {
+            foreach ($rows as &$r) {
+                $due = $this->normalizeDate($r['DueDate'] ?? null);
+                $sched = isset($r['ScheduleType']) ? strtolower((string)$r['ScheduleType']) : null;
+                if ($due && $sched === 'recurring') {
+                    $monthLabel = $due->format('F Y');
+                    $name = $r['FeeName'] ?? '';
+                    if ($name !== null && strpos($name, '(') === false) {
+                        $r['FeeName'] = trim($name) . ' (' . $monthLabel . ')';
+                    }
+                }
+            }
+            unset($r);
+        }
+
+        $epsilon = 0.009; // tolerance for floating point rounding
+        if ($rows) {
+            $rows = array_values(array_filter($rows, function (array $row) use ($includePaid, $onlyDue, $epsilon, $academicYearStart, $academicYearEnd): bool {
+                $outstanding = isset($row['Outstanding']) ? (float)$row['Outstanding'] : 0.0;
+
+                if (!$includePaid && $outstanding <= $epsilon) {
+                    return false;
+                }
+
+                if ($onlyDue) {
+                    if ($academicYearStart || $academicYearEnd) {
+                        $due = $this->normalizeDate($row['DueDate'] ?? null);
+                        if ($due && !$this->isWithinAcademicYear($due, $academicYearStart, $academicYearEnd)) {
+                            return false;
+                        }
+                    }
+                    return $outstanding > $epsilon;
+                }
+
+                return true;
+            }));
+        }
+
+        if ($rows) {
+            usort($rows, function (array $a, array $b) {
+                $ad = $a['DueDate'] ?? null;
+                $bd = $b['DueDate'] ?? null;
+                if ($ad === $bd) {
+                    return ((int)($a['StudentFeeID'] ?? 0)) <=> ((int)($b['StudentFeeID'] ?? 0));
+                }
+                if ($ad === null) return 1;
+                if ($bd === null) return -1;
+                return strcmp($ad, $bd);
+            });
+        }
 
         return $rows;
     }
 
-    private function fetchLatestPaymentDates(array $studentFeeIds): array
+    private function fetchPaymentAggregates(array $studentFeeIds): array
     {
         $studentFeeIds = array_values(array_unique(array_filter($studentFeeIds, fn($v) => (int)$v > 0)));
         if (!$studentFeeIds) return [];
 
         $placeholders = implode(',', array_fill(0, count($studentFeeIds), '?'));
-        $sql = "SELECT StudentFeeID, MAX(PaymentDate) AS LatestPaymentDate FROM Tx_student_fee_payments WHERE StudentFeeID IN ($placeholders) GROUP BY StudentFeeID";
+        $sql = "SELECT StudentFeeID, SUM(PaidAmount) AS TotalPaid, MAX(PaymentDate) AS LatestPaymentDate
+                FROM Tx_student_fee_payments
+                WHERE StudentFeeID IN ($placeholders)
+                GROUP BY StudentFeeID";
         $stmt = $this->conn->prepare($sql);
         $i = 1;
         foreach ($studentFeeIds as $id) {
@@ -73,13 +144,19 @@ class StudentFeesModel extends Model
 
         $out = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            if (!isset($row['StudentFeeID'])) continue;
-            $sid = (int)$row['StudentFeeID'];
-            $date = $row['LatestPaymentDate'] ?? null;
-            if ($sid > 0 && $date) {
-                $out[$sid] = $date;
+            if (!isset($row['StudentFeeID'])) {
+                continue;
             }
+            $sid = (int)$row['StudentFeeID'];
+            if ($sid <= 0) {
+                continue;
+            }
+            $out[$sid] = [
+                'total_paid' => isset($row['TotalPaid']) ? (float)$row['TotalPaid'] : 0.0,
+                'latest_payment_date' => $row['LatestPaymentDate'] ?? null,
+            ];
         }
+
         return $out;
     }
 
@@ -90,6 +167,11 @@ class StudentFeesModel extends Model
         if (!$stu) return [];
         $classId = isset($stu['ClassID']) ? (int)$stu['ClassID'] : null;
         $sectionId = isset($stu['SectionID']) ? (int)$stu['SectionID'] : null;
+
+        $calendar = new AcademicCalendarModel();
+        $academicRange = $calendar->getAcademicYearRange($academicYearId, $schoolId);
+        $academicYearStart = !empty($academicRange['start']) ? new \DateTime($academicRange['start']) : null;
+        $academicYearEnd = !empty($academicRange['end']) ? new \DateTime($academicRange['end']) : null;
 
         $monthStart = new \DateTime(sprintf('%04d-%02d-01', $year, $month));
         $monthEnd = (clone $monthStart)->modify('last day of this month');
@@ -135,7 +217,7 @@ class StudentFeesModel extends Model
         $out = [];
         foreach ($fees as $f) {
             $type = $f['ScheduleType'];
-            $dueDate = $this->deriveDueDateForMonth($f, $year, $month);
+            $dueDate = $this->deriveDueDateForMonth($f, $year, $month, $academicYearStart, $academicYearEnd);
             $sfUsed = null;
 
             if (!$dueDate) {
@@ -167,7 +249,6 @@ class StudentFeesModel extends Model
                             // No existing ledger. For OnDemand after its EndDate month, carry once into the immediate next month using EndDate.
                             if ($lt === 'ondemand' && !empty($f['EndDate'])) {
                                 $ed = new \DateTime($f['EndDate']);
-                                // If current month is the immediate next month after EndDate's month, carry forward
                                 $edMonthStart = new \DateTime($ed->format('Y-m-01'));
                                 $diffMonths = $this->monthsDiff($edMonthStart, $monthStart);
                                 if ($ed < $monthStart && $diffMonths === 1) {
@@ -298,7 +379,11 @@ class StudentFeesModel extends Model
         $classId = isset($stu['ClassID']) ? (int)$stu['ClassID'] : null;
         $sectionId = isset($stu['SectionID']) ? (int)$stu['SectionID'] : null;
         $sched = $this->getFeeSchedule($feeId);
-        $due = $this->deriveDueDateForMonth($sched, $year, $month);
+        $calendar = new AcademicCalendarModel();
+        $academicRange = $calendar->getAcademicYearRange($academicYearId, $schoolId);
+        $academicYearStart = !empty($academicRange['start']) ? new \DateTime($academicRange['start']) : null;
+        $academicYearEnd = !empty($academicRange['end']) ? new \DateTime($academicRange['end']) : null;
+        $due = $this->deriveDueDateForMonth($sched, $year, $month, $academicYearStart, $academicYearEnd);
         if (!$due) {
             $due = $monthStart;
         }
@@ -309,7 +394,7 @@ class StudentFeesModel extends Model
     }
 
     // Compute due date for a month from a fee schedule; null when not applicable
-    private function deriveDueDateForMonth(array $feeScheduleRow, int $year, int $month): ?\DateTime
+    private function deriveDueDateForMonth(array $feeScheduleRow, int $year, int $month, ?\DateTime $academicYearStart = null, ?\DateTime $academicYearEnd = null): ?\DateTime
     {
         if (!isset($feeScheduleRow['ScheduleType'])) {
             $feeScheduleRow = $this->getFeeSchedule((int)$feeScheduleRow['FeeID']);
@@ -324,6 +409,13 @@ class StudentFeesModel extends Model
         $monthStart = new \DateTime(sprintf('%04d-%02d-01', $year, $month));
         $monthEnd = (clone $monthStart)->modify('last day of this month');
 
+        if ($academicYearStart && $monthEnd < $academicYearStart) {
+            return null;
+        }
+        if ($academicYearEnd && $monthStart > $academicYearEnd) {
+            return null;
+        }
+
         if ($type === 'Recurring') {
             if ($end && $monthStart > $end) return null;
             $refStart = $start ?: new \DateTime('1970-01-01');
@@ -337,7 +429,10 @@ class StudentFeesModel extends Model
             $day = (int)($dom ?: 1);
             if ($day < 1) $day = 1;
             if ($day > $maxDay) $day = $maxDay;
-            return new \DateTime(sprintf('%04d-%02d-%02d', $year, $month, $day));
+            $due = new \DateTime(sprintf('%04d-%02d-%02d', $year, $month, $day));
+            if ($academicYearStart && $due < $academicYearStart) return null;
+            if ($academicYearEnd && $due > $academicYearEnd) return null;
+            return $due;
         }
         if ($type === 'OneTime') {
             $d = $start ?: null;
@@ -350,12 +445,19 @@ class StudentFeesModel extends Model
             // For OnDemand, treat the EndDate as the due date when available
             if ($start && $end) {
                 if ($start <= $monthEnd && $end >= $monthStart) {
-                    return ($end >= $monthStart && $end <= $monthEnd) ? $end : null;
+                    $candidate = ($end >= $monthStart && $end <= $monthEnd) ? $end : null;
+                    if ($candidate && $academicYearStart && $candidate < $academicYearStart) return null;
+                    if ($candidate && $academicYearEnd && $candidate > $academicYearEnd) return null;
+                    return $candidate;
                 }
                 return null;
             }
             if ($end) {
-                if ($end >= $monthStart && $end <= $monthEnd) return $end;
+                if ($end >= $monthStart && $end <= $monthEnd) {
+                    if ($academicYearStart && $end < $academicYearStart) return null;
+                    if ($academicYearEnd && $end > $academicYearEnd) return null;
+                    return $end;
+                }
                 return null;
             }
             // No EndDate: no fixed due date from schedule
@@ -473,7 +575,20 @@ class StudentFeesModel extends Model
     // Fetch fine policies once for a set of fees
     private function fetchPoliciesForFees(int $schoolId, int $academicYearId, array $feeIds): array
     {
-        if (!$feeIds) return ['global' => [], 'byFee' => []];
+        $feeIds = array_values(array_unique(array_filter($feeIds, fn($v) => (int)$v > 0)));
+        if (!$feeIds) {
+            $sql = "SELECT * FROM Tx_fine_policies WHERE SchoolID = ? AND AcademicYearID = ? AND IsActive = 1 AND FeeID IS NULL ORDER BY FinePolicyID DESC";
+            $st = $this->conn->prepare($sql);
+            $st->bindValue(1, $schoolId, PDO::PARAM_INT);
+            $st->bindValue(2, $academicYearId, PDO::PARAM_INT);
+            $st->execute();
+            $global = [];
+            while ($p = $st->fetch(PDO::FETCH_ASSOC)) {
+                $global[] = $p;
+            }
+            return ['global' => $global, 'byFee' => []];
+        }
+
         $placeholders = implode(',', array_fill(0, count($feeIds), '?'));
         $sql = "SELECT * FROM Tx_fine_policies WHERE SchoolID = ? AND AcademicYearID = ? AND IsActive = 1 AND (FeeID IN ($placeholders) OR FeeID IS NULL) ORDER BY (FeeID IS NULL) ASC, FinePolicyID DESC";
         $st = $this->conn->prepare($sql);
@@ -489,6 +604,247 @@ class StudentFeesModel extends Model
             else { $byFee[(int)$p['FeeID']][] = $p; }
         }
         return ['global' => $global, 'byFee' => $byFee];
+    }
+
+    private function loadApplicableFees(int $schoolId, int $academicYearId): array
+    {
+        $sql = "SELECT f.FeeID, f.FeeName, s.ScheduleType, s.IntervalMonths, s.DayOfMonth, s.StartDate, s.EndDate, s.NextDueDate
+                FROM Tx_fees f
+                LEFT JOIN Tx_fees_schedules s ON s.FeeID = f.FeeID
+                WHERE f.SchoolID = :SchoolID AND f.AcademicYearID = :AcademicYearID AND f.IsActive = 1";
+        $st = $this->conn->prepare($sql);
+        $st->bindValue(':SchoolID', $schoolId, PDO::PARAM_INT);
+        $st->bindValue(':AcademicYearID', $academicYearId, PDO::PARAM_INT);
+        $st->execute();
+        $fees = $st->fetchAll(PDO::FETCH_ASSOC);
+        return $fees ?: [];
+    }
+
+    private function buildSyntheticDueRows(int $schoolId, int $academicYearId, int $studentId, array $applicableFees, array $existingRows, array $policies, ?\DateTime $academicYearStart = null, ?\DateTime $academicYearEnd = null): array
+    {
+        if (!$applicableFees) return [];
+        $student = $this->getStudent($studentId);
+        if (!$student) return [];
+
+        $classId = isset($student['ClassID']) ? (int)$student['ClassID'] : null;
+        $sectionId = isset($student['SectionID']) ? (int)$student['SectionID'] : null;
+        $epsilon = 0.009;
+        $existingOutstanding = [];
+        foreach ($existingRows as $row) {
+            $fid = isset($row['FeeID']) ? (int)$row['FeeID'] : 0;
+            if ($fid <= 0) continue;
+            $outstanding = isset($row['Outstanding']) ? (float)$row['Outstanding'] : 0.0;
+            if ($academicYearStart || $academicYearEnd) {
+                $rowDue = $this->normalizeDate($row['DueDate'] ?? null);
+                if ($rowDue && !$this->isWithinAcademicYear($rowDue, $academicYearStart, $academicYearEnd)) {
+                    continue;
+                }
+            }
+            if ($outstanding > $epsilon) {
+                $existingOutstanding[$fid] = true;
+            }
+        }
+
+        $today = new \DateTime('today');
+        $synthetic = [];
+        foreach ($applicableFees as $fee) {
+            $feeId = isset($fee['FeeID']) ? (int)$fee['FeeID'] : 0;
+            if ($feeId <= 0) continue;
+            if (!empty($existingOutstanding[$feeId])) continue;
+
+            $amount = $this->resolveMappingAmount($feeId, $classId, $sectionId);
+            if ($amount <= 0) continue;
+
+            $type = $fee['ScheduleType'] ?? null;
+
+            // For recurring schedules, generate one synthetic row per applicable month inside the academic year
+            if ($type === 'Recurring') {
+                // Determine search window: from academicYearStart (or 6 months ago) up to academicYearEnd (or +6 months)
+                $windowStart = $academicYearStart ?: (clone $today)->modify('-6 months');
+                $windowEnd = $academicYearEnd ?: (clone $today)->modify('+6 months');
+
+                // Ensure we don't search ridiculously wide ranges
+                if ($windowStart > $today) $windowStart = clone $today;
+                if ($windowEnd < $windowStart) $windowEnd = clone $today;
+
+                // Iterate month-by-month within window and create synthetic rows for months that match schedule and have no existing unpaid row
+                $cursor = new \DateTime($windowStart->format('Y-m-01'));
+                $endCursor = new \DateTime($windowEnd->format('Y-m-01'));
+                while ($cursor <= $endCursor) {
+                    $y = (int)$cursor->format('Y');
+                    $m = (int)$cursor->format('n');
+                    $due = $this->deriveDueDateForMonth($fee, $y, $m, $academicYearStart, $academicYearEnd);
+                    if ($due) {
+                        // skip if existing ledger row for this fee exists in that month
+                        $monthStart = new \DateTime($cursor->format('Y-m-01'));
+                        $monthEnd = (clone $monthStart)->modify('last day of this month');
+                        $existingInMonth = $this->findExistingRowForMonth($studentId, $feeId, $monthStart, $monthEnd);
+                        if ($existingInMonth) {
+                            // if existing row has outstanding > epsilon, we'll not synthesize (existingOutstanding covers it)
+                        } else {
+                            $dueStr = $due->format('Y-m-d');
+                            $fine = $this->computeFineFromPolicies($policies['byFee'][$feeId] ?? [], $policies['global'], $dueStr, (float)$amount);
+                            $totalDue = (float)$amount + $fine;
+                            $outstanding = max(0.0, round($totalDue, 2));
+                            if ($outstanding > $epsilon) {
+                                $status = $this->deriveStatus($dueStr, $totalDue, 0.0);
+                                $synthetic[] = [
+                                    'StudentFeeID' => null,
+                                    'StudentID' => $studentId,
+                                    'FeeID' => $feeId,
+                                    'FeeName' => $fee['FeeName'] ?? '',
+                                    'ScheduleType' => $fee['ScheduleType'] ?? null,
+                                    'MappingID' => null,
+                                    'Amount' => (float)$amount,
+                                    'FineAmount' => $fine,
+                                    'DiscountAmount' => 0.0,
+                                    'AmountPaid' => 0.0,
+                                    'DueDate' => $dueStr,
+                                    'Status' => $status,
+                                    'InvoiceRef' => null,
+                                    'Remarks' => null,
+                                    'ComputedFine' => $fine,
+                                    'Outstanding' => $outstanding,
+                                    'IsSynthetic' => true,
+                                ];
+                            }
+                        }
+                    }
+                    $cursor->modify('+1 month');
+                }
+                continue;
+            }
+
+            // Non-recurring (OnDemand / OneTime): keep previous single-date heuristic
+            $dueDate = $this->determineRealtimeDueDate($fee, $today, $academicYearStart, $academicYearEnd);
+            if ($dueDate !== null) {
+                $dueDateObj = $this->normalizeDate($dueDate);
+                if (!$dueDateObj || !$this->isWithinAcademicYear($dueDateObj, $academicYearStart, $academicYearEnd)) {
+                    $dueDate = null;
+                }
+            }
+            $fine = $this->computeFineFromPolicies($policies['byFee'][$feeId] ?? [], $policies['global'], $dueDate, (float)$amount);
+            $totalDue = (float)$amount + $fine;
+            $outstanding = max(0.0, round($totalDue, 2));
+            if ($outstanding <= $epsilon) continue;
+
+            $status = $this->deriveStatus($dueDate, $totalDue, 0.0);
+
+            $synthetic[] = [
+                'StudentFeeID' => null,
+                'StudentID' => $studentId,
+                'FeeID' => $feeId,
+                'FeeName' => $fee['FeeName'] ?? '',
+                'MappingID' => null,
+                'Amount' => (float)$amount,
+                'FineAmount' => $fine,
+                'DiscountAmount' => 0.0,
+                'AmountPaid' => 0.0,
+                'DueDate' => $dueDate,
+                'Status' => $status,
+                'InvoiceRef' => null,
+                'Remarks' => null,
+                'ComputedFine' => $fine,
+                'Outstanding' => $outstanding,
+                'IsSynthetic' => true,
+            ];
+        }
+
+        return $synthetic;
+    }
+
+    private function determineRealtimeDueDate(array $fee, \DateTime $today, ?\DateTime $academicYearStart = null, ?\DateTime $academicYearEnd = null): ?string
+    {
+        $nextDue = $this->normalizeDate($fee['NextDueDate'] ?? null);
+        if ($nextDue && $this->isWithinAcademicYear($nextDue, $academicYearStart, $academicYearEnd)) {
+            return $nextDue->format('Y-m-d');
+        }
+
+        $schedule = [
+            'FeeID' => $fee['FeeID'] ?? null,
+            'ScheduleType' => $fee['ScheduleType'] ?? null,
+            'IntervalMonths' => $fee['IntervalMonths'] ?? null,
+            'DayOfMonth' => $fee['DayOfMonth'] ?? null,
+            'StartDate' => $fee['StartDate'] ?? null,
+            'EndDate' => $fee['EndDate'] ?? null,
+        ];
+        $type = $schedule['ScheduleType'] ?? null;
+
+        if ($type === 'Recurring') {
+            for ($offset = 0; $offset <= 12; $offset++) {
+                $candidateMonth = (clone $today)->modify("-{$offset} month");
+                if ($academicYearStart && $candidateMonth < $academicYearStart) {
+                    break;
+                }
+                $due = $this->deriveDueDateForMonth($schedule, (int)$candidateMonth->format('Y'), (int)$candidateMonth->format('n'), $academicYearStart, $academicYearEnd);
+                if ($due && $due <= $today && $this->isWithinAcademicYear($due, $academicYearStart, $academicYearEnd)) {
+                    return $due->format('Y-m-d');
+                }
+            }
+            for ($offset = 0; $offset < 12; $offset++) {
+                $candidateMonth = (clone $today)->modify("+{$offset} month");
+                if ($academicYearEnd && $candidateMonth > $academicYearEnd) {
+                    break;
+                }
+                $due = $this->deriveDueDateForMonth($schedule, (int)$candidateMonth->format('Y'), (int)$candidateMonth->format('n'), $academicYearStart, $academicYearEnd);
+                if ($due && $this->isWithinAcademicYear($due, $academicYearStart, $academicYearEnd)) {
+                    return $due->format('Y-m-d');
+                }
+            }
+            return null;
+        }
+
+        if ($type === 'OnDemand') {
+            $endDate = $this->normalizeDate($schedule['EndDate'] ?? null);
+            if ($endDate && $this->isWithinAcademicYear($endDate, $academicYearStart, $academicYearEnd)) {
+                return $endDate->format('Y-m-d');
+            }
+            $startDate = $this->normalizeDate($schedule['StartDate'] ?? null);
+            if ($startDate && $this->isWithinAcademicYear($startDate, $academicYearStart, $academicYearEnd)) {
+                return $startDate->format('Y-m-d');
+            }
+            return null;
+        }
+
+        if ($type === 'OneTime') {
+            $startDate = $this->normalizeDate($schedule['StartDate'] ?? null);
+            if ($startDate && $this->isWithinAcademicYear($startDate, $academicYearStart, $academicYearEnd)) {
+                return $startDate->format('Y-m-d');
+            }
+            $endDate = $this->normalizeDate($schedule['EndDate'] ?? null);
+            if ($endDate && $this->isWithinAcademicYear($endDate, $academicYearStart, $academicYearEnd)) {
+                return $endDate->format('Y-m-d');
+            }
+            return null;
+        }
+
+        $fallback = $this->normalizeDate($schedule['StartDate'] ?? null);
+        return ($fallback && $this->isWithinAcademicYear($fallback, $academicYearStart, $academicYearEnd))
+            ? $fallback->format('Y-m-d')
+            : null;
+    }
+
+    private function normalizeDate(?string $value): ?\DateTime
+    {
+        if (!$value) {
+            return null;
+        }
+        try {
+            return new \DateTime($value);
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    private function isWithinAcademicYear(\DateTime $date, ?\DateTime $start, ?\DateTime $end): bool
+    {
+        if ($start && $date < $start) {
+            return false;
+        }
+        if ($end && $date > $end) {
+            return false;
+        }
+        return true;
     }
 
     // Insert a student fee ledger row and return its ID

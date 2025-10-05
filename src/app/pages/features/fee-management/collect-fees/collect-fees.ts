@@ -10,6 +10,7 @@ import { SelectModule } from 'primeng/select';
 import { DatePickerModule } from 'primeng/datepicker';
 import { ToastModule } from 'primeng/toast';
 import { AutoCompleteModule } from 'primeng/autocomplete';
+import { TagModule } from 'primeng/tag';
 import { MessageService } from 'primeng/api';
 import { StudentsService } from '../../services/students.service';
 import { Student } from '../../model/student.model';
@@ -20,7 +21,7 @@ import { firstValueFrom } from 'rxjs';
 @Component({
   selector: 'app-collect-fees',
   standalone: true,
-  imports: [CommonModule, FormsModule, TableModule, CardModule, ButtonModule, InputTextModule, InputNumberModule, SelectModule, DatePickerModule, ToastModule, AutoCompleteModule],
+  imports: [CommonModule, FormsModule, TableModule, CardModule, ButtonModule, InputTextModule, InputNumberModule, SelectModule, DatePickerModule, ToastModule, AutoCompleteModule, TagModule],
   providers: [MessageService],
   templateUrl: './collect-fees.html',
   styleUrl: './collect-fees.scss'
@@ -92,6 +93,14 @@ export class CollectFees implements OnInit {
     const { y, m } = this.getYearMonth(this.selectedMonth);
     const mm = String(m).padStart(2, '0');
     return `fee:${r.FeeID}:${y}-${mm}`;
+  }
+
+  statusSeverity(row: StudentFeeLedgerRow): 'success' | 'info' | 'warning' | 'danger' | undefined {
+    const status = (row.Status || '').toLowerCase();
+    if (status === 'paid') return 'success';
+    if (status === 'partial') return 'warning';
+    if (status === 'overdue') return 'danger';
+    return 'info';
   }
 
   isSelected(r: StudentFeeLedgerRow): boolean {

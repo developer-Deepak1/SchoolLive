@@ -7,6 +7,7 @@ import { AutoCompleteModule } from 'primeng/autocomplete';
 import { InputTextModule } from 'primeng/inputtext';
 import { ToastModule } from 'primeng/toast';
 import { ButtonModule } from 'primeng/button';
+import { TagModule } from 'primeng/tag';
 import { MessageService } from 'primeng/api';
 
 import { StudentsService } from '../../services/students.service';
@@ -22,7 +23,7 @@ type ScheduleType = 'Recurring' | 'OnDemand' | 'OneTime' | 'Unknown';
 @Component({
   selector: 'app-fees-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, CardModule, TableModule, AutoCompleteModule, InputTextModule, ToastModule, ButtonModule, FeesReceiptDownloadPreview],
+  imports: [CommonModule, FormsModule, CardModule, TableModule, AutoCompleteModule, InputTextModule, ToastModule, ButtonModule, TagModule, FeesReceiptDownloadPreview],
   providers: [MessageService],
   templateUrl: './fees-report.html',
   styleUrl: './fees-report.scss'
@@ -187,4 +188,12 @@ export class FeesReport implements OnInit {
 
   // Util
   formatAmount(n: any): string { return Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+  statusSeverity(row: StudentFeeLedgerRow): 'success' | 'info' | 'warning' | 'danger' | undefined {
+    const status = (row.Status || '').toLowerCase();
+    if (status === 'paid') return 'success';
+    if (status === 'partial') return 'warning';
+    if (status === 'overdue') return 'danger';
+    return 'info';
+  }
 }

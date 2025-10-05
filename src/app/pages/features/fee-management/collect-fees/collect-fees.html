@@ -82,7 +82,7 @@
                 <td class="text-right strong">{{ (row.Outstanding ?? 0) | number:'1.2-2' }}</td>
                 <td>{{ row.DueDate || '-' }}</td>
                 <td>
-                    <span>{{ row.Status }}</span>
+                    <p-tag [value]="row.Status" [severity]="statusSeverity(row)"></p-tag>
                 </td>
             </tr>
         </ng-template>
