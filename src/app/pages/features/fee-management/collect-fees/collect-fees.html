@@ -27,7 +27,7 @@
         <div class="month-picker">
             <label for="month" class="block mb-1">Month</label>
             <p-datePicker inputId="month" [(ngModel)]="selectedMonth" name="month" view="month" dateFormat="mm/yy"
-                (onSelect)="onMonthChange()" [minDate]="ayStart" [maxDate]="ayEnd" [showIcon]="true"
+                (onSelect)="onMonthChange()" [minDate]="minDate" [maxDate]="maxDate" [showIcon]="true"
                 [readonlyInput]="true" styleClass="w-full md:w-24rem lg:w-28rem xl:w-32rem"></p-datePicker>
         </div>
         <!-- <div class="refresh">

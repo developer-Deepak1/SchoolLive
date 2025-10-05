@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
@@ -14,6 +14,8 @@ import { MessageService } from 'primeng/api';
 import { StudentsService } from '../../services/students.service';
 import { Student } from '../../model/student.model';
 import { StudentFeesService, StudentFeeLedgerRow } from '../services/student-fees.service';
+import { AcademicYearService } from '../../services/academic-year.service';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-collect-fees',
@@ -27,6 +29,7 @@ export class CollectFees implements OnInit {
   private studentsApi = inject(StudentsService);
   private feesApi = inject(StudentFeesService);
   private toast = inject(MessageService);
+  private academicYearApi = inject(AcademicYearService);
 
   // UI State
   loading = false;
@@ -45,8 +48,11 @@ export class CollectFees implements OnInit {
 
   // Month picker (for search context only)
   selectedMonth: Date = new Date();
-  ayStart!: Date;
-  ayEnd!: Date;
+  ayStart: Date | null = null;
+  ayEnd: Date | null = null;
+  // Date range constraints for academic year (used by the month picker)
+  minDate: Date | null = null;
+  maxDate: Date | null = null;
 
   // Payment form
   payment = {
@@ -95,11 +101,14 @@ export class CollectFees implements OnInit {
 
   ngOnInit(): void {
     this.loadStudents();
-    const { start, end } = this.computeAcademicYearBounds(this.today);
-    this.ayStart = start; this.ayEnd = end;
-    // Ensure selected month is within academic year bounds
-    if (this.selectedMonth < this.ayStart) this.selectedMonth = new Date(this.ayStart);
-    if (this.selectedMonth > this.ayEnd) this.selectedMonth = new Date(this.ayEnd);
+    const fallback = this.computeAcademicYearBounds(this.today);
+    this.ayStart = fallback.start;
+    this.ayEnd = fallback.end;
+    // initialize min/max with fallback; API may override
+    this.minDate = this.ayStart;
+    this.maxDate = this.ayEnd;
+    this.ensureSelectedMonthInRange();
+    this.loadAcademicYearConstraints();
   }
 
   // Default AY: Apr 1 to Mar 31. Adjust here if your school uses a different cycle.
@@ -113,6 +122,42 @@ export class CollectFees implements OnInit {
       // AY starts Apr 1 previous year, ends Mar 31 current year
       return { start: new Date(y - 1, 3, 1), end: new Date(y, 2, 31) };
     }
+  }
+
+  private async loadAcademicYearConstraints() {
+    try {
+      const academicYears = await firstValueFrom(this.academicYearApi.getAcademicYears());
+      const currentAY = academicYears.find(ay => (ay.Status || '').toLowerCase() === 'active');
+      if (currentAY?.StartDate && currentAY?.EndDate) {
+        this.setAcademicYearBounds(new Date(currentAY.StartDate), new Date(currentAY.EndDate));
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to load academic year constraints:', error);
+    }
+    if (!this.ayStart || !this.ayEnd) {
+      const { start, end } = this.computeAcademicYearBounds(this.today);
+      this.setAcademicYearBounds(start, end);
+    }
+    // setAcademicYearBounds already applied fallback and clamping
+  }
+
+  // Helper: set academic year start/end and the datepicker min/max, and clamp selectedMonth
+  private setAcademicYearBounds(start: Date, end: Date) {
+    this.ayStart = start;
+    this.ayEnd = end;
+    this.minDate = start;
+    this.maxDate = end;
+    if (this.selectedMonth < this.minDate) this.selectedMonth = new Date(this.minDate);
+    if (this.selectedMonth > this.maxDate) this.selectedMonth = new Date(this.maxDate);
+  }
+
+  private ensureSelectedMonthInRange() {
+    if (!this.selectedMonth) return;
+    const min = this.minDate || this.ayStart;
+    const max = this.maxDate || this.ayEnd;
+    if (min && this.selectedMonth < min) this.selectedMonth = new Date(min);
+    if (max && this.selectedMonth > max) this.selectedMonth = new Date(max);
   }
 
   private loadStudents() {
@@ -167,8 +212,7 @@ export class CollectFees implements OnInit {
   onMonthChange() {
     // When the month changes explicitly, fetch the monthly plan for the selected month.
     // Clamp selection inside academic year
-    if (this.selectedMonth < this.ayStart) this.selectedMonth = new Date(this.ayStart);
-    if (this.selectedMonth > this.ayEnd) this.selectedMonth = new Date(this.ayEnd);
+    this.ensureSelectedMonthInRange();
     if (this.selectedStudentId) this.onStudentChange();
   }
 
