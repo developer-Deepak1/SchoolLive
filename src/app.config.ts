@@ -8,6 +8,7 @@ import { appRoutes } from './app.routes';
 import { HTTP_INTERCEPTORS } from '@angular/common/http';
 import { LoaderInterceptor } from '@/interceptors/loader.interceptor';
 import { TokenInterceptor } from '@/interceptors/token.interceptor';
+import { HttpSpinnerInterceptor } from '@/interceptors/http-spinner.interceptor';
 
 export const appConfig: ApplicationConfig = {
     providers: [
@@ -17,6 +18,11 @@ export const appConfig: ApplicationConfig = {
         {
             provide: HTTP_INTERCEPTORS,
             useClass: LoaderInterceptor,
+            multi: true
+        },
+        {
+            provide: HTTP_INTERCEPTORS,
+            useClass: HttpSpinnerInterceptor,
             multi: true
         },
         {

@@ -11,7 +11,8 @@ use SchoolLive\Core\Router;
 // Set headers
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+// Allow PATCH as well so API endpoints using HTTP PATCH (e.g., toggle status) pass CORS preflight
+header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
 
 // Handle preflight OPTIONS request
