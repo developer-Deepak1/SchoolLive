@@ -83,6 +83,8 @@ export class PdfService {
             [
               // Bold label and title-case the student name
               { text: `Name of Student: ${this.toTitleCase(studentName)}`, bold: true },
+              // Father's name (title-cased when present)
+              { text: `Father's Name: ${this.toTitleCase(student?.FatherName ?? '-')}` },
               // Show the username as the Student ID alias per request
               { text: `Student ID: ${usernameText}` }
             ],
