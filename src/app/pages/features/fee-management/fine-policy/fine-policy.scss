@@ -7,6 +7,8 @@
 
 .cell-label { display:none; color: var(--text-color-secondary); font-size:.75rem; margin-bottom:.25rem; }
 
+.required { color: #d9534f; margin-left: 0.25rem; font-weight: 600; }
+
 .tag { padding:.15rem .5rem; border-radius:.35rem; font-size:.75rem; }
 .tag.fixed { background: var(--blue-50); color: var(--blue-700); }
 .tag.perday { background: var(--yellow-50); color: var(--yellow-700); }

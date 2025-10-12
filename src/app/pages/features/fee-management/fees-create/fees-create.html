@@ -9,7 +9,7 @@
             <!-- Fee Name -->
             <div class="flex flex-col gap-2 lg:col-span-1">
                 <label for="feeName" class="font-medium text-gray-700">Fee Name <span class="text-red-500">*</span></label>
-                <input type="text" id="feeName" [(ngModel)]="feeData.FeeName" name="FeeName"
+                <input type="text" id="feeName" [(ngModel)]="feeDraft.feeName" name="feeName"
                     placeholder="Enter fee name (e.g., Admission Fee, Tution Fee)"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
                     required>
@@ -224,26 +224,26 @@
                 <div class="flex flex-col lg:flex-row justify-between items-start gap-4">
                     <div class="flex-1 min-w-0">
                         <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-3">
-                            <h3 class="text-lg font-semibold text-gray-900 truncate">{{ fee.FeeName }}</h3>
+                            <h3 class="text-lg font-semibold text-gray-900 truncate">{{ fee.feeName }}</h3>
                             <span class="px-3 py-1 bg-green-100 text-green-800 text-xs rounded-full self-start">
-                                {{ getFrequencyLabel(fee.Schedule?.ScheduleType) }}
+                                {{ getFrequencyLabel(fee.schedule?.scheduleType) }}
                             </span>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-gray-600">
                             <div class="flex items-center">
                                 <i class="pi pi-calendar mr-2 text-blue-600"></i>
                                 <span class="font-medium">Start:</span>
-                                <span class="ml-1">{{ (fee.Schedule?.StartDate | date:'mediumDate':'Asia/Kolkata') || 'n/a' }}</span>
+                                <span class="ml-1">{{ (fee.schedule?.startDate | date:'mediumDate':'Asia/Kolkata') || 'n/a' }}</span>
                             </div>
                             <div class="flex items-center">
                                 <i class="pi pi-calendar-times mr-2 text-red-600"></i>
                                 <span class="font-medium">End:</span>
-                                <span class="ml-1">{{ (fee.Schedule?.EndDate | date:'mediumDate':'Asia/Kolkata') || 'n/a' }}</span>
+                                <span class="ml-1">{{ (fee.schedule?.endDate | date:'mediumDate':'Asia/Kolkata') || 'n/a' }}</span>
                             </div>
                             <div class="flex items-center">
                                 <i class="pi pi-bell mr-2 text-amber-600"></i>
                                 <span class="font-medium">Next Due:</span>
-                                <span class="ml-1">{{ (fee.Schedule?.NextDueDate | date:'mediumDate':'Asia/Kolkata') || 'n/a' }}</span>
+                                <span class="ml-1">{{ (fee.schedule?.nextDueDate | date:'mediumDate':'Asia/Kolkata') || 'n/a' }}</span>
                             </div>
                             <div class="flex items-center">
                                 <i class="pi pi-users mr-2 text-purple-600"></i>
@@ -257,7 +257,7 @@
                             pTooltip="{{ canEditFee(fee) ? 'Cannot Edit Fee' : 'Edit Fee' }}" tooltipPosition="top">
                         </p-button>
                         <div class="flex flex-col items-center gap-1">
-                            <p-toggleswitch [(ngModel)]="fee.IsActive" (onChange)="toggleFeeStatus(fee, $event)"
+                            <p-toggleswitch [(ngModel)]="fee.isActive" (onChange)="toggleFeeStatus(fee, $event)"
                                 pTooltip="Toggle Active/Inactive" tooltipPosition="top">
                             </p-toggleswitch>
                             <small class="text-xs text-gray-500">Active</small>
@@ -279,26 +279,26 @@
                 <div class="flex flex-col lg:flex-row justify-between items-start gap-4">
                     <div class="flex-1 min-w-0">
                         <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-3">
-                            <h3 class="text-lg font-semibold text-gray-900 truncate">{{ fee.FeeName }}</h3>
+                            <h3 class="text-lg font-semibold text-gray-900 truncate">{{ fee.feeName }}</h3>
                             <span class="px-3 py-1 bg-gray-100 text-gray-800 text-xs rounded-full self-start">
-                                {{ getFrequencyLabel(fee.Schedule?.ScheduleType) }}
+                                {{ getFrequencyLabel(fee.schedule?.scheduleType) }}
                             </span>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm text-gray-600">
                             <div class="flex items-center">
                                 <i class="pi pi-calendar mr-2 text-blue-600"></i>
                                 <span class="font-medium">Start:</span>
-                                <span class="ml-1">{{ (fee.Schedule?.StartDate | date:'mediumDate':'Asia/Kolkata') || 'n/a' }}</span>
+                                <span class="ml-1">{{ (fee.schedule?.startDate | date:'mediumDate':'Asia/Kolkata') || 'n/a' }}</span>
                             </div>
                             <div class="flex items-center">
                                 <i class="pi pi-calendar-times mr-2 text-red-600"></i>
                                 <span class="font-medium">End:</span>
-                                <span class="ml-1">{{ (fee.Schedule?.EndDate | date:'mediumDate':'Asia/Kolkata') || 'n/a' }}</span>
+                                <span class="ml-1">{{ (fee.schedule?.endDate | date:'mediumDate':'Asia/Kolkata') || 'n/a' }}</span>
                             </div>
                             <div class="flex items-center">
                                 <i class="pi pi-bell mr-2 text-amber-600"></i>
                                 <span class="font-medium">Next Due:</span>
-                                <span class="ml-1">{{ (fee.Schedule?.NextDueDate | date:'mediumDate':'Asia/Kolkata') || 'n/a' }}</span>
+                                <span class="ml-1">{{ (fee.schedule?.nextDueDate | date:'mediumDate':'Asia/Kolkata') || 'n/a' }}</span>
                             </div>
                             <div class="flex items-center">
                                 <i class="pi pi-users mr-2 text-purple-600"></i>
@@ -312,7 +312,7 @@
                             pTooltip="Edit Fee" tooltipPosition="top">
                         </p-button>
                         <div class="flex flex-col items-center gap-1">
-                            <p-toggleswitch [(ngModel)]="fee.IsActive" (onChange)="toggleFeeStatus(fee, $event)"
+                            <p-toggleswitch [(ngModel)]="fee.isActive" (onChange)="toggleFeeStatus(fee, $event)"
                                 pTooltip="Toggle Active/Inactive" tooltipPosition="top">
                             </p-toggleswitch>
                             <small class="text-xs text-gray-500">Inactive</small>

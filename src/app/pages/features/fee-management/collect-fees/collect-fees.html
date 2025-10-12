@@ -24,23 +24,13 @@
                 </ng-template>
             </p-autocomplete>
         </div>
-        <div class="month-picker">
-            <label for="month" class="block mb-1">Month</label>
-            <p-datePicker inputId="month" [(ngModel)]="selectedMonth" name="month" view="month" dateFormat="mm/yy"
-                (onSelect)="onMonthChange()" [minDate]="minDate" [maxDate]="maxDate" [showIcon]="true"
-                [readonlyInput]="true" styleClass="w-full md:w-24rem lg:w-28rem xl:w-32rem"></p-datePicker>
-        </div>
-        <!-- <div class="refresh">
-            <button pButton type="button" label="Refresh" icon="pi pi-refresh" (click)="onStudentChange()" class="p-button w-full"
-                [disabled]="!selectedStudentId || loading"></button>
-        </div> -->
     </div>
 </p-card>
 
-<!-- Section 2: Pending Dues -->
-<p-card header="Pending Dues" styleClass="w-full mb-4">
+<!-- Section 2: Current Month Pending Dues (auto-selected) -->
+<p-card header="Pending Dues (Current Month)" styleClass="w-full mb-4">
     <div class="table-actions">
-        <div class="left">
+        <div class="left select-all-button">
             <input type="checkbox" [disabled]="loading || !dues().length" [checked]="allSelected()" (change)="toggleAll($event)" />
             <span class="muted">Select all</span>
         </div>
@@ -49,7 +39,7 @@
         </div>
     </div>
 
-    <p-table [value]="dues()" [loading]="loading" dataKey="StudentFeeID" [paginator]="true" [rows]="10"
+    <p-table [value]="dues()" [loading]="loading" dataKey="studentFeeId" [paginator]="true" [rows]="10"
         [responsiveLayout]="'scroll'" [tableStyle]="{'min-width':'50rem'}">
         <ng-template pTemplate="header">
             <tr>
@@ -72,32 +62,91 @@
                            (change)="toggleRow(row)" />
                 </td>
                 <td>
-                    <div class="fee-name">{{ row.FeeName }}</div>
-                    <div class="muted small" *ngIf="row.InvoiceRef">Ref: {{ row.InvoiceRef }}</div>
+                    <div class="fee-name">{{ row.feeName }}</div>
+                    <div class="muted small" *ngIf="row.invoiceRef">Ref: {{ row.invoiceRef }}</div>
                 </td>
-                <td class="text-right">{{ row.Amount | number:'1.2-2' }}</td>
-                <td class="text-right">{{ (row.ComputedFine ?? row.FineAmount) | number:'1.2-2' }}</td>
-                <td class="text-right">{{ row.DiscountAmount | number:'1.2-2' }}</td>
-                <td class="text-right">{{ row.AmountPaid | number:'1.2-2' }}</td>
-                <td class="text-right strong">{{ (row.Outstanding ?? 0) | number:'1.2-2' }}</td>
-                <td>{{ row.DueDate || '-' }}</td>
+                <td class="text-right">{{ row.amount | number:'1.2-2' }}</td>
+                <td class="text-right">{{ (row.computedFine ?? row.fineAmount) | number:'1.2-2' }}</td>
+                <td class="text-right">{{ row.discountAmount | number:'1.2-2' }}</td>
+                <td class="text-right">{{ row.amountPaid | number:'1.2-2' }}</td>
+                <td class="text-right strong">{{ (row.outstanding ?? 0) | number:'1.2-2' }}</td>
+                <td>{{ row.dueDate ? (row.dueDate | date:'dd MMM yyyy') : '-' }}</td>
                 <td>
-                    <p-tag [value]="row.Status" [severity]="statusSeverity(row)"></p-tag>
+                    <p-tag [value]="row.status" [severity]="statusSeverity(row)"></p-tag>
+                </td>
+            </tr>
+        </ng-template>
+
+        <ng-template pTemplate="emptymessage">
+            <tr>
+                <td colspan="9" class="text-center py-4 text-gray-500">
+                    No pending dues for current month
                 </td>
             </tr>
         </ng-template>
 
         <ng-template pTemplate="footer">
             <tr>
-                <td colspan="6" class="text-right">Selected Total:</td>
-                <td class="text-right strong">{{ totalDue() | number:'1.2-2' }}</td>
+                <td colspan="6" class="text-right">Selected Total (Current Month):</td>
+                <td class="text-right strong">{{ totalDueCurrent() | number:'1.2-2' }}</td>
                 <td colspan="2"></td>
             </tr>
         </ng-template>
     </p-table>
 </p-card>
 
-<!-- Section 3: Payment -->
+<!-- Section 3: Upcoming Fees (next months, unselected by default for advance payment) -->
+<p-card header="Upcoming Fees (Future Months)" styleClass="w-full mb-4">
+    <p-table [value]="upcomingFees()" [loading]="loading" dataKey="studentFeeId" [paginator]="true" [rows]="10"
+        [responsiveLayout]="'scroll'" [tableStyle]="{'min-width':'50rem'}">
+        <ng-template pTemplate="header">
+            <tr>
+                <th style="width:2rem"></th>
+                <th>Fee</th>
+                <th class="text-right">Amount</th>
+                <th>Due Date</th>
+                <th>Status</th>
+            </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-row>
+            <tr>
+                <td>
+                    <input type="checkbox"
+                           [checked]="isSelected(row)"
+                           (change)="toggleRow(row)" />
+                </td>
+                <td>
+                    <div class="fee-name">{{ row.feeName }}</div>
+                    <div class="muted small" *ngIf="row.invoiceRef">Ref: {{ row.invoiceRef }}</div>
+                </td>
+                <td class="text-right">{{ row.amount | number:'1.2-2' }}</td>
+                <td>{{ row.dueDate ? (row.dueDate | date:'dd MMM yyyy') : '-' }}</td>
+                <td>
+                    <p-tag [value]="row.status" [severity]="statusSeverity(row)"></p-tag>
+                </td>
+            </tr>
+        </ng-template>
+
+        <ng-template pTemplate="footer">
+            <tr>
+                <td colspan="2" class="text-right">Selected Total (Upcoming):</td>
+                <td class="text-right strong">{{ totalUpcoming() | number:'1.2-2' }}</td>
+                <td colspan="2"></td>
+            </tr>
+        </ng-template>
+
+        <ng-template pTemplate="emptymessage">
+            <tr>
+                <td colspan="5" class="text-center py-4 text-gray-500">
+                    No upcoming fees available
+                </td>
+            </tr>
+        </ng-template>
+    </p-table>
+    <small class="muted">Advance payment: You can select upcoming fees to pay in advance</small>
+</p-card>
+
+<!-- Section 4: Payment -->
 <p-card header="Payment" styleClass="w-full sticky-card">
     <form (ngSubmit)="pay()" class="form-grid">
         <div class="form-row">
@@ -107,7 +156,7 @@
         <div class="form-row">
             <label for="amount">Amount</label>
             <p-inputNumber inputId="amount" [(ngModel)]="payment.amount" name="amount" mode="currency" currency="INR"
-                locale="en-IN" [min]="0" class="w-full"></p-inputNumber>
+                locale="en-IN" [min]="0" class="w-full" (ngModelChange)="onAmountChange($event)"></p-inputNumber>
         </div>
         <div class="form-row">
             <label for="ref">Reference</label>
@@ -122,7 +171,7 @@
         <div class="form-row">
             <label for="discount">Additional Discount</label>
             <p-inputNumber inputId="discount" [(ngModel)]="payment.discountDelta" name="discount" mode="currency"
-                currency="INR" locale="en-IN" [min]="0" class="w-full"></p-inputNumber>
+                currency="INR" locale="en-IN" [min]="0" [max]="payment.amount" class="w-full" (ngModelChange)="onDiscountChange($event)"></p-inputNumber>
             <small class="muted">Optional one-time discount applied proportionally.</small>
         </div>
         <div class="form-row">

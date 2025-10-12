@@ -14,7 +14,7 @@ import { TagModule } from 'primeng/tag';
 import { MessageService } from 'primeng/api';
 import { StudentsService } from '../../services/students.service';
 import { Student } from '../../model/student.model';
-import { StudentFeesService, StudentFeeLedgerRow } from '../services/student-fees.service';
+import { StudentFeesService, StudentFeeLedgerEntry, PaymentRequest } from '../services/student-fees.service';
 import { AcademicYearService } from '../../services/academic-year.service';
 import { firstValueFrom } from 'rxjs';
 
@@ -43,17 +43,15 @@ export class CollectFees implements OnInit {
   studentInput: Student | null = null;
   studentSuggestions: Student[] = [];
   selectedStudentId: number | null = null;
-  dues = signal<StudentFeeLedgerRow[]>([]);
+  dues = signal<StudentFeeLedgerEntry[]>([]); // current month pending dues
+  upcomingFees = signal<StudentFeeLedgerEntry[]>([]); // future months fees (unselected by default)
   // Selection is client-only; use string keys so rows without IDs can be toggled
   selection = signal<Set<string>>(new Set());
 
-  // Month picker (for search context only)
-  selectedMonth: Date = new Date();
+  // Current month (auto-set, no UI picker)
+  currentMonth: Date = new Date();
   ayStart: Date | null = null;
   ayEnd: Date | null = null;
-  // Date range constraints for academic year (used by the month picker)
-  minDate: Date | null = null;
-  maxDate: Date | null = null;
 
   // Payment form
   payment = {
@@ -73,37 +71,71 @@ export class CollectFees implements OnInit {
 
   // Computed totals
   selectedRows = computed(() => {
-    return this.dues().filter(d => this.isSelected(d));
+    const selected = this.selection();
+    const allRows = [...this.dues(), ...this.upcomingFees()];
+    return allRows.filter(row => {
+      const key = this.rowKey(row);
+      return !!(key && selected.has(key));
+    });
   });
-  totalDue = computed(() => this.selectedRows().reduce((sum, r) => sum + (r.Outstanding ?? 0), 0));
+  totalDue = computed(() => this.selectedRows().reduce((sum, r) => sum + (r.outstanding ?? 0), 0));
+
+  // Selected rows per table (so UI can show per-table totals)
+  selectedCurrentRows = computed(() => {
+    const selected = this.selection();
+    return this.dues().filter(row => {
+      const k = this.rowKey(row);
+      return !!(k && selected.has(k));
+    });
+  });
+  totalDueCurrent = computed(() => this.selectedCurrentRows().reduce((s, r) => s + (r.outstanding ?? 0), 0));
+
+  selectedUpcomingRows = computed(() => {
+    const selected = this.selection();
+    return this.upcomingFees().filter(row => {
+      const k = this.rowKey(row);
+      return !!(k && selected.has(k));
+    });
+  });
+  totalUpcoming = computed(() => this.selectedUpcomingRows().reduce((s, r) => s + (r.outstanding ?? 0), 0));
 
   // Selection helpers
-  private isPayable(r: StudentFeeLedgerRow): boolean { return (r.Outstanding ?? 0) > 0; }
+  private isPayable(r: StudentFeeLedgerEntry): boolean { return (r.outstanding ?? 0) > 0; }
   allSelected = computed(() => {
     const eligible = this.dues().filter(r => this.isPayable(r));
     if (!eligible.length) return false;
     return eligible.every(r => this.isSelected(r));
   });
   private getYearMonth(d: Date): { y: number; m: number } { return { y: d.getFullYear(), m: d.getMonth() + 1 }; }
-
-  // Build a stable client-side key for selection
-  private rowKey(r: StudentFeeLedgerRow): string | null {
-    if (!this.isPayable(r)) return null;
-    if (r.StudentFeeID) return `sf:${r.StudentFeeID}`;
-    const { y, m } = this.getYearMonth(this.selectedMonth);
-    const mm = String(m).padStart(2, '0');
-    return `fee:${r.FeeID}:${y}-${mm}`;
+  private deriveYearMonthForRow(row: StudentFeeLedgerEntry): { y: number; m: number } {
+    if (row.dueDate) {
+      const due = new Date(row.dueDate);
+      if (!Number.isNaN(due.getTime())) {
+        return { y: due.getFullYear(), m: due.getMonth() + 1 };
+      }
+    }
+    return this.getYearMonth(this.currentMonth);
   }
 
-  statusSeverity(row: StudentFeeLedgerRow): 'success' | 'info' | 'warning' | 'danger' | undefined {
-    const status = (row.Status || '').toLowerCase();
+  // Build a stable client-side key for selection
+  private rowKey(r: StudentFeeLedgerEntry): string | null {
+    if (!this.isPayable(r)) return null;
+    if (r.studentFeeId) return `sf:${r.studentFeeId}`;
+    if (!r.feeId) return null;
+    const target = this.deriveYearMonthForRow(r);
+    const mm = String(target.m).padStart(2, '0');
+    return `fee:${r.feeId}:${target.y}-${mm}`;
+  }
+
+  statusSeverity(row: StudentFeeLedgerEntry): 'success' | 'info' | 'warning' | 'danger' | undefined {
+    const status = (row.status || '').toLowerCase();
     if (status === 'paid') return 'success';
     if (status === 'partial') return 'warning';
     if (status === 'overdue') return 'danger';
     return 'info';
   }
 
-  isSelected(r: StudentFeeLedgerRow): boolean {
+  isSelected(r: StudentFeeLedgerEntry): boolean {
     const k = this.rowKey(r);
     return !!(k && this.selection().has(k));
   }
@@ -113,10 +145,6 @@ export class CollectFees implements OnInit {
     const fallback = this.computeAcademicYearBounds(this.today);
     this.ayStart = fallback.start;
     this.ayEnd = fallback.end;
-    // initialize min/max with fallback; API may override
-    this.minDate = this.ayStart;
-    this.maxDate = this.ayEnd;
-    this.ensureSelectedMonthInRange();
     this.loadAcademicYearConstraints();
   }
 
@@ -138,7 +166,8 @@ export class CollectFees implements OnInit {
       const academicYears = await firstValueFrom(this.academicYearApi.getAcademicYears());
       const currentAY = academicYears.find(ay => (ay.Status || '').toLowerCase() === 'active');
       if (currentAY?.StartDate && currentAY?.EndDate) {
-        this.setAcademicYearBounds(new Date(currentAY.StartDate), new Date(currentAY.EndDate));
+        this.ayStart = new Date(currentAY.StartDate);
+        this.ayEnd = new Date(currentAY.EndDate);
         return;
       }
     } catch (error) {
@@ -146,27 +175,9 @@ export class CollectFees implements OnInit {
     }
     if (!this.ayStart || !this.ayEnd) {
       const { start, end } = this.computeAcademicYearBounds(this.today);
-      this.setAcademicYearBounds(start, end);
+      this.ayStart = start;
+      this.ayEnd = end;
     }
-    // setAcademicYearBounds already applied fallback and clamping
-  }
-
-  // Helper: set academic year start/end and the datepicker min/max, and clamp selectedMonth
-  private setAcademicYearBounds(start: Date, end: Date) {
-    this.ayStart = start;
-    this.ayEnd = end;
-    this.minDate = start;
-    this.maxDate = end;
-    if (this.selectedMonth < this.minDate) this.selectedMonth = new Date(this.minDate);
-    if (this.selectedMonth > this.maxDate) this.selectedMonth = new Date(this.maxDate);
-  }
-
-  private ensureSelectedMonthInRange() {
-    if (!this.selectedMonth) return;
-    const min = this.minDate || this.ayStart;
-    const max = this.maxDate || this.ayEnd;
-    if (min && this.selectedMonth < min) this.selectedMonth = new Date(min);
-    if (max && this.selectedMonth > max) this.selectedMonth = new Date(max);
   }
 
   private loadStudents() {
@@ -202,27 +213,56 @@ export class CollectFees implements OnInit {
     this.selectedStudentId = null;
     this.selection.set(new Set());
     this.dues.set([]);
+    this.upcomingFees.set([]);
   }
 
   onStudentChange() {
     this.selection.set(new Set());
     this.dues.set([]);
+    this.upcomingFees.set([]);
     if (!this.selectedStudentId) return;
     this.loading = true;
-    // If a month is explicitly selected (user changed month), fetch monthly plan; otherwise fetch dues.
-    const isMonthSet = !!this.selectedMonth;
-    const load$ = isMonthSet ? this.feesApi.getMonthly(this.selectedStudentId, this.selectedMonth) : this.feesApi.getDues(this.selectedStudentId);
-    load$.subscribe({
-      next: (rows: StudentFeeLedgerRow[]) => { this.dues.set(rows || []); this.loading = false; this.autoSelectAll(); this.recalcDefaultAmount(); },
-      error: () => { this.loading = false; this.toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to load dues' }); }
-    });
-  }
 
-  onMonthChange() {
-    // When the month changes explicitly, fetch the monthly plan for the selected month.
-    // Clamp selection inside academic year
-    this.ensureSelectedMonthInRange();
-    if (this.selectedStudentId) this.onStudentChange();
+    this.feesApi.getPlan(this.selectedStudentId, this.currentMonth).subscribe({
+      next: plan => {
+        try {
+          const reference = new Date(plan.meta.referenceYear, plan.meta.referenceMonth - 1, 1);
+          if (!Number.isNaN(reference.getTime())) {
+            this.currentMonth = reference;
+          }
+          if (plan.meta.academicYearStart) {
+            const start = new Date(plan.meta.academicYearStart);
+            if (!Number.isNaN(start.getTime())) this.ayStart = start;
+          }
+          if (plan.meta.academicYearEnd) {
+            const end = new Date(plan.meta.academicYearEnd);
+            if (!Number.isNaN(end.getTime())) this.ayEnd = end;
+          }
+
+          const current = (plan.current ?? []).filter(r => (r.outstanding ?? 0) > 0);
+          const upcoming = (plan.upcoming ?? []).filter(r => (r.outstanding ?? 0) > 0);
+
+          this.dues.set(current);
+          this.upcomingFees.set(upcoming);
+
+          this.autoSelectAll();
+          this.recalcDefaultAmount();
+
+          if (!current.length && !upcoming.length) {
+            this.toast.add({ severity: 'info', summary: 'No dues', detail: 'No pending or upcoming fees found for selected student' });
+          }
+        } catch (error) {
+          console.error('Error processing student fee plan', error);
+          this.toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to process student fee plan' });
+        } finally {
+          this.loading = false;
+        }
+      },
+      error: () => {
+        this.loading = false;
+        this.toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to load student fee plan' });
+      }
+    });
   }
 
   autoSelectAll() {
@@ -235,7 +275,7 @@ export class CollectFees implements OnInit {
     this.selection.set(s);
   }
 
-  async toggleRow(row: StudentFeeLedgerRow) {
+  async toggleRow(row: StudentFeeLedgerEntry) {
     if (!this.isPayable(row)) return;
     const k = this.rowKey(row);
     if (!k) return;
@@ -277,6 +317,35 @@ export class CollectFees implements OnInit {
     return Number(Math.max(0, val).toFixed(2));
   }
 
+  onAmountChange(val: number) {
+    const amount = Number(val || 0);
+    this.payment.amount = Number(amount.toFixed(2));
+    // If discount is now more than amount, cap and warn
+    if (Number(this.payment.discountDelta || 0) > amount) {
+      this.payment.discountDelta = Number(amount.toFixed(2));
+      this.toast.add({ severity: 'warn', summary: 'Discount adjusted', detail: 'Additional discount cannot exceed payment amount; it has been reduced.' });
+    }
+  }
+
+  onDiscountChange(val: number) {
+    const disc = Number(val || 0);
+    const amount = Number(this.payment.amount || 0);
+    const totalDue = Number(this.totalDue() || 0);
+    // Prevent discount > amount
+    if (disc > amount) {
+      this.payment.discountDelta = Number(amount.toFixed(2));
+      this.toast.add({ severity: 'warn', summary: 'Invalid discount', detail: 'Additional discount cannot be greater than payment amount; value adjusted.' });
+      return;
+    }
+    // Also prevent discount being more than total selected due
+    if (disc > totalDue) {
+      this.payment.discountDelta = Number(totalDue.toFixed(2));
+      this.toast.add({ severity: 'warn', summary: 'Invalid discount', detail: 'Additional discount cannot exceed total selected due; value adjusted.' });
+      return;
+    }
+    this.payment.discountDelta = Number(disc.toFixed(2));
+  }
+
   pay() {
     if (!this.selectedStudentId) { this.toast.add({ severity: 'warn', summary: 'Select student', detail: 'Please select a student' }); return; }
     const rows = this.selectedRows();
@@ -284,48 +353,85 @@ export class CollectFees implements OnInit {
     const toPay = Number(this.payment.amount || 0);
     if (toPay <= 0) { this.toast.add({ severity: 'warn', summary: 'Enter amount', detail: 'Payment amount must be greater than 0' }); return; }
 
-    // Strategy: ensure StudentFeeID exists for each selected row, then distribute payment oldest to newest with at most one call per row
+    // Strategy: ensure studentFeeId exists for each selected row, then distribute payment oldest to newest with at most one call per row
     const dateStr = this.formatDate(this.payment.date);
     const ref = this.payment.reference?.trim() || undefined;
     const mode = this.payment.mode;
     const discountDelta = this.payment.discountDelta || undefined;
 
-    const ensureMissing = async (): Promise<Map<number, StudentFeeLedgerRow>> => {
-      const map = new Map<number, StudentFeeLedgerRow>();
-      const ym = this.getYearMonth(this.selectedMonth);
-      // Collect missing
-      const missing = rows.filter(r => !r.StudentFeeID && r.FeeID && this.selectedStudentId).map(r => ({ row: r, payload: { FeeID: r.FeeID!, Year: ym.y, Month: ym.m } }));
+    const ensureMissing = async (): Promise<Map<number, StudentFeeLedgerEntry>> => {
+      const map = new Map<number, StudentFeeLedgerEntry>();
+      const missing = rows
+        .filter(r => (!r.studentFeeId || r.studentFeeId <= 0) && !!r.feeId && !!this.selectedStudentId)
+        .map(r => {
+          const target = this.deriveYearMonthForRow(r);
+          return { row: r, payload: { feeId: r.feeId!, year: target.y, month: target.m } };
+        });
+
       if (missing.length) {
         try {
-          const resp = await this.feesApi.ensureMonthlyBatch(this.selectedStudentId!, missing.map(m => m.payload)).toPromise();
-          const created = new Map<number, number>(); // FeeID -> StudentFeeID (for this month per fee)
-          for (const it of (resp?.items || [])) {
-            if (it.StudentFeeID > 0) created.set(it.FeeID, it.StudentFeeID);
+          const resp = await this.feesApi
+            .ensureMonthlyBatch(this.selectedStudentId!, missing.map(m => m.payload))
+            .toPromise();
+          // Map created rows by feeId:year-month so multiple months for same fee are distinct
+          const created = new Map<string, number>(); // 'feeId:YYYY-MM' -> studentFeeId
+          for (const it of resp?.items ?? []) {
+            if (it.studentFeeId > 0) {
+              const key = `${it.feeId}:${it.year}-${String(it.month).padStart(2, '0')}`;
+              created.set(key, it.studentFeeId);
+            }
           }
           for (const m of missing) {
-            const sid = created.get(m.payload.FeeID);
-            if (sid && sid > 0) { (m.row as any).StudentFeeID = sid; map.set(sid, m.row); }
+            const payloadKey = `${m.payload.feeId}:${m.payload.year}-${String(m.payload.month).padStart(2, '0')}`;
+            const sid = created.get(payloadKey);
+            if (sid && sid > 0) {
+              // Preserve UI selection: replace fee:<YM> key with sf:<studentFeeId>
+              try {
+                const oldKey = `fee:${payloadKey}`;
+                const s = new Set(this.selection());
+                if (s.has(oldKey)) {
+                  s.delete(oldKey);
+                  s.add(`sf:${sid}`);
+                  this.selection.set(s);
+                }
+              } catch (e) {
+                // ignore selection update failures
+              }
+              m.row.studentFeeId = sid;
+              map.set(sid, m.row);
+            }
           }
-        } catch { /* ignore */ }
+        } catch {
+          // Ignore ensure errors; fallback to rows that already have IDs
+        }
       }
-      // Also include any rows that already had StudentFeeID
-      for (const r of rows) { if (r.StudentFeeID && r.StudentFeeID > 0) map.set(r.StudentFeeID, r); }
+
+      for (const r of rows) {
+        if (r.studentFeeId && r.studentFeeId > 0) {
+          map.set(r.studentFeeId, r);
+        }
+      }
+
       return map;
     };
 
     const buildAndPay = async (): Promise<boolean[]> => {
       const idMap = await ensureMissing();
       // Sort by due date, oldest first
-      const sorted = [...idMap.values()].sort((a,b) => (new Date(a.DueDate || this.today).getTime()) - (new Date(b.DueDate || this.today).getTime()));
+      const sorted = [...idMap.values()].sort((a, b) => {
+        const aDate = a.dueDate ? new Date(a.dueDate) : this.today;
+        const bDate = b.dueDate ? new Date(b.dueDate) : this.today;
+        return aDate.getTime() - bDate.getTime();
+      });
       let remaining = toPay;
       let remainingDiscount = Number((discountDelta || 0).toFixed(2));
-      const totalSelectedDue = sorted.reduce((s, r) => s + Number(r.Outstanding || 0), 0);
-      const batch: { StudentFeeID: number, PaidAmount: number, Mode: 'Cash'|'Cheque'|'UPI', TransactionRef?: string, PaymentDate?: string, DiscountDelta?: number }[] = [];
+      const totalSelectedDue = sorted.reduce((s, r) => s + Number(r.outstanding ?? 0), 0);
+      const batch: PaymentRequest[] = [];
       for (let i = 0; i < sorted.length; i++) {
         const r = sorted[i];
-        if (!r.StudentFeeID || r.StudentFeeID <= 0) continue;
+        if (!r.studentFeeId || r.studentFeeId <= 0) continue;
         if (remaining <= 0 && remainingDiscount <= 0) break;
-        const need = Number((r.Outstanding ?? 0));
+        const need = Number(r.outstanding ?? 0);
         if (need <= 0) continue;
         // Discount share
         let share = 0;
@@ -342,7 +448,14 @@ export class CollectFees implements OnInit {
         const payNow = Math.min(effectiveNeed, remaining);
         remaining = Number((remaining - payNow).toFixed(2));
         if (payNow > 0 || share > 0) {
-          batch.push({ StudentFeeID: r.StudentFeeID, PaidAmount: payNow, Mode: mode, TransactionRef: ref, PaymentDate: dateStr, DiscountDelta: share || undefined });
+          batch.push({
+            studentFeeId: r.studentFeeId,
+            paidAmount: payNow,
+            mode,
+            transactionRef: ref,
+            paymentDate: dateStr,
+            discountDelta: share || undefined
+          });
         }
       }
       if (!batch.length) return [];

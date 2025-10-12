@@ -12,8 +12,9 @@ import { MessageService } from 'primeng/api';
 
 import { StudentsService } from '../../services/students.service';
 import { Student } from '../../model/student.model';
-import { StudentFeesService, StudentFeeLedgerRow } from '../services/student-fees.service';
-import { FeeService, FeeWithClassSections } from '../services/fee.service';
+import { StudentFeesService, StudentFeeLedgerEntry } from '../services/student-fees.service';
+import { FeeService } from '../services/fee.service';
+import { Fee } from '../services/fee-management.models';
 import { FeesReceiptDownloadPreview } from '../fees-receipt-download-preview/fees-receipt-download-preview';
 import { UserService } from '@/services/user.service';
 import { USER_ROLES } from '@/pages/common/constant';
@@ -48,16 +49,16 @@ export class FeesReport implements OnInit {
   private feeTypeById = new Map<number, ScheduleType>();
 
   // Paid lists
-  private paidRows = signal<StudentFeeLedgerRow[]>([]);
+  private paidRows = signal<StudentFeeLedgerEntry[]>([]);
   receiptRequest = signal<{ feeId: number; studentId: number; studentFeeId: number; isPreview: boolean; token: number } | null>(null);
-  monthlyPaid = computed(() => this.paidRows().filter(r => this.getType(r.FeeID) === 'Recurring'));
-  onDemandPaid = computed(() => this.paidRows().filter(r => this.getType(r.FeeID) === 'OnDemand'));
-  oneTimePaid = computed(() => this.paidRows().filter(r => this.getType(r.FeeID) === 'OneTime'));
+  monthlyPaid = computed(() => this.paidRows().filter(r => this.getType(r.feeId) === 'Recurring'));
+  onDemandPaid = computed(() => this.paidRows().filter(r => this.getType(r.feeId) === 'OnDemand'));
+  oneTimePaid = computed(() => this.paidRows().filter(r => this.getType(r.feeId) === 'OneTime'));
 
   // Totals
-  totalAmountMonthly = computed(() => this.monthlyPaid().reduce((s, r) => s + Number(r.AmountPaid || 0), 0));
-  totalAmountOnDemand = computed(() => this.onDemandPaid().reduce((s, r) => s + Number(r.AmountPaid || 0), 0));
-  totalAmountOneTime = computed(() => this.oneTimePaid().reduce((s, r) => s + Number(r.AmountPaid || 0), 0));
+  totalAmountMonthly = computed(() => this.monthlyPaid().reduce((s, r) => s + Number(r.amountPaid ?? 0), 0));
+  totalAmountOnDemand = computed(() => this.onDemandPaid().reduce((s, r) => s + Number(r.amountPaid ?? 0), 0));
+  totalAmountOneTime = computed(() => this.oneTimePaid().reduce((s, r) => s + Number(r.amountPaid ?? 0), 0));
 
   ngOnInit(): void {
     this.initializeUserContext();
@@ -96,11 +97,11 @@ export class FeesReport implements OnInit {
   // Load fee schedule types map
   private loadFeeTypes() {
     this.feeService.getFees().subscribe({
-      next: (fees: FeeWithClassSections[]) => {
+      next: (fees: Fee[]) => {
         this.feeTypeById.clear();
         for (const f of fees || []) {
-          const t = (f?.Schedule?.ScheduleType as ScheduleType) || 'Unknown';
-          if (typeof f.FeeID === 'number') this.feeTypeById.set(f.FeeID, t);
+          const t = (f.schedule?.scheduleType as ScheduleType) || 'Unknown';
+          if (typeof f.feeId === 'number') this.feeTypeById.set(f.feeId, t);
         }
       },
       error: () => {
@@ -135,21 +136,12 @@ export class FeesReport implements OnInit {
     this.paidRows.set([]);
   }
 
-  downloadReceipt(row: StudentFeeLedgerRow) {
-    if (!this.selectedStudentId) {
-      this.toast.add({ severity: 'warn', summary: 'Receipt', detail: 'Select a student first.' });
-      return;
-    }
+  downloadReceipt(row: StudentFeeLedgerEntry) {
+    this.triggerReceiptRequest(row, false);
+  }
 
-    const request = {
-      feeId: row.FeeID,
-      studentId: this.selectedStudentId,
-      studentFeeId: row.StudentFeeID,
-      isPreview: false,
-      token: Date.now()
-    };
-    this.receiptRequest.set(null);
-    setTimeout(() => this.receiptRequest.set(request), 0);
+  viewReceipt(row: StudentFeeLedgerEntry) {
+    this.triggerReceiptRequest(row, true);
   }
 
   onReceiptDownloaded() {
@@ -162,13 +154,31 @@ export class FeesReport implements OnInit {
     this.toast.add({ severity: 'error', summary: 'Receipt', detail });
   }
 
+  private triggerReceiptRequest(row: StudentFeeLedgerEntry, isPreview: boolean) {
+    if (!this.selectedStudentId) {
+      this.toast.add({ severity: 'warn', summary: 'Receipt', detail: 'Select a student first.' });
+      return;
+    }
+
+    const request = {
+      feeId: row.feeId,
+      studentId: this.selectedStudentId,
+      studentFeeId: row.studentFeeId,
+      isPreview,
+      token: Date.now()
+    };
+
+    this.receiptRequest.set(null);
+    setTimeout(() => this.receiptRequest.set(request), 0);
+  }
+
   // Fetch and filter only PAID ledger rows for selected student
   private loadPaidLedger() {
     if (!this.selectedStudentId) return;
     this.loading = true;
-    this.feesApi.getLedger(this.selectedStudentId, { include_paid: true, only_due: false }).subscribe({
+    this.feesApi.getLedger(this.selectedStudentId, { includePaid: true, onlyDue: false }).subscribe({
       next: (rows) => {
-        const paid = (rows || []).filter(r => (r.Status || '').toLowerCase() === 'paid');
+        const paid = (rows || []).filter(r => (r.status ?? '').toLowerCase() === 'paid');
         this.paidRows.set(paid);
         this.loading = false;
       },
@@ -189,8 +199,8 @@ export class FeesReport implements OnInit {
   // Util
   formatAmount(n: any): string { return Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
-  statusSeverity(row: StudentFeeLedgerRow): 'success' | 'info' | 'warning' | 'danger' | undefined {
-    const status = (row.Status || '').toLowerCase();
+  statusSeverity(row: StudentFeeLedgerEntry): 'success' | 'info' | 'warning' | 'danger' | undefined {
+    const status = (row.status || '').toLowerCase();
     if (status === 'paid') return 'success';
     if (status === 'partial') return 'warning';
     if (status === 'overdue') return 'danger';

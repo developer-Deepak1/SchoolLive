@@ -54,3 +54,8 @@ label.block{ display:block; }
 	.search-grid{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
+.select-all-button{
+	display: inline-flex;
+    justify-content: space-between;
+    width: 76px;
+}

@@ -1,3 +1,12 @@
+drop table IF EXISTS Tx_student_fee_payments;
+drop table IF EXISTS Tx_student_fees;
+drop table IF EXISTS Tx_fee_group_items;
+drop table IF EXISTS Tx_fee_groups;
+drop table IF EXISTS Tx_fees_schedules;
+drop table IF EXISTS Tx_fee_class_section_mapping;
+drop table IF EXISTS Tx_fine_policies;
+drop table IF EXISTS Tx_fees;
+
 -- -------------------------------------------------------------
 -- 1. Fee Master Table
 -- -------------------------------------------------------------

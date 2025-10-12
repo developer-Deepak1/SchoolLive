@@ -297,7 +297,9 @@ class StudentFeesModel extends Model
                 }
             }
 
-            $amount = $this->resolveMappingAmount((int)$f['FeeID'], $classId, $sectionId);
+            $map = $this->resolveMapping((int)$f['FeeID'], $classId, $sectionId);
+            $amount = $map['amount'];
+            $mappingIdFound = $map['mappingId'] ?? null;
             if ($amount <= 0) continue;
 
             $dueStr = $sfUsed ? ($sfUsed['DueDate'] ?? null) : ($dueDate instanceof \DateTime ? $dueDate->format('Y-m-d') : null);
@@ -310,6 +312,7 @@ class StudentFeesModel extends Model
                 'FeeID' => (int)$f['FeeID'],
                 'FeeName' => $f['FeeName'],
                 'Amount' => $sfUsed ? (float)$sfUsed['Amount'] : (float)$amount,
+                'MappingID' => $sfUsed ? ($sfUsed['MappingID'] ?? null) : $mappingIdFound,
                 'FineAmount' => $sfUsed ? (float)$sfUsed['FineAmount'] : 0.0,
                 'DiscountAmount' => $sfUsed ? (float)$sfUsed['DiscountAmount'] : 0.0,
                 'AmountPaid' => $sfUsed ? (float)$sfUsed['AmountPaid'] : 0.0,
@@ -387,10 +390,12 @@ class StudentFeesModel extends Model
         if (!$due) {
             $due = $monthStart;
         }
-        $amount = $this->resolveMappingAmount($feeId, $classId, $sectionId);
+        $map = $this->resolveMapping($feeId, $classId, $sectionId);
+        $amount = $map['amount'];
+        $mappingIdFound = $map['mappingId'] ?? null;
         if ($amount < 0) $amount = 0.0;
 
-        return $this->assignFee($schoolId, $academicYearId, $studentId, $feeId, $classId, $sectionId, $due->format('Y-m-d'), $amount, null, $createdBy ?: 'System');
+        return $this->assignFee($schoolId, $academicYearId, $studentId, $feeId, $classId, $sectionId, $due->format('Y-m-d'), $amount, $mappingIdFound, $createdBy ?: 'System');
     }
 
     // Compute due date for a month from a fee schedule; null when not applicable
@@ -645,14 +650,34 @@ class StudentFeesModel extends Model
             }
         }
 
+        // Build a set of fees that already have any PAID ledger row for this student
+        $paidSet = [];
+        $feeIdsList = array_values(array_unique(array_map(fn($f) => (int)$f['FeeID'], $applicableFees)));
+        if ($feeIdsList) {
+            $placeholders = implode(',', array_fill(0, count($feeIdsList), '?'));
+            $qPaid = $this->conn->prepare("SELECT DISTINCT FeeID FROM Tx_student_fees WHERE StudentID = ? AND FeeID IN ($placeholders) AND Status = 'Paid'");
+            $i = 1;
+            $qPaid->bindValue($i++, $studentId, PDO::PARAM_INT);
+            foreach ($feeIdsList as $fid) { $qPaid->bindValue($i++, $fid, PDO::PARAM_INT); }
+            $qPaid->execute();
+            while ($r = $qPaid->fetch(PDO::FETCH_ASSOC)) { $paidSet[(int)$r['FeeID']] = true; }
+        }
+
         $today = new \DateTime('today');
         $synthetic = [];
         foreach ($applicableFees as $fee) {
             $feeId = isset($fee['FeeID']) ? (int)$fee['FeeID'] : 0;
             if ($feeId <= 0) continue;
+            // If fee already has any PAID ledger entry for this student, don't synthesize further dues
+            // but allow recurring fees to still generate upcoming months even if some months were paid
+            $scheduleType = isset($fee['ScheduleType']) ? strtolower((string)$fee['ScheduleType']) : null;
+            if (!empty($paidSet[$feeId]) && $scheduleType !== 'recurring') continue;
+
             if (!empty($existingOutstanding[$feeId])) continue;
 
-            $amount = $this->resolveMappingAmount($feeId, $classId, $sectionId);
+            $map = $this->resolveMapping($feeId, $classId, $sectionId);
+            $amount = $map['amount'];
+            $mappingIdFound = $map['mappingId'] ?? null;
             if ($amount <= 0) continue;
 
             $type = $fee['ScheduleType'] ?? null;
@@ -683,6 +708,9 @@ class StudentFeesModel extends Model
                             // if existing row has outstanding > epsilon, we'll not synthesize (existingOutstanding covers it)
                         } else {
                             $dueStr = $due->format('Y-m-d');
+                            $map = $this->resolveMapping($feeId, $classId, $sectionId);
+                            $amount = $map['amount'];
+                            $mappingIdFound = $map['mappingId'] ?? null;
                             $fine = $this->computeFineFromPolicies($policies['byFee'][$feeId] ?? [], $policies['global'], $dueStr, (float)$amount);
                             $totalDue = (float)$amount + $fine;
                             $outstanding = max(0.0, round($totalDue, 2));
@@ -694,7 +722,7 @@ class StudentFeesModel extends Model
                                     'FeeID' => $feeId,
                                     'FeeName' => $fee['FeeName'] ?? '',
                                     'ScheduleType' => $fee['ScheduleType'] ?? null,
-                                    'MappingID' => null,
+                                    'MappingID' => $mappingIdFound,
                                     'Amount' => (float)$amount,
                                     'FineAmount' => $fine,
                                     'DiscountAmount' => 0.0,
@@ -735,7 +763,7 @@ class StudentFeesModel extends Model
                 'StudentID' => $studentId,
                 'FeeID' => $feeId,
                 'FeeName' => $fee['FeeName'] ?? '',
-                'MappingID' => null,
+                'MappingID' => $mappingIdFound,
                 'Amount' => (float)$amount,
                 'FineAmount' => $fine,
                 'DiscountAmount' => 0.0,
@@ -1001,5 +1029,45 @@ class StudentFeesModel extends Model
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($row && $row['Amount'] !== null) return (float)$row['Amount'];
         return 0.0;
+    }
+
+    /**
+     * Resolve mapping amount and mapping id for a fee given class/section.
+     * Returns ['amount' => float, 'mappingId' => ?int]
+     */
+    private function resolveMapping(int $feeId, ?int $classId, ?int $sectionId): array
+    {
+        // Try exact class+section
+        if ($classId && $sectionId) {
+            $sql = "SELECT MappingID, Amount FROM Tx_fee_class_section_mapping WHERE FeeID = :FeeID AND ClassID = :ClassID AND SectionID = :SectionID AND IsActive = 1 LIMIT 1";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->bindValue(':FeeID', $feeId, PDO::PARAM_INT);
+            $stmt->bindValue(':ClassID', $classId, PDO::PARAM_INT);
+            $stmt->bindValue(':SectionID', $sectionId, PDO::PARAM_INT);
+            $stmt->execute();
+            $r = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($r && $r['Amount'] !== null) return ['amount' => (float)$r['Amount'], 'mappingId' => isset($r['MappingID']) ? (int)$r['MappingID'] : null];
+        }
+
+        // Try class-level mapping (SectionID NULL or 0)
+        if ($classId) {
+            $sql = "SELECT MappingID, Amount FROM Tx_fee_class_section_mapping WHERE FeeID = :FeeID AND ClassID = :ClassID AND (SectionID IS NULL OR SectionID = 0) AND IsActive = 1 LIMIT 1";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->bindValue(':FeeID', $feeId, PDO::PARAM_INT);
+            $stmt->bindValue(':ClassID', $classId, PDO::PARAM_INT);
+            $stmt->execute();
+            $r = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($r && $r['Amount'] !== null) return ['amount' => (float)$r['Amount'], 'mappingId' => isset($r['MappingID']) ? (int)$r['MappingID'] : null];
+        }
+
+        // Fallback: any active mapping (pick minimum amount)
+        $sql = "SELECT MappingID, Amount FROM Tx_fee_class_section_mapping WHERE FeeID = :FeeID AND IsActive = 1 ORDER BY Amount ASC LIMIT 1";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindValue(':FeeID', $feeId, PDO::PARAM_INT);
+        $stmt->execute();
+        $r = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($r && $r['Amount'] !== null) return ['amount' => (float)$r['Amount'], 'mappingId' => isset($r['MappingID']) ? (int)$r['MappingID'] : null];
+
+        return ['amount' => 0.0, 'mappingId' => null];
     }
 }

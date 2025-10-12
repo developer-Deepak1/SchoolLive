@@ -22,20 +22,26 @@ import { ClassesService } from '../../services/classes.service';
 import { SectionsService } from '../../services/sections.service';
 import { AcademicYearService } from '../../services/academic-year.service';
 import { UserService } from '@/services/user.service';
-import { FeeService, FeeData as ApiFeeData, FeeWithClassSections } from '../services/fee.service';
+import { FeeService } from '../services/fee.service';
+import {
+  ClassSectionMapping,
+  Fee,
+  FeeRequestPayload,
+  FeeSchedule,
+  ScheduleType
+} from '../services/fee-management.models';
 import { Classes, Section } from '../../model/classes.model';
 
 // Local UI-only interfaces
 
 interface ScheduleData {
-  scheduleType: string;
-  intervalMonths?: number;
-  dayOfMonth?: number;
-  // PrimeNG datepicker works with Date objects; accept either Date or ISO string
-  startDate?: Date | string;
-  endDate?: Date | string;
-  nextDueDate?: Date | string;
-  reminderDaysBefore?: number;
+  scheduleType: ScheduleType;
+  intervalMonths?: number | null;
+  dayOfMonth?: number | null;
+  startDate?: Date | string | null;
+  endDate?: Date | string | null;
+  nextDueDate?: Date | string | null;
+  reminderDaysBefore?: number | null;
 }
 
 interface ClassSection {
@@ -46,6 +52,12 @@ interface ClassSection {
   amount: number | string;
   mappingId?: number;
   selected: boolean;
+}
+
+interface FeeDraft {
+  feeId?: number;
+  feeName: string;
+  isActive: boolean;
 }
 
 @Component({
@@ -79,18 +91,21 @@ export class FeesCreate implements OnInit {
   private academicYearService = inject(AcademicYearService);
   private userService = inject(UserService);
 
-  // Form Data (DB-native names for API)
-  feeData: ApiFeeData = {
-    FeeName: '',
-    IsActive: true,
-    Schedule: null,
-    ClassSectionMapping: []
+  // Form Data aligned with new fee management models
+  feeDraft: FeeDraft = {
+    feeName: '',
+    isActive: true
   };
 
   // Schedule data for new schema
   scheduleData: ScheduleData = {
     scheduleType: 'OneTime',
-    reminderDaysBefore: 5
+    reminderDaysBefore: 5,
+    intervalMonths: null,
+    dayOfMonth: null,
+    startDate: null,
+    endDate: null,
+    nextDueDate: null
   };
 
   // Options for dropdowns
@@ -119,9 +134,9 @@ export class FeesCreate implements OnInit {
   classSections: ClassSection[] = [];
 
   // Fee Management
-  allFees: FeeWithClassSections[] = [];
-  activeFees: FeeWithClassSections[] = [];
-  inactiveFees: FeeWithClassSections[] = [];
+  allFees: Fee[] = [];
+  activeFees: Fee[] = [];
+  inactiveFees: Fee[] = [];
   activeTabIndex = 0;
 
   // UI State
@@ -265,8 +280,8 @@ export class FeesCreate implements OnInit {
   }
 
   updateFeeArrays() {
-    this.activeFees = this.allFees.filter(fee => !!fee.IsActive);
-    this.inactiveFees = this.allFees.filter(fee => !fee.IsActive);
+    this.activeFees = this.allFees.filter(fee => !!fee.isActive);
+    this.inactiveFees = this.allFees.filter(fee => !fee.isActive);
   }
 
   selectAllClassSections() {
@@ -340,25 +355,7 @@ export class FeesCreate implements OnInit {
   }
 
   async onSubmit() {
-    // Ensure scheduleData is synced into feeData.schedule before validation
-    // Coerce numeric fields to numbers because some UI components may provide strings
-    // Merge top-level startDate/endDate (bound in template) as fallback for schedule
-    this.feeData.Schedule = {
-      ScheduleType: this.scheduleData.scheduleType,
-      IntervalMonths: this.scheduleData.intervalMonths !== undefined && this.scheduleData.intervalMonths !== null
-        ? Number(this.scheduleData.intervalMonths)
-        : undefined,
-      DayOfMonth: this.scheduleData.dayOfMonth !== undefined && this.scheduleData.dayOfMonth !== null
-        ? Number(this.scheduleData.dayOfMonth)
-        : undefined,
-  // Always send date-only strings (YYYY-MM-DD) to avoid timezone shifts; treat dates as IST calendar days
-  StartDate: this.formatAsDateOnly(this.scheduleData.startDate),
-  EndDate: this.formatAsDateOnly(this.scheduleData.endDate),
-      NextDueDate: this.formatAsDateOnly(this.scheduleData.nextDueDate),
-      ReminderDaysBefore: this.scheduleData.reminderDaysBefore !== undefined && this.scheduleData.reminderDaysBefore !== null
-        ? Number(this.scheduleData.reminderDaysBefore)
-        : undefined
-    };
+    const schedule = this.buildSchedulePayload();
 
     if (!this.isFormValid()) {
       this.messageService.add({
@@ -372,77 +369,19 @@ export class FeesCreate implements OnInit {
     this.isLoading = true;
 
     try {
-      // Get selected class/section combinations
-      const selectedClassSections = this.classSections.filter(cs => cs.selected);
-      const classSectionMapping = selectedClassSections.map(cs => {
-        // Normalize amount: accept numbers, numeric strings, or currency formatted strings (e.g. "₹1,200.50")
-        const raw: number | string | null = (cs.amount !== undefined && cs.amount !== null) ? cs.amount as any : null;
-        let amount: number | null = null;
-
-        if (raw !== null && raw !== undefined && raw !== '') {
-          if (typeof raw === 'number') {
-            amount = raw;
-          } else if (typeof raw === 'string') {
-            // Strip anything that's not digit, dot, or minus sign
-            const cleaned = raw.replace(/[^0-9.\-]/g, '');
-            const parsed = cleaned === '' ? NaN : Number(cleaned);
-            amount = Number.isNaN(parsed) ? null : parsed;
-          } else {
-            // Fallback for other types
-            const parsed = Number(raw as any);
-            amount = Number.isNaN(parsed) ? null : parsed;
-          }
-        }
-
-        // When amount is null, backend expects null (not 0) for unspecified amounts; but keep 0 if user explicitly set 0
-        // Build mapping payload using DB-native keys
-        const mapping: any = {
-          ClassID: cs.classId,
-          SectionID: cs.sectionId,
-          Amount: amount
-        };
-
-        if ((cs as any).mappingId) mapping.MappingID = (cs as any).mappingId;
-
-        return mapping;
-      });
-
-      // Convert FeeData to ApiFeeData
-      const apiFeeData: ApiFeeData = {
-        FeeID: this.editMode ? this.editingFeeId : undefined,
-        FeeName: this.feeData.FeeName,
-        IsActive: this.feeData.IsActive,
-        ClassSectionMapping: classSectionMapping,
-        Schedule: this.feeData.Schedule
+      const payload: FeeRequestPayload = {
+        feeName: this.feeDraft.feeName.trim(),
+        isActive: this.feeDraft.isActive,
+        schedule,
+        classSectionMappings: this.buildClassSectionMappings()
       };
 
-      // Ensure OnDemand explicitly sends IntervalMonths and DayOfMonth as null (DB expects null)
-      if (apiFeeData.Schedule && apiFeeData.Schedule.ScheduleType === 'OnDemand') {
-        (apiFeeData.Schedule as any).IntervalMonths = null;
-        (apiFeeData.Schedule as any).DayOfMonth = null;
-      }
-
-      // For OneTime also clear recurrence fields
-      if (apiFeeData.Schedule && apiFeeData.Schedule.ScheduleType === 'OneTime') {
-        (apiFeeData.Schedule as any).IntervalMonths = null;
-        (apiFeeData.Schedule as any).DayOfMonth = null;
-      }
-
-      // For Recurring schedules explicitly set StartDate/EndDate to null (DB expects null when not applicable)
-      if (apiFeeData.Schedule && apiFeeData.Schedule.ScheduleType === 'Recurring') {
-        (apiFeeData.Schedule as any).StartDate = null;
-        (apiFeeData.Schedule as any).EndDate = null;
-      }
-
-  // Include startDate/endDate only when relevant (already formatted as YYYY-MM-DD)
-  // No extra top-level dates; all dates are within Schedule using DB-native names
-
-      let result: FeeWithClassSections | null;
+      let result: Fee | null;
 
       if (this.editMode && this.editingFeeId) {
-        result = await this.feeService.updateFee(apiFeeData).toPromise() || null;
+        result = (await this.feeService.updateFee(this.editingFeeId, payload).toPromise()) ?? null;
       } else {
-        result = await this.feeService.createFee(apiFeeData).toPromise() || null;
+        result = (await this.feeService.createFee(payload).toPromise()) ?? null;
       }
 
       if (result) {
@@ -471,50 +410,47 @@ export class FeesCreate implements OnInit {
     }
   }
 
-  editFee(fee: FeeWithClassSections) {
-    if (!fee.FeeID) return;
+  editFee(fee: Fee) {
+    if (!fee.feeId) return;
 
     this.editMode = true;
-    this.editingFeeId = fee.FeeID;
+    this.editingFeeId = fee.feeId;
     
-    // Use the fee data that's already available (no need for additional API call)
-    this.feeData = {
-      FeeID: fee.FeeID,
-      FeeName: fee.FeeName,
-      IsActive: !!fee.IsActive,
-      Schedule: fee.Schedule ?? null,
-      ClassSectionMapping: fee.ClassSectionMapping ?? []
+    this.feeDraft = {
+      feeId: fee.feeId,
+      feeName: fee.feeName,
+      isActive: fee.isActive
     };
 
-    // Populate local scheduleData so the template controls for Recurring/OnDemand show current values
-    const sched = fee.Schedule || {} as any;
+    const sched = fee.schedule ?? null;
     this.scheduleData = {
-      scheduleType: sched.ScheduleType ?? sched.scheduleType ?? 'OneTime',
-      intervalMonths: sched.IntervalMonths !== undefined && sched.IntervalMonths !== null ? Number(sched.IntervalMonths) : undefined,
-      dayOfMonth: sched.DayOfMonth !== undefined && sched.DayOfMonth !== null ? Number(sched.DayOfMonth) : undefined,
-      startDate: this.parseDate(sched.StartDate ?? sched.startDate),
-      endDate: this.parseDate(sched.EndDate ?? sched.endDate),
-      nextDueDate: this.parseDate(sched.NextDueDate ?? sched.nextDueDate),
-      reminderDaysBefore: sched.ReminderDaysBefore !== undefined && sched.ReminderDaysBefore !== null ? Number(sched.ReminderDaysBefore) : 5
+      scheduleType: sched?.scheduleType ?? 'OneTime',
+      intervalMonths: sched?.intervalMonths ?? null,
+      dayOfMonth: sched?.dayOfMonth ?? null,
+      startDate: this.parseDate(sched?.startDate ?? undefined) ?? null,
+      endDate: this.parseDate(sched?.endDate ?? undefined) ?? null,
+      nextDueDate: this.parseDate(sched?.nextDueDate ?? undefined) ?? null,
+      reminderDaysBefore: sched?.reminderDaysBefore ?? 5
     };
 
     // Reset all class sections to unselected first
     this.classSections.forEach(cs => {
       cs.selected = false;
       cs.amount = 0;
+      cs.mappingId = undefined;
     });
 
     // If fee has classSections data, map the amounts correctly using effectiveAmount
-    if (fee.ClassSectionMapping && fee.ClassSectionMapping.length > 0) {
-      fee.ClassSectionMapping.forEach(feeClassSection => {
+    if (fee.classSectionMappings && fee.classSectionMappings.length > 0) {
+      fee.classSectionMappings.forEach(feeClassSection => {
         const matchingCs = this.classSections.find(cs => 
-          cs.classId === feeClassSection.ClassID && cs.sectionId === feeClassSection.SectionID
+          cs.classId === feeClassSection.classId && cs.sectionId === feeClassSection.sectionId
         );
         if (matchingCs) {
-          matchingCs.selected = true;
-          matchingCs.amount = Number(feeClassSection.Amount || 0);
-          // Preserve mapping id so updates can reference existing DB rows
-          (matchingCs as any).mappingId = (feeClassSection as any).MappingID ?? (feeClassSection as any).mappingId ?? undefined;
+          // Respect the mapping's IsActive flag: only mark selected when active
+          matchingCs.selected = !!feeClassSection.isActive;
+          matchingCs.amount = Number(feeClassSection.amount ?? 0);
+          matchingCs.mappingId = feeClassSection.mappingId ?? undefined;
         }
       });
     } else {
@@ -529,12 +465,12 @@ export class FeesCreate implements OnInit {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  async toggleFeeStatus(fee: FeeWithClassSections, event?: any) {
-    if (!fee.FeeID) return;
+  async toggleFeeStatus(fee: Fee, event?: any) {
+    if (!fee.feeId) return;
 
     try {
       // The toggle component emits an event with the new checked state. Prefer that when available
-      const previousStatus = !!fee.IsActive;
+      const previousStatus = !!fee.isActive;
       let intendedStatus: boolean;
 
       if (event && (typeof event.checked === 'boolean' || typeof event.value === 'boolean')) {
@@ -546,12 +482,13 @@ export class FeesCreate implements OnInit {
       }
 
       // Optimistically update UI so toggle feels responsive
-      fee.IsActive = intendedStatus;
+      fee.isActive = intendedStatus;
       this.updateFeeArrays();
 
-      const success = await this.feeService.toggleFeeStatus(fee.FeeID, intendedStatus).toPromise();
+      const updated = await this.feeService.toggleFeeStatus(fee.feeId, intendedStatus).toPromise();
 
-      if (success) {
+      if (updated) {
+        fee.isActive = updated.isActive;
         this.messageService.add({
           severity: 'info',
           summary: 'Status Updated',
@@ -559,7 +496,7 @@ export class FeesCreate implements OnInit {
         });
       } else {
         // Revert UI to previous state if API failed
-        fee.IsActive = previousStatus;
+        fee.isActive = previousStatus;
         this.updateFeeArrays();
         throw new Error('Failed to update fee status');
       }
@@ -581,21 +518,19 @@ export class FeesCreate implements OnInit {
     this.editMode = false;
     this.editingFeeId = undefined;
     
-    this.feeData = {
-      FeeName: '',
-      IsActive: true,
-      Schedule: null,
-      ClassSectionMapping: []
+    this.feeDraft = {
+      feeName: '',
+      isActive: true
     };
 
     // Reset schedule UI state to defaults
     this.scheduleData = {
       scheduleType: 'OneTime',
-      intervalMonths: undefined,
-      dayOfMonth: undefined,
-      startDate: undefined,
-      endDate: undefined,
-      nextDueDate: undefined,
+      intervalMonths: null,
+      dayOfMonth: null,
+      startDate: null,
+      endDate: null,
+      nextDueDate: null,
       reminderDaysBefore: 5
     };
 
@@ -606,79 +541,158 @@ export class FeesCreate implements OnInit {
     this.classSections.forEach(cs => {
       cs.selected = true;
       cs.amount = 0;
+      cs.mappingId = undefined;
     });
   }
 
+  private buildSchedulePayload(): FeeSchedule | null {
+    const type = this.scheduleData.scheduleType;
+    if (!type) {
+      return null;
+    }
+
+    const toNumberOrNull = (value: number | string | null | undefined): number | null => {
+      if (value === null || value === undefined || value === '') {
+        return null;
+      }
+      const parsed = Number(value);
+      return Number.isNaN(parsed) ? null : parsed;
+    };
+
+    const schedule: FeeSchedule = {
+      scheduleType: type,
+      intervalMonths: toNumberOrNull(this.scheduleData.intervalMonths ?? null),
+      dayOfMonth: toNumberOrNull(this.scheduleData.dayOfMonth ?? null),
+      startDate: this.formatAsDateOnly(this.scheduleData.startDate),
+      endDate: this.formatAsDateOnly(this.scheduleData.endDate),
+      nextDueDate: this.formatAsDateOnly(this.scheduleData.nextDueDate),
+      reminderDaysBefore: toNumberOrNull(this.scheduleData.reminderDaysBefore ?? null)
+    };
+
+    switch (type) {
+      case 'OnDemand':
+        schedule.intervalMonths = null;
+        schedule.dayOfMonth = null;
+        // OnDemand fees should not send reminder days
+        schedule.reminderDaysBefore = null;
+        break;
+      case 'OneTime':
+        schedule.intervalMonths = null;
+        schedule.dayOfMonth = null;
+        // OneTime fees do not use reminders, ensure API receives null
+        schedule.reminderDaysBefore = null;
+        break;
+      case 'Recurring':
+        schedule.startDate = null;
+        schedule.endDate = null;
+        break;
+      default:
+        break;
+    }
+
+    return schedule;
+  }
+
+  private buildClassSectionMappings(): ClassSectionMapping[] {
+    const selectedClassSections = this.classSections.filter(cs => cs.selected);
+    return selectedClassSections.map(cs => ({
+      mappingId: cs.mappingId ?? undefined,
+      feeId: this.editingFeeId,
+      classId: cs.classId,
+      sectionId: cs.sectionId,
+      amount: this.normaliseAmount(cs.amount),
+      isActive: true
+    }));
+  }
+
+  private normaliseAmount(raw: number | string | null | undefined): number | null {
+    if (raw === null || raw === undefined || raw === '') {
+      return null;
+    }
+    if (typeof raw === 'number') {
+      return Number.isNaN(raw) ? null : raw;
+    }
+    if (typeof raw === 'string') {
+      const cleaned = raw.replace(/[^0-9.\-]/g, '');
+      if (!cleaned) {
+        return null;
+      }
+      const parsed = Number(cleaned);
+      return Number.isNaN(parsed) ? null : parsed;
+    }
+    const parsed = Number(raw as any);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+
   private isFormValid(): boolean {
-    // Reset message
     this.validationErrorMessage = null;
 
-    // Basic validation
-    if (!this.feeData.FeeName || !this.scheduleData.scheduleType || this.getSelectedCount() === 0) {
+  const feeName = this.feeDraft.feeName?.trim() ?? '';
+    if (!feeName || !this.scheduleData.scheduleType || this.getSelectedCount() === 0) {
       console.debug('Validation failed: basic checks', {
-        feeName: this.feeData.FeeName,
+        feeName,
         scheduleType: this.scheduleData.scheduleType,
         selectedCount: this.getSelectedCount()
       });
-      if (!this.feeData.FeeName) this.validationErrorMessage = 'Please enter a fee name.';
+      if (!feeName) this.validationErrorMessage = 'Please enter a fee name.';
       else if (!this.scheduleData.scheduleType) this.validationErrorMessage = 'Please select a schedule type.';
       else if (this.getSelectedCount() === 0) this.validationErrorMessage = 'Please select at least one class/section.';
       return false;
     }
 
-    // Frequency-specific validation
     switch (this.scheduleData.scheduleType) {
-      case 'OnDemand':
-        // Prefer scheduleData if available
-        const sdOn = this.scheduleData;
-        const okOn = !!(sdOn.startDate && sdOn.endDate);
-        if (!okOn) {
-          console.debug('Validation failed: OnDemand needs startDate and endDate', sdOn);
+      case 'OnDemand': {
+        const start = this.parseDate(this.scheduleData.startDate);
+        const end = this.parseDate(this.scheduleData.endDate);
+        if (!start || !end) {
           this.validationErrorMessage = 'Please provide both Start Date and End/Due Date for On Demand fees.';
           return false;
         }
-
-        // If academic bounds are available, ensure dates lie within them
         if (this.academicYearStart && this.academicYearEnd) {
-          const s = this.parseDate(sdOn.startDate);
-          const e = this.parseDate(sdOn.endDate);
-          if (!s || !e) {
-            this.validationErrorMessage = 'Invalid Start Date or End/Due Date.';
-            return false;
-          }
-          if (!this.isWithinAcademicYear(s) || !this.isWithinAcademicYear(e)) {
-            console.debug('Validation failed: OnDemand dates outside academic year', { s, e, ayStart: this.academicYearStart, ayEnd: this.academicYearEnd });
-            return false;
-          }
-          // Also ensure start <= end
-          if (s.getTime() > e.getTime()) {
-            console.debug('Validation failed: OnDemand start is after end', { s, e });
-            this.validationErrorMessage = 'Start Date cannot be after End/Due Date.';
+          if (!this.isWithinAcademicYear(start) || !this.isWithinAcademicYear(end)) {
+            this.validationErrorMessage = 'Dates must fall within the academic year bounds.';
             return false;
           }
         }
-
-        return true;
-      case 'OneTime':
-        // OneTime no longer requires an end date; basic existence of feeName and selection suffices
-        // If an endDate or nextDueDate is provided, ensure it's within academic year
-        if (this.academicYearStart && this.academicYearEnd) {
-          const ed = this.parseDate(this.scheduleData.endDate);
-          const nd = this.parseDate(this.scheduleData.nextDueDate);
-          if (ed && !this.isWithinAcademicYear(ed)) return false;
-          if (nd && !this.isWithinAcademicYear(nd)) return false;
+        if (start.getTime() > end.getTime()) {
+          this.validationErrorMessage = 'Start Date cannot be after End/Due Date.';
+          return false;
         }
         return true;
-      case 'Recurring':
-        // Accept either feeData.schedule or the local scheduleData as the source of truth
-      const sd = this.scheduleData;
-      const day = sd.dayOfMonth !== undefined && sd.dayOfMonth !== null ? Number(sd.dayOfMonth) : NaN;
-      const interval = sd.intervalMonths !== undefined && sd.intervalMonths !== null ? Number(sd.intervalMonths) : NaN;
-      const dayOk = !Number.isNaN(day) && day > 0 && day <= 31;
-      const intervalOk = !Number.isNaN(interval) && [1,3,6,12].includes(interval);
-      const okRec = dayOk && intervalOk;
-      if (!okRec) console.debug('Validation failed: Recurring needs valid dayOfMonth and intervalMonths', { sd, dayOk, intervalOk, day, interval });
-      return okRec;
+      }
+      case 'OneTime': {
+        if (this.academicYearStart && this.academicYearEnd) {
+          const endDate = this.parseDate(this.scheduleData.endDate);
+          const nextDue = this.parseDate(this.scheduleData.nextDueDate);
+          if (endDate && !this.isWithinAcademicYear(endDate)) {
+            this.validationErrorMessage = 'End date must be within the academic year.';
+            return false;
+          }
+          if (nextDue && !this.isWithinAcademicYear(nextDue)) {
+            this.validationErrorMessage = 'Next due date must be within the academic year.';
+            return false;
+          }
+        }
+        return true;
+      }
+      case 'Recurring': {
+        const day = this.scheduleData.dayOfMonth ?? null;
+        const interval = this.scheduleData.intervalMonths ?? null;
+        const dayValue = day === null ? NaN : Number(day);
+        const intervalValue = interval === null ? NaN : Number(interval);
+        const dayOk = !Number.isNaN(dayValue) && dayValue > 0 && dayValue <= 31;
+        const intervalOk = !Number.isNaN(intervalValue) && [1, 3, 6, 12].includes(intervalValue);
+        if (!dayOk || !intervalOk) {
+          this.validationErrorMessage = 'Recurring fees require a valid day of month and interval.';
+          console.debug('Validation failed: Recurring needs valid dayOfMonth and intervalMonths', {
+            scheduleData: this.scheduleData,
+            dayOk,
+            intervalOk
+          });
+          return false;
+        }
+        return true;
+      }
       default:
         return true;
     }
@@ -733,10 +747,10 @@ export class FeesCreate implements OnInit {
   }
 
   // Format Date or string as date-only (YYYY-MM-DD) using local calendar day (assumed IST usage)
-  private formatAsDateOnly(val: Date | string | undefined): string | undefined {
-    if (!val) return undefined;
+  private formatAsDateOnly(val: Date | string | null | undefined): string | null {
+    if (!val) return null;
     const d = this.parseDate(val);
-    if (!d) return undefined;
+    if (!d) return null;
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
@@ -745,10 +759,10 @@ export class FeesCreate implements OnInit {
 
   // Determine whether a fee is editable: allow edit when StartDate is not in the future.
   // Returns true when fee has no StartDate, or StartDate <= today (local calendar day).
-  public canEditFee(fee: FeeWithClassSections | undefined | null): boolean {
+  public canEditFee(fee: Fee | undefined | null): boolean {
     if (!fee) return false;
     try {
-      const sd = this.parseDate((fee as any)?.Schedule?.StartDate);
+      const sd = this.parseDate(fee.schedule?.startDate ?? undefined);
       if (!sd) return false; // no start date => editable
       const today = new Date();
       today.setHours(0,0,0,0);
@@ -818,6 +832,8 @@ export class FeesCreate implements OnInit {
         // Clear recurrence fields
         this.scheduleData.intervalMonths = undefined;
         this.scheduleData.dayOfMonth = undefined;
+        // Clear reminders for OnDemand in the UI
+        this.scheduleData.reminderDaysBefore = null;
         break;
 
       default:

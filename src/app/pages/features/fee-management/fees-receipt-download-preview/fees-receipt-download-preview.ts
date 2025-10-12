@@ -8,7 +8,8 @@ import { firstValueFrom } from 'rxjs';
 import { PdfService } from '@/services/pdf.service';
 import { StudentsService } from '../../services/students.service';
 import { Student } from '../../model/student.model';
-import { StudentFeesService, StudentFeeLedgerRow } from '../services/student-fees.service';
+import { StudentFeesService, StudentFeeLedgerEntry } from '../services/student-fees.service';
+import { FeeService } from '../services/fee.service';
 
 @Component({
   selector: 'app-fees-receipt-download-preview',
@@ -30,6 +31,7 @@ export class FeesReceiptDownloadPreview implements OnChanges {
   private feesApi = inject(StudentFeesService);
   private studentsApi = inject(StudentsService);
   private pdf = inject(PdfService);
+  private feeService = inject(FeeService);
   private sanitizer = inject(DomSanitizer);
   private toast = inject(MessageService, { optional: true });
 
@@ -51,7 +53,7 @@ export class FeesReceiptDownloadPreview implements OnChanges {
 
     try {
       const [ledgerRows, student] = await Promise.all([
-        firstValueFrom(this.feesApi.getLedger(this.studentId!, { include_paid: true, only_due: false })),
+        firstValueFrom(this.feesApi.getLedger(this.studentId!, { includePaid: true, onlyDue: false })),
         firstValueFrom(this.studentsApi.getStudent(this.studentId!))
       ]);
 
@@ -60,7 +62,16 @@ export class FeesReceiptDownloadPreview implements OnChanges {
         throw new Error('Receipt details not available for the selected fee.');
       }
 
-      const doc = this.pdf.buildFeeReceiptDoc(receiptRow, student);
+      // determine if fee is recurring by fetching fee schedule
+      let isRecurring = false;
+      try {
+        const fee = await firstValueFrom(this.feeService.getFee(receiptRow.feeId));
+        if (fee && fee.schedule && fee.schedule.scheduleType === 'Recurring') isRecurring = true;
+      } catch (e) {
+        // ignore and default to not recurring
+      }
+
+      const doc = this.pdf.buildFeeReceiptDoc(receiptRow, student, { isRecurring });
 
       if (this.isPreview) {
         try {
@@ -74,8 +85,8 @@ export class FeesReceiptDownloadPreview implements OnChanges {
           this.previewReady.emit();
         }
       } else {
-        const studentName = student?.StudentName?.replace(/\s+/g, '_') || 'student';
-        this.pdf.downloadDoc(doc, `fee_receipt_${studentName}_${receiptRow.FeeID}.pdf`);
+    const studentName = student?.StudentName?.replace(/\s+/g, '_') || 'student';
+    this.pdf.downloadDoc(doc, `fee_receipt_${studentName}_${receiptRow.feeId}.pdf`);
         this.downloaded.emit();
       }
     } catch (err: any) {
@@ -89,17 +100,17 @@ export class FeesReceiptDownloadPreview implements OnChanges {
     }
   }
 
-  private selectReceiptRow(rows: StudentFeeLedgerRow[]): StudentFeeLedgerRow | undefined {
+  private selectReceiptRow(rows: StudentFeeLedgerEntry[]): StudentFeeLedgerEntry | undefined {
     if (this.studentFeeId) {
-      const exact = rows.find(r => r.StudentFeeID === this.studentFeeId);
+      const exact = rows.find(r => r.studentFeeId === this.studentFeeId);
       if (exact) {
         return exact;
       }
     }
-    const paidRows = rows.filter(r => r.FeeID === this.feeId && (r.Status || '').toLowerCase() === 'paid');
+    const paidRows = rows.filter(r => r.feeId === this.feeId && (r.status || '').toLowerCase() === 'paid');
     if (paidRows.length) {
       return paidRows[0];
     }
-    return rows.find(r => r.FeeID === this.feeId);
+    return rows.find(r => r.feeId === this.feeId);
   }
 }

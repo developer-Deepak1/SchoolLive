@@ -43,7 +43,7 @@
 
 	<div class="tables-grid" *ngIf="selectedStudentId">
 		<p-card header="Upcoming Fees" styleClass="w-full mb-4">
-			<p-table [value]="upcomingRows()" [loading]="loading" dataKey="StudentFeeID" [paginator]="true" [rows]="10"
+			<p-table [value]="upcomingRows()" [loading]="loading" dataKey="studentFeeId" [paginator]="true" [rows]="10"
 				[responsiveLayout]="'scroll'" [tableStyle]="{'min-width':'48rem'}">
 				<ng-template pTemplate="header">
 					<tr>
@@ -59,16 +59,16 @@
 				<ng-template pTemplate="body" let-row>
 					<tr>
 						<td>
-							<div class="fee-name">{{ row.FeeName }}</div>
-							<div class="muted small" *ngIf="row.InvoiceRef">Ref: {{ row.InvoiceRef }}</div>
+							<div class="fee-name">{{ row.feeName }}</div>
+							<div class="muted small" *ngIf="row.invoiceRef">Ref: {{ row.invoiceRef }}</div>
 						</td>
-						<td class="text-right">{{ row.Amount | number:'1.2-2' }}</td>
-						<td class="text-right">{{ (row.ComputedFine ?? row.FineAmount) | number:'1.2-2' }}</td>
-						<td class="text-right">{{ row.DiscountAmount | number:'1.2-2' }}</td>
+						<td class="text-right">{{ row.amount | number:'1.2-2' }}</td>
+						<td class="text-right">{{ (row.computedFine ?? row.fineAmount) | number:'1.2-2' }}</td>
+						<td class="text-right">{{ row.discountAmount | number:'1.2-2' }}</td>
 						<td class="text-right strong">{{ formatAmount(getOutstanding(row)) }}</td>
-						<td>{{ row.DueDate ? (row.DueDate | date:'dd MMM yyyy') : '-' }}</td>
+						<td>{{ row.dueDate ? (row.dueDate | date:'dd MMM yyyy') : '-' }}</td>
 						<td>
-							<p-tag [severity]="statusSeverity(row)" [value]="row.Status || 'Pending'"></p-tag>
+							<p-tag [severity]="statusSeverity(row)" [value]="row.status || 'Pending'"></p-tag>
 						</td>
 					</tr>
 				</ng-template>
@@ -77,7 +77,7 @@
 		</p-card>
 
 		<p-card header="This Month" styleClass="w-full mb-4">
-			<p-table [value]="thisMonthRows()" [loading]="loading" dataKey="StudentFeeID" [paginator]="true" [rows]="10"
+			<p-table [value]="thisMonthRows()" [loading]="loading" dataKey="studentFeeId" [paginator]="true" [rows]="10"
 				[responsiveLayout]="'scroll'" [tableStyle]="{'min-width':'48rem'}">
 				<ng-template pTemplate="header">
 					<tr>
@@ -93,16 +93,16 @@
 				<ng-template pTemplate="body" let-row>
 					<tr>
 						<td>
-							<div class="fee-name">{{ row.FeeName }}</div>
-							<div class="muted small" *ngIf="row.InvoiceRef">Ref: {{ row.InvoiceRef }}</div>
+							<div class="fee-name">{{ row.feeName }}</div>
+							<div class="muted small" *ngIf="row.invoiceRef">Ref: {{ row.invoiceRef }}</div>
 						</td>
-						<td class="text-right">{{ row.Amount | number:'1.2-2' }}</td>
-						<td class="text-right">{{ (row.ComputedFine ?? row.FineAmount) | number:'1.2-2' }}</td>
-						<td class="text-right">{{ row.DiscountAmount | number:'1.2-2' }}</td>
+						<td class="text-right">{{ row.amount | number:'1.2-2' }}</td>
+						<td class="text-right">{{ (row.computedFine ?? row.fineAmount) | number:'1.2-2' }}</td>
+						<td class="text-right">{{ row.discountAmount | number:'1.2-2' }}</td>
 						<td class="text-right strong">{{ formatAmount(getOutstanding(row)) }}</td>
-						<td>{{ row.DueDate ? (row.DueDate | date:'dd MMM yyyy') : '-' }}</td>
+						<td>{{ row.dueDate ? (row.dueDate | date:'dd MMM yyyy') : '-' }}</td>
 						<td>
-							<p-tag [severity]="statusSeverity(row)" [value]="row.Status || 'Pending'"></p-tag>
+							<p-tag [severity]="statusSeverity(row)" [value]="row.status || 'Pending'"></p-tag>
 						</td>
 					</tr>
 				</ng-template>
@@ -111,7 +111,7 @@
 		</p-card>
 
 		<p-card header="Overdue" styleClass="w-full mb-4">
-			<p-table [value]="overdueRows()" [loading]="loading" dataKey="StudentFeeID" [paginator]="true" [rows]="10"
+			<p-table [value]="overdueRows()" [loading]="loading" dataKey="studentFeeId" [paginator]="true" [rows]="10"
 				[responsiveLayout]="'scroll'" [tableStyle]="{'min-width':'48rem'}">
 				<ng-template pTemplate="header">
 					<tr>
@@ -127,16 +127,16 @@
 				<ng-template pTemplate="body" let-row>
 					<tr>
 						<td>
-							<div class="fee-name">{{ row.FeeName }}</div>
-							<div class="muted small" *ngIf="row.InvoiceRef">Ref: {{ row.InvoiceRef }}</div>
+							<div class="fee-name">{{ row.feeName }}</div>
+							<div class="muted small" *ngIf="row.invoiceRef">Ref: {{ row.invoiceRef }}</div>
 						</td>
-						<td class="text-right">{{ row.Amount | number:'1.2-2' }}</td>
-						<td class="text-right">{{ (row.ComputedFine ?? row.FineAmount) | number:'1.2-2' }}</td>
-						<td class="text-right">{{ row.DiscountAmount | number:'1.2-2' }}</td>
+						<td class="text-right">{{ row.amount | number:'1.2-2' }}</td>
+						<td class="text-right">{{ (row.computedFine ?? row.fineAmount) | number:'1.2-2' }}</td>
+						<td class="text-right">{{ row.discountAmount | number:'1.2-2' }}</td>
 						<td class="text-right strong">{{ formatAmount(getOutstanding(row)) }}</td>
-						<td>{{ row.DueDate ? (row.DueDate | date:'dd MMM yyyy') : '-' }}</td>
+						<td>{{ row.dueDate ? (row.dueDate | date:'dd MMM yyyy') : '-' }}</td>
 						<td>
-							<p-tag [severity]="statusSeverity(row)" [value]="row.Status || 'Pending'"></p-tag>
+							<p-tag [severity]="statusSeverity(row)" [value]="row.status || 'Pending'"></p-tag>
 						</td>
 					</tr>
 				</ng-template>

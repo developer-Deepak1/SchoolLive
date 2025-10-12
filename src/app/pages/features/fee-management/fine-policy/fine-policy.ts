@@ -13,8 +13,9 @@ import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { MessageService, ConfirmationService } from 'primeng/api';
 // Services
-import { FeeService, FeeWithClassSections } from '../services/fee.service';
-import { FinePolicyService, FinePolicy as FinePolicyModel } from '@/pages/features/fee-management/services/fine-policy.service';
+import { FeeService } from '../services/fee.service';
+import { FinePolicyService } from '@/pages/features/fee-management/services/fine-policy.service';
+import { Fee, FinePolicy as FinePolicyModel, FinePolicyRequest } from '../services/fee-management.models';
 
 @Component({
   selector: 'app-fine-policy',
@@ -45,10 +46,13 @@ export class FinePolicy implements OnInit {
     { label: 'Per Day', value: 'PerDay' },
     { label: 'Percentage', value: 'Percentage' }
   ];
-  policies: FinePolicyModel[] = [];
+  // policies is now a flattened list where each item may carry group metadata
+  policies: Array<FinePolicyModel & { __groupStart?: boolean; __groupSize?: number }> = [];
+  // map finePolicyId -> global index (0-based) for fast lookup in template
+  policiesIndexMap: Record<number, number> = {};
 
   // Form model (template-driven)
-  form: FinePolicyModel = this.createEmptyForm();
+  form: FinePolicyRequest & { finePolicyId?: number } = this.createEmptyForm();
   editingId: number | null = null;
 
   ngOnInit(): void {
@@ -56,23 +60,26 @@ export class FinePolicy implements OnInit {
     this.loadPolicies();
   }
 
-  private createEmptyForm(): FinePolicyModel {
+  private createEmptyForm(): FinePolicyRequest & { finePolicyId?: number } {
     return {
-      FeeID: null,
-      ApplyType: 'Fixed',
-      Amount: 0,
-      GraceDays: 0,
-      MaxAmount: null,
-      IsActive: true
-    } as FinePolicyModel;
+      finePolicyId: undefined,
+      feeId: null,
+      applyType: 'Fixed',
+      amount: 0,
+      graceDays: 0,
+      maxAmount: null,
+      isActive: true
+    };
   }
 
   private loadFees() {
     this.feeService.getFees().subscribe({
-      next: (fees: FeeWithClassSections[]) => {
+      next: (fees: Fee[]) => {
         const opts: { label: string; value: number | null }[] = [{ label: 'All Fees', value: null }];
         (fees || []).forEach(f => {
-          if (f.FeeID != null && f.IsActive == true) opts.push({ label: f.FeeName, value: f.FeeID });
+          if (f.feeId != null && f.isActive === true && f.schedule?.scheduleType !== 'OneTime') {
+            opts.push({ label: f.feeName, value: f.feeId });
+          }
         });
         this.feeOptions = opts;
       },
@@ -85,9 +92,52 @@ export class FinePolicy implements OnInit {
   private loadPolicies() {
     this.loading = true;
     this.svc.list().subscribe({
-      next: (rows: FinePolicyModel[]) => { this.policies = rows || []; this.loading = false; },
+      next: (rows: FinePolicyModel[]) => { 
+        this.policies = (rows || []).slice();
+        // sort by feeId so groups are contiguous (null/AllFees first)
+        this.policies.sort((a,b) => {
+          const A = a.feeId == null ? -1 : a.feeId;
+          const B = b.feeId == null ? -1 : b.feeId;
+          return Number(A) - Number(B);
+        });
+        // Build flattened policies with group metadata (groupStart and groupSize)
+        const map = new Map<string, FinePolicyModel[]>();
+        for (const p of this.policies || []) {
+          const key = p.feeId == null ? '__ALL__' : String(p.feeId);
+          if (!map.has(key)) map.set(key, []);
+          map.get(key)!.push(p);
+        }
+        const flattened: Array<FinePolicyModel & { __groupStart?: boolean; __groupSize?: number }> = [];
+        for (const [key, group] of map.entries()) {
+          const size = group.length;
+          for (let i = 0; i < group.length; i++) {
+            const item = group[i] as FinePolicyModel & { __groupStart?: boolean; __groupSize?: number };
+            if (i === 0) {
+              item.__groupStart = true;
+              item.__groupSize = size;
+            } else {
+              item.__groupStart = false;
+            }
+            flattened.push(item);
+          }
+        }
+        this.policies = flattened;
+        // build index map after flattening
+        this.policiesIndexMap = {};
+        this.policies.forEach((p, i) => { if (p.finePolicyId != null) this.policiesIndexMap[p.finePolicyId] = i; });
+        this.loading = false; 
+      },
       error: () => { this.policies = []; this.loading = false; }
     });
+  }
+
+  // grouping handled inline in loadPolicies to produce flattened policies with metadata
+
+  // Return 1-based global index for a policy row. Used from template to avoid inline arrow functions.
+  getGlobalIndex(row: FinePolicyModel): number {
+    if (!row || row.finePolicyId == null) return -1;
+    const idx = this.policiesIndexMap[row.finePolicyId];
+    return typeof idx === 'number' ? (idx + 1) : -1;
   }
 
   // Helpers
@@ -117,8 +167,8 @@ export class FinePolicy implements OnInit {
 
   // Actions
   onApplyTypeChange(type: 'Fixed' | 'PerDay' | 'Percentage') {
-    this.form.ApplyType = type;
-    this.form.Amount = 0;
+    this.form.applyType = type;
+    this.form.amount = 0;
   }
 
   openNew() {
@@ -127,16 +177,16 @@ export class FinePolicy implements OnInit {
   }
 
   edit(row: FinePolicyModel) {
-    this.editingId = row.FinePolicyID ?? null;
+    this.editingId = row.finePolicyId ?? null;
     this.form = {
-      FinePolicyID: row.FinePolicyID,
-      FeeID: row.FeeID ?? null,
-      ApplyType: row.ApplyType,
-      Amount: Number(row.Amount || 0),
-      GraceDays: Number(row.GraceDays || 0),
-      MaxAmount: row.MaxAmount != null ? Number(row.MaxAmount) : null,
-      IsActive: !!row.IsActive
-    } as FinePolicyModel;
+      finePolicyId: row.finePolicyId,
+      feeId: row.feeId ?? null,
+      applyType: row.applyType,
+      amount: Number(row.amount || 0),
+      graceDays: Number(row.graceDays || 0),
+      maxAmount: row.maxAmount != null ? Number(row.maxAmount) : null,
+      isActive: !!row.isActive
+    };
     // On small screens, scroll the form card into view so user sees the edit form
     try {
       const width = window.innerWidth || document.documentElement.clientWidth;
@@ -162,31 +212,32 @@ export class FinePolicy implements OnInit {
 
   save() {
     // basic validation
-    if (this.form.Amount == null || Number(this.form.Amount) < 0) {
+    if (this.form.amount == null || Number(this.form.amount) < 0) {
       this.toast.add({ severity: 'warn', summary: 'Validation', detail: 'Amount must be 0 or more' });
       return;
     }
-    if (this.form.GraceDays == null || Number(this.form.GraceDays) < 0) {
+    if (this.form.graceDays == null || Number(this.form.graceDays) < 0) {
       this.toast.add({ severity: 'warn', summary: 'Validation', detail: 'Grace days must be 0 or more' });
       return;
     }
-    if (this.form.ApplyType === 'Percentage' && Number(this.form.Amount) > 100) {
+    if (this.form.applyType === 'Percentage' && Number(this.form.amount) > 100) {
       this.toast.add({ severity: 'warn', summary: 'Validation', detail: 'Percentage cannot exceed 100' });
       return;
     }
 
-    const payload: FinePolicyModel = {
-      ...(this.editingId ? { FinePolicyID: this.editingId } : {}),
-      FeeID: this.form.FeeID ?? null,
-      ApplyType: this.form.ApplyType,
-      Amount: Number(this.form.Amount || 0),
-      GraceDays: Number(this.form.GraceDays || 0),
-      MaxAmount: this.form.MaxAmount != null ? Number(this.form.MaxAmount) : null,
-      IsActive: !!this.form.IsActive
-    } as FinePolicyModel;
+    const payload: FinePolicyRequest = {
+      feeId: this.form.feeId ?? null,
+      applyType: this.form.applyType,
+      amount: Number(this.form.amount || 0),
+      graceDays: Number(this.form.graceDays || 0),
+      maxAmount: this.form.maxAmount != null ? Number(this.form.maxAmount) : null,
+      isActive: !!this.form.isActive
+    };
 
     this.saving = true;
-    const req$ = this.editingId ? this.svc.update(payload) : this.svc.create(payload);
+    const req$ = this.editingId
+      ? this.svc.update(this.editingId, payload)
+      : this.svc.create(payload);
     req$.subscribe({
       next: (_saved: FinePolicyModel) => {
         this.saving = false;
@@ -200,27 +251,28 @@ export class FinePolicy implements OnInit {
   }
 
   toggleStatus(row: FinePolicyModel, event?: any) {
-    if (!row.FinePolicyID) return;
+    if (!row.finePolicyId) return;
     // prefer event.checked/value like other components
-    const prev = !!row.IsActive;
+    const prev = !!row.isActive;
     const intended = event && (typeof event.checked === 'boolean' ? event.checked : (typeof event.value === 'boolean' ? event.value : !prev)) || !prev;
     // optimistic
-    row.IsActive = intended;
-    this.svc.toggleStatus(row.FinePolicyID, intended).subscribe({
-      next: (ok: boolean) => {
-        if (!ok) { row.IsActive = prev; this.toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to update status' }); }
+    row.isActive = intended;
+    this.svc.toggleStatus(row, intended).subscribe({
+      next: (updated: FinePolicyModel) => {
+        row.isActive = updated.isActive;
+        this.toast.add({ severity: 'info', summary: 'Status Updated', detail: 'Fine policy status updated' });
       },
-      error: () => { row.IsActive = prev; this.toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to update status' }); }
+      error: () => { row.isActive = prev; this.toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to update status' }); }
     });
   }
 
   remove(row: FinePolicyModel) {
-    if (!row.FinePolicyID) return;
+    if (!row.finePolicyId) return;
     this.confirm.confirm({
       header: 'Confirm', message: 'Are you sure you want to delete this fine policy?', icon: 'pi pi-exclamation-triangle',
       acceptButtonStyleClass: 'p-button-danger',
       accept: () => {
-        this.svc.delete(row.FinePolicyID!).subscribe({
+        this.svc.delete(row.finePolicyId!).subscribe({
           next: (ok: boolean) => { if (ok) { this.toast.add({ severity: 'success', summary: 'Deleted', detail: 'Fine policy deleted' }); this.loadPolicies(); } else { this.toast.add({ severity: 'error', summary: 'Error', detail: 'Delete failed' }); } },
           error: () => this.toast.add({ severity: 'error', summary: 'Error', detail: 'Delete failed' })
         });

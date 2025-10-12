@@ -11,7 +11,7 @@ import { MessageService } from 'primeng/api';
 
 import { StudentsService } from '../../services/students.service';
 import { Student } from '../../model/student.model';
-import { StudentFeesService, StudentFeeLedgerRow } from '../services/student-fees.service';
+import { StudentFeesService, StudentFeeLedgerEntry } from '../services/student-fees.service';
 import { UserService } from '@/services/user.service';
 import { USER_ROLES } from '@/pages/common/constant';
 
@@ -41,7 +41,7 @@ export class FeesUpcoming implements OnInit {
   selectedStudentId: number | null = null;
 
   // Ledger rows (only dues/outstanding)
-  private duesRows = signal<StudentFeeLedgerRow[]>([]);
+  private duesRows = signal<StudentFeeLedgerEntry[]>([]);
 
   // Category-wise computed rows
   // Upcoming exclude rows that should appear in This Month (to avoid duplicates)
@@ -124,7 +124,7 @@ export class FeesUpcoming implements OnInit {
   private loadLedger() {
     if (!this.selectedStudentId) return;
     this.loading = true;
-    this.feesApi.getLedger(this.selectedStudentId, { only_due: true, include_paid: false }).subscribe({
+  this.feesApi.getLedger(this.selectedStudentId, { onlyDue: true, includePaid: false }).subscribe({
       next: rows => {
         const filtered = (rows || []).filter(r => this.getOutstanding(r) > 0);
         this.duesRows.set(this.sortRows(filtered));
@@ -137,12 +137,12 @@ export class FeesUpcoming implements OnInit {
     });
   }
 
-  private filterByCategory(cat: LedgerCategory): StudentFeeLedgerRow[] {
+  private filterByCategory(cat: LedgerCategory): StudentFeeLedgerEntry[] {
     return this.duesRows().filter(row => this.categorize(row) === cat);
   }
 
-  private categorize(row: StudentFeeLedgerRow): LedgerCategory {
-    const dueDate = this.parseDate(row.DueDate);
+  private categorize(row: StudentFeeLedgerEntry): LedgerCategory {
+    const dueDate = this.parseDate(row.dueDate);
     const outstanding = this.getOutstanding(row);
     if (outstanding <= 0) return 'upcoming';
     if (!dueDate) return 'upcoming';
@@ -151,10 +151,10 @@ export class FeesUpcoming implements OnInit {
     return 'upcoming';
   }
 
-  private sortRows(rows: StudentFeeLedgerRow[]): StudentFeeLedgerRow[] {
+  private sortRows(rows: StudentFeeLedgerEntry[]): StudentFeeLedgerEntry[] {
     return [...rows].sort((a, b) => {
-      const da = this.parseDate(a.DueDate);
-      const db = this.parseDate(b.DueDate);
+      const da = this.parseDate(a.dueDate);
+      const db = this.parseDate(b.dueDate);
       if (!da && !db) return 0;
       if (!da) return 1;
       if (!db) return -1;
@@ -162,13 +162,13 @@ export class FeesUpcoming implements OnInit {
     });
   }
 
-  getOutstanding(row: StudentFeeLedgerRow): number {
-    const direct = row.Outstanding;
+  getOutstanding(row: StudentFeeLedgerEntry): number {
+    const direct = row.outstanding;
     if (direct !== undefined && direct !== null) return Number(direct) || 0;
-    const amount = Number(row.Amount || 0);
-    const fine = Number((row.ComputedFine ?? row.FineAmount) || 0);
-    const discount = Number(row.DiscountAmount || 0);
-    const paid = Number(row.AmountPaid || 0);
+    const amount = Number(row.amount || 0);
+    const fine = Number((row.computedFine ?? row.fineAmount) || 0);
+    const discount = Number(row.discountAmount || 0);
+    const paid = Number(row.amountPaid || 0);
     return Math.max(0, Number((amount + fine - discount - paid).toFixed(2)));
   }
 
@@ -191,9 +191,9 @@ export class FeesUpcoming implements OnInit {
   }
 
   // Decide whether a ledger row should be shown under "This Month"
-  private isThisMonthCandidate(row: StudentFeeLedgerRow): boolean {
+  private isThisMonthCandidate(row: StudentFeeLedgerEntry): boolean {
     // 1) explicit DueDate in current month
-    const due = this.parseDate(row.DueDate);
+    const due = this.parseDate(row.dueDate);
     if (due && this.isInCurrentMonth(due)) return true;
 
     // 2) if no DueDate, treat OneTime as current-month candidate
@@ -223,8 +223,8 @@ export class FeesUpcoming implements OnInit {
     return Number(num || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
-  statusSeverity(row: StudentFeeLedgerRow): 'success' | 'info' | 'warning' | 'danger' | undefined {
-    const status = (row.Status || '').toLowerCase();
+  statusSeverity(row: StudentFeeLedgerEntry): 'success' | 'info' | 'warning' | 'danger' | undefined {
+    const status = (row.status || '').toLowerCase();
     if (status === 'paid') return 'success';
     if (status === 'partial') return 'warning';
     if (status === 'overdue') return 'danger';

@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
 import type { TDocumentDefinitions } from 'pdfmake/interfaces';
-import type { StudentFeeLedgerRow } from '@/pages/features/fee-management/services/student-fees.service';
+import type { StudentFeeLedgerEntry } from '@/pages/features/fee-management/services/student-fees.service';
 import type { Student } from '@/pages/features/model/student.model';
 
 @Injectable({ providedIn: 'root' })
@@ -19,23 +19,31 @@ export class PdfService {
   }
 
   buildFeeReceiptDoc(
-    receipt: StudentFeeLedgerRow,
+  receipt: StudentFeeLedgerEntry,
     student: Student | null,
-    opts?: { receiptDate?: string; institutionName?: string; issuedBy?: string }
+    opts?: { receiptDate?: string; institutionName?: string; issuedBy?: string; isRecurring?: boolean }
   ): TDocumentDefinitions {
     this.ensureFonts();
     const issueDate = opts?.receiptDate ?? new Date().toLocaleDateString();
     const schoolName = opts?.institutionName ?? student?.SchoolName ?? 'School';
-    const studentName = student?.StudentName ?? 'Student';
+  const studentName = student?.StudentName ?? 'Student';
+    const studentIdText = student?.StudentID ? String(student.StudentID) : '-';
+    const usernameText = student?.Username ?? '-';
     const classSection = [student?.ClassName, student?.SectionName].filter(Boolean).join(' - ');
-  const receiptNumber = this.buildReceiptNumber(student?.SchoolID, student?.StudentID, receipt.StudentFeeID);
-  const monthLabel = receipt.DueDate ? this.formatMonth(receipt.DueDate) : null;
+  const receiptNumber = this.buildReceiptNumber(student?.SchoolID, student?.StudentID, receipt.studentFeeId);
+  // Only show month label for recurring fees (caller should set opts.isRecurring = true when appropriate)
+  const monthLabel = (opts?.isRecurring && receipt.dueDate) ? this.formatMonth(receipt.dueDate) : null;
+  // Prepare fee text: only append the month label if it's not already present in the FeeName
+  const rawFeeName = receipt.feeName ?? '';
+  const feeText = (monthLabel && rawFeeName && !rawFeeName.toLowerCase().includes(monthLabel.toLowerCase()))
+    ? `${rawFeeName} (${monthLabel})`
+    : (rawFeeName || '-');
 
-  const fineAmount = receipt.ComputedFine ?? receipt.FineAmount ?? 0;
-    const totalAmount = Number(receipt.Amount || 0) + Number(fineAmount) - Number(receipt.DiscountAmount || 0);
-    const paidAmount = Number(receipt.AmountPaid || 0);
-    const outstanding = Number(receipt.Outstanding ?? 0);
-  const paymentDate = this.formatDate(receipt.CollectedDate);
+  const fineAmount = receipt.computedFine ?? receipt.fineAmount ?? 0;
+  const totalAmount = Number(receipt.amount || 0) + Number(fineAmount) - Number(receipt.discountAmount || 0);
+  const paidAmount = Number(receipt.amountPaid || 0);
+  const outstanding = Number(receipt.outstanding ?? 0);
+  const paymentDate = this.formatDate(receipt.collectedDate);
 
     return {
       info: {
@@ -73,12 +81,14 @@ export class PdfService {
         {
           columns: [
             [
-              { text: `Name of Student: ${studentName}` },
-              { text: `Class & Section: ${classSection || '-'}` }
+              // Bold label and title-case the student name
+              { text: `Name of Student: ${this.toTitleCase(studentName)}`, bold: true },
+              // Show the username as the Student ID alias per request
+              { text: `Student ID: ${usernameText}` }
             ],
             [
-              { text: monthLabel ? `Fee: ${receipt.FeeName} (${monthLabel})` : `Fee: ${receipt.FeeName}`, alignment: 'right' },
-              { text: `Status: ${receipt.Status}`, alignment: 'right' }
+              { text: `Class & Section: ${classSection || '-'}`, alignment: 'right' },
+              { text: opts?.issuedBy ? `Issued By: ${opts.issuedBy}` : '', alignment: 'right' }
             ]
           ],
           columnGap: 24,
@@ -86,30 +96,52 @@ export class PdfService {
         },
         {
           table: {
-            widths: ['*', 'auto'],
+            widths: ['auto', '*', 'auto', 'auto', 'auto'],
             body: [
-              [ { text: 'Description', style: 'headerCell' }, { text: 'Amount', style: 'headerCell', alignment: 'right' } ],
-              [ 'Fee Amount', { text: this.formatCurrency(receipt.Amount), alignment: 'right' } ],
-              [ 'Fine', { text: this.formatCurrency(fineAmount), alignment: 'right' } ],
-              [ 'Discount', { text: this.formatCurrency(receipt.DiscountAmount), alignment: 'right' } ],
-              [ 'Outstanding', { text: this.formatCurrency(outstanding), alignment: 'right' } ],
-              [ 'Total Payable', { text: this.formatCurrency(totalAmount), alignment: 'right', bold: true } ],
-              [ 'Amount Paid', { text: this.formatCurrency(paidAmount), alignment: 'right', bold: true } ]
+              [
+                { text: 'Date of Payment', style: 'headerCell', alignment: 'center', fillColor: '#f3f4f6' },
+                { text: 'Fee Name', style: 'headerCell', alignment: 'center', fillColor: '#f3f4f6' },
+                { text: 'Amount', style: 'headerCell', alignment: 'center', fillColor: '#f3f4f6' },
+                { text: 'Fine', style: 'headerCell', alignment: 'center', fillColor: '#f3f4f6' },
+                { text: 'Discount', style: 'headerCell', alignment: 'center', fillColor: '#f3f4f6' }
+              ],
+              [
+                { text: paymentDate, alignment: 'center' },
+                { text: feeText, alignment: 'center' },
+                { text: this.formatCurrency(receipt.amount), alignment: 'right' },
+                { text: this.formatCurrency(fineAmount), alignment: 'right' },
+                { text: this.formatCurrency(receipt.discountAmount), alignment: 'right' }
+              ]
             ]
           },
-          layout: 'lightHorizontalLines'
+          layout: {
+            hLineWidth: function (i: number, node: any) { return 1; },
+            vLineWidth: function (i: number, node: any) { return 1; },
+            hLineColor: function (i: number, node: any) { return '#e5e7eb'; },
+            vLineColor: function (i: number, node: any) { return '#e5e7eb'; },
+            paddingLeft: function(i: number, node: any) { return 6; },
+            paddingRight: function(i: number, node: any) { return 6; },
+            paddingTop: function(i: number, node: any) { return 6; },
+            paddingBottom: function(i: number, node: any) { return 6; }
+          }
         },
-  { text: `Payment Date: ${paymentDate}`, margin: [0, 20, 0, 0] },
-        { text: opts?.issuedBy ? `Issued By: ${opts.issuedBy}` : '', margin: [0, 4, 0, 0] },
-        { text: 'For any queries regarding fees, please contact the school office.', margin: [0, 4, 0, 0] },
-        { text: 'Note: This is a computer-generated receipt.', margin: [0, 12, 0, 0], italics: true }
+        {
+          stack: [
+            { text: `Total Amount Paid: ${this.formatCurrency(paidAmount)}`, margin: [0, 16, 0, 0], style: 'totalPaid' },
+            { text: `Total Payable: ${this.formatCurrency(totalAmount)}`, margin: [0, 4, 0, 0] },
+            { text: `Outstanding Balance: ${this.formatCurrency(outstanding)}`, margin: [0, 4, 0, 16] }
+          ]
+        },
+        { text: 'For any queries regarding fees, please contact the school office.', margin: [0, 0, 0, 4] },
+        { text: 'Note: This is a computer-generated receipt.', italics: true }
       ],
       styles: {
         title: { fontSize: 18, bold: true, alignment: 'center' },
         subtitle: { fontSize: 14, alignment: 'center', margin: [0, 8, 0, 8] },
         headerCell: { bold: true },
         receiptMeta: { fontSize: 10, color: '#4b5563' },
-        contactHeader: { fontSize: 12, bold: true, margin: [0, 0, 0, 6] }
+        contactHeader: { fontSize: 12, bold: true, margin: [0, 0, 0, 6] },
+        totalPaid: { bold: true }
       },
       defaultStyle: { fontSize: 11 }
     };
@@ -163,6 +195,16 @@ export class PdfService {
       return '-';
     }
     return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  private toTitleCase(input: string): string {
+    if (!input) return input;
+    return input
+      .toLowerCase()
+      .split(' ')
+      .filter(Boolean)
+      .map(w => w[0].toUpperCase() + w.slice(1))
+      .join(' ');
   }
 
   private buildReceiptNumber(schoolId?: number, studentId?: number, feeId?: number): string {
