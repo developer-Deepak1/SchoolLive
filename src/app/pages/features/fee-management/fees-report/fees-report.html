@@ -6,6 +6,7 @@
 		<div class="student-picker">
 			<label for="student" class="block mb-1">Search Student Name</label>
 			<p-autocomplete inputId="student" [(ngModel)]="studentInput" name="student"
+				safeAutofocus
 				[suggestions]="studentSuggestions" (completeMethod)="searchStudents($event)"
 				(onSelect)="onStudentSelected($event)" (onClear)="onStudentCleared()" field="StudentName"
 				placeholder="Search student by name, class or section" [dropdown]="true" [forceSelection]="true"
@@ -49,7 +50,7 @@
 		<ng-template pTemplate="body" let-row>
 			<tr>
 				<td>
-					<div class="fee-name">{{ row.feeName }} <span class="muted small" *ngIf="row.dueDate">- {{ row.dueDate | date:'MMMM yyyy' }}</span></div>
+					<div class="fee-name">{{ row.feeName }}</div>
 					<div class="muted small" *ngIf="row.invoiceRef">Ref: {{ row.invoiceRef }}</div>
 				</td>
 					<td class="text-right">{{ row.amount | number:'1.2-2' }}</td>

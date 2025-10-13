@@ -16,6 +16,7 @@ import { StudentFeesService, StudentFeeLedgerEntry } from '../services/student-f
 import { FeeService } from '../services/fee.service';
 import { Fee } from '../services/fee-management.models';
 import { FeesReceiptDownloadPreview } from '../fees-receipt-download-preview/fees-receipt-download-preview';
+import { SafeAutofocusDirective } from '../../../../directives/safe-autofocus.directive';
 import { UserService } from '@/services/user.service';
 import { USER_ROLES } from '@/pages/common/constant';
 
@@ -24,7 +25,7 @@ type ScheduleType = 'Recurring' | 'OnDemand' | 'OneTime' | 'Unknown';
 @Component({
   selector: 'app-fees-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, CardModule, TableModule, AutoCompleteModule, InputTextModule, ToastModule, ButtonModule, TagModule, FeesReceiptDownloadPreview],
+  imports: [CommonModule, FormsModule, CardModule, TableModule, AutoCompleteModule, InputTextModule, ToastModule, ButtonModule, TagModule, FeesReceiptDownloadPreview, SafeAutofocusDirective],
   providers: [MessageService],
   templateUrl: './fees-report.html',
   styleUrl: './fees-report.scss'

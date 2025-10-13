@@ -53,7 +53,21 @@ class StudentFeesModel extends Model
                     : (isset($r['AmountPaid']) ? (float)$r['AmountPaid'] : 0.0);
                 $r['AmountPaid'] = round($paid, 2);
                 $r['CollectedDate'] = $payments['latest_payment_date'] ?? null;
-                $fine = $this->computeFineFromPolicies($pol['byFee'][(int)$r['FeeID']] ?? [], $pol['global'], $r['DueDate'], (float)$r['Amount']);
+                $asOf = null;
+                if (!empty($payments['latest_payment_date'])) {
+                    try {
+                        $asOf = new \DateTime($payments['latest_payment_date']);
+                    } catch (\Exception $e) {
+                        $asOf = null;
+                    }
+                }
+                $fine = $this->computeFineFromPolicies(
+                    $pol['byFee'][(int)$r['FeeID']] ?? [],
+                    $pol['global'],
+                    $r['DueDate'],
+                    (float)$r['Amount'],
+                    $asOf
+                );
                 $r['ComputedFine'] = $fine;
                 $discount = isset($r['DiscountAmount']) ? (float)$r['DiscountAmount'] : 0.0;
                 $totalDue = (float)$r['Amount'] + $fine - $discount;
